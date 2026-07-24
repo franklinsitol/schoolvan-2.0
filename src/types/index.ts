@@ -19,7 +19,7 @@ export interface Driver {
   invoiceStatus?: InvoiceStatus;
   termsAccepted?: string;
   lastBilledMonth?: string;
-  role?: 'admin' | 'superadmin';
+  role?: Role;
   paymentPromiseUntil?: string; // Grace period extension date
   customStudentLimit?: number;
   trialEndsAt?: string;
@@ -35,13 +35,20 @@ export interface Driver {
 
 export interface TeamMember {
   id: string;
-  ownerId: string;
+  ownerId?: string;
   name: string;
   email: string;
   phone?: string;
   vehicleId?: string;
   canEdit?: boolean;
-  role: 'colab';
+  role: Role;
+  plan?: PlanTier;
+  invoiceStatus?: InvoiceStatus;
+  paymentPromiseUntil?: string;
+  pixKey?: string;
+  city?: string;
+  cpfCnpj?: string;
+  termsAccepted?: string;
 }
 
 export interface Vehicle {

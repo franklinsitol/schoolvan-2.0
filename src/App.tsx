@@ -28,6 +28,7 @@ import { Student, Vehicle } from './types';
 import { auth, db } from './lib/firebase';
 import { signOut } from 'firebase/auth';
 import { where, doc, updateDoc } from 'firebase/firestore';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import toast from 'react-hot-toast';
 import { AuthModal } from './components/AuthModal';
 import { Marketplace } from './components/Marketplace';
@@ -272,14 +273,14 @@ export default function App() {
   const [isCheckinOpen, setIsCheckinOpen] = useState(false);
   const [authModal, setAuthModal] = useState<{ open: boolean; type: 'driver' | 'parent' }>({ open: false, type: 'driver' });
 
-  const { data: students } = useFirestore<Student>(`drivers/${profile?.id}/students`);
+  const { data: students } = useFirestore<Student>(profile?.id ? `drivers/${profile.id}/students` : '');
 
   useEffect(() => {
     if (user && currentView === 'market') {
-      if (profile?.role === 'admin') {
-        setCurrentView('dash');
+      if (profile?.role === 'parent') {
+        setCurrentView('parent');
       } else {
-        setCurrentView('dash'); // Default for now
+        setCurrentView('dash');
       }
     } else if (!user && currentView !== 'market') {
       setCurrentView('market');
@@ -304,8 +305,12 @@ export default function App() {
   }
 
   const isSuperAdmin = user?.email === 'franklin.toledo@gmail.com' || profile?.role === 'superadmin';
+  const isParent = profile?.role === 'parent';
 
-  const navItems = [
+  const navItems = isParent ? [
+    { id: 'parent', label: 'Área do Aluno', icon: Users },
+    { id: 'support', label: 'Ajuda & Suporte', icon: LifeBuoy, className: 'text-yellow-600 font-bold' }
+  ] : [
     { id: 'dash', label: 'Início', icon: Bus },
     { id: 'students', label: 'Alunos', icon: Users },
     { id: 'routes', label: 'Rotas', icon: MapPinned },
@@ -454,29 +459,31 @@ export default function App() {
 
         {/* Main Content */}
         <main className="flex-1 min-w-0 p-4">
-          {user && profile?.role === 'admin' && <CSAssistant />}
+          <ErrorBoundary>
+            {user && profile?.role === 'admin' && <CSAssistant />}
 
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentView}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-            >
-              {currentView === 'market' && <Marketplace onOpenAuth={() => setAuthModal({ open: true, type: 'driver' })} />}
-              {currentView === 'dash' && <Dashboard />}
-              {currentView === 'students' && <Students />}
-              {currentView === 'routes' && <RoutesView />}
-              {currentView === 'vehicles' && <VehiclesView />}
-              {currentView === 'team' && <TeamView />}
-              {currentView === 'finance' && <FinanceView />}
-              {currentView === 'profile' && <ProfileView />}
-              {currentView === 'support' && <SupportView />}
-              {currentView === 'parent' && <ParentView />}
-              {currentView === 'superadmin' && <SuperAdminView />}
-            </motion.div>
-          </AnimatePresence>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentView}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                {currentView === 'market' && <Marketplace onOpenAuth={() => setAuthModal({ open: true, type: 'driver' })} />}
+                {currentView === 'dash' && <Dashboard />}
+                {currentView === 'students' && <Students />}
+                {currentView === 'routes' && <RoutesView />}
+                {currentView === 'vehicles' && <VehiclesView />}
+                {currentView === 'team' && <TeamView />}
+                {currentView === 'finance' && <FinanceView />}
+                {currentView === 'profile' && <ProfileView />}
+                {currentView === 'support' && <SupportView />}
+                {currentView === 'parent' && <ParentView />}
+                {currentView === 'superadmin' && <SuperAdminView />}
+              </motion.div>
+            </AnimatePresence>
+          </ErrorBoundary>
         </main>
       </div>
 

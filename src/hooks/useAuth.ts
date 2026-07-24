@@ -13,16 +13,38 @@ export function useAuth() {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       if (firebaseUser) {
-        // Check if driver
-        const driverDoc = await getDoc(doc(db, 'drivers', firebaseUser.uid));
-        if (driverDoc.exists()) {
-          setProfile({ id: driverDoc.id, ...driverDoc.data() } as Driver);
-        } else {
-          // Check if team member in any driver's team
-          // This is a bit complex in Firestore without a top-level team collection
-          // For now, we'll assume drivers are the main users.
-          // In a real app, we might have a top-level 'users' collection mapping to roles.
-          setProfile(null);
+        try {
+          // Check if user is a registered driver
+          const driverDoc = await getDoc(doc(db, 'drivers', firebaseUser.uid));
+          if (driverDoc.exists()) {
+            setProfile({ id: driverDoc.id, ...driverDoc.data() } as Driver);
+          } else {
+            // Check if user is in top-level users collection or is a Parent
+            const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+            if (userDoc.exists()) {
+              setProfile({ id: userDoc.id, ...userDoc.data() } as any);
+            } else {
+              // Default fallback profile for parents / external users
+              const fallbackProfile: any = {
+                id: firebaseUser.uid,
+                name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuário',
+                email: firebaseUser.email || '',
+                role: firebaseUser.email === 'franklin.toledo@gmail.com' ? 'superadmin' : 'parent',
+                status: 'Ativo'
+              };
+              setProfile(fallbackProfile);
+            }
+          }
+        } catch (err) {
+          console.error("Error fetching user profile:", err);
+          // Fallback profile on error
+          setProfile({
+            id: firebaseUser.uid,
+            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuário',
+            email: firebaseUser.email || '',
+            role: firebaseUser.email === 'franklin.toledo@gmail.com' ? 'superadmin' : 'parent',
+            status: 'Ativo'
+          } as any);
         }
       } else {
         setProfile(null);

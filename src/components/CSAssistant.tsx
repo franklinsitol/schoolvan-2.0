@@ -10,7 +10,8 @@ import {
   MessageSquare, 
   Send, 
   ArrowRight,
-  ShieldAlert
+  ShieldAlert,
+  X
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useFirestore } from '../hooks/useFirestore';

@@ -1,34 +1,52 @@
 {
   "short_name": "SchoolVan",
-  "name": "SchoolVan - Gestão de Transporte Escolar",
+  "name": "SchoolVan - Transporte Escolar",
+  "id": "/",
+  "description": "Gestão e localização de transporte escolar em tempo real para motoristas e pais.",
   "icons": [
     {
       "src": "/favicon.png",
       "sizes": "64x64",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/apple-touch-icon.png",
       "sizes": "180x180",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/icon.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
-  "start_url": "/",
+  "start_url": "/?pwa=true",
   "background_color": "#111827",
   "theme_color": "#FACC15",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait",
-  "scope": "/"
+  "scope": "/",
+  "categories": ["education", "travel", "productivity"]
 }
