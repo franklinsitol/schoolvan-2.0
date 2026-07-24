@@ -1,0 +1,183 @@
+{
+  "entities": {
+    "Driver": {
+      "title": "Driver",
+      "description": "Main driver account (Motorista)",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "city": { "type": "string" },
+        "cpfCnpj": { "type": "string" },
+        "pixKey": { "type": "string" },
+        "birthDate": { "type": "string" },
+        "plan": { "type": "string", "enum": ["Básico", "Premium"] },
+        "status": { "type": "string", "enum": ["Ativo", "Bloqueado"] },
+        "pricePerStudent": { "type": "number" },
+        "invoiceStatus": { "type": "string", "enum": ["Em Dia", "Em Atraso", "Aguardando Pagamento"] },
+        "termsAccepted": { "type": "string" },
+        "lastBilledMonth": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin"] }
+      },
+      "required": ["name", "email", "status"]
+    },
+    "TeamMember": {
+      "title": "Team Member",
+      "description": "Collaborator (Equipe)",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "vehicleId": { "type": "string" },
+        "canEdit": { "type": "boolean" },
+        "role": { "type": "string", "enum": ["colab"] }
+      },
+      "required": ["ownerId", "name", "email"]
+    },
+    "Vehicle": {
+      "title": "Vehicle",
+      "description": "Transport vehicle (Veiculo)",
+      "type": "object",
+      "properties": {
+        "driverId": { "type": "string" },
+        "name": { "type": "string" },
+        "capacity": { "type": "number" },
+        "about": { "type": "string" },
+        "iconType": { "type": "string" },
+        "uncleName": { "type": "string" },
+        "state": { "type": "string" },
+        "city": { "type": "string" },
+        "neighborhood": { "type": "string" },
+        "garageAddress": { "type": "string" },
+        "value": { "type": "number" }
+      },
+      "required": ["driverId", "name", "capacity"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Student being transported (Aluno)",
+      "type": "object",
+      "properties": {
+        "driverId": { "type": "string" },
+        "name": { "type": "string" },
+        "parentName": { "type": "string" },
+        "parentEmail": { "type": "string", "format": "email" },
+        "studentAddress": { "type": "string" },
+        "schoolAddress": { "type": "string" },
+        "value": { "type": "number" },
+        "status": { "type": "string", "enum": ["Ativo", "Excluido"] },
+        "entryTime": { "type": "string" },
+        "exitTime": { "type": "string" },
+        "paymentDay": { "type": "number" },
+        "vehicleId": { "type": "string" },
+        "seat": { "type": "number" },
+        "boardingStatus": { "type": "string", "enum": ["Casa", "Van", "Escola", "A CAMINHO", "NÃO VAI"] },
+        "schoolName": { "type": "string" },
+        "lastCheck": { "type": "string", "format": "date-time" },
+        "parentPhone": { "type": "string" },
+        "parentAccess": { "type": "boolean" },
+        "grade": { "type": "string" },
+        "prof1": { "type": "string" },
+        "prof2": { "type": "string" },
+        "resp1": { "type": "string" },
+        "resp2": { "type": "string" },
+        "tel1": { "type": "string" },
+        "tel2": { "type": "string" },
+        "tel3": { "type": "string" },
+        "nextAlert": { "type": "string" }
+      },
+      "required": ["driverId", "name", "parentEmail"]
+    },
+    "Finance": {
+      "title": "Finance",
+      "description": "Financial record (Financeiro)",
+      "type": "object",
+      "properties": {
+        "driverId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "value": { "type": "number" },
+        "dueDate": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["Em Dia", "Em Atraso", "Aguardando Pagamento"] },
+        "ref": { "type": "string" },
+        "type": { "type": "string", "enum": ["Receita", "Despesa"] }
+      },
+      "required": ["driverId", "studentId", "value", "status"]
+    },
+    "Lead": {
+      "title": "Lead",
+      "description": "Potential customer (Leads)",
+      "type": "object",
+      "properties": {
+        "driverId": { "type": "string" },
+        "parentName": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "childName": { "type": "string" },
+        "school": { "type": "string" },
+        "address": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["Pendente", "Aprovado"] }
+      },
+      "required": ["driverId", "parentName", "phone"]
+    },
+    "Absence": {
+      "title": "Absence",
+      "description": "Student absence record (Ausencias)",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "reason": { "type": "string" },
+        "registeredAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["studentId", "date"]
+    },
+    "Ticket": {
+      "title": "Ticket",
+      "description": "Support ticket (Chamados)",
+      "type": "object",
+      "properties": {
+        "dateTime": { "type": "string", "format": "date-time" },
+        "profile": { "type": "string" },
+        "subject": { "type": "string" },
+        "name": { "type": "string" },
+        "contact": { "type": "string" },
+        "message": { "type": "string" },
+        "status": { "type": "string", "enum": ["Aberto", "Em Andamento", "Fechado"] }
+      },
+      "required": ["name", "contact", "message"]
+    },
+    "AdminConfig": {
+      "title": "Admin Config",
+      "description": "Global settings",
+      "type": "object",
+      "properties": {
+        "pixAdmin": { "type": "string" },
+        "defaultPrice": { "type": "number" },
+        "supportEmails": { "type": "string" },
+        "onboardTitle": { "type": "string" },
+        "onboardMsg": { "type": "string" },
+        "popupActive": { "type": "boolean" },
+        "popupMsg": { "type": "string" },
+        "termsText": { "type": "string" },
+        "lgpdText": { "type": "string" },
+        "masterPass": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/drivers/{driverId}": { "schema": "Driver", "description": "Driver profiles" },
+    "/drivers/{driverId}/team/{memberId}": { "schema": "TeamMember", "description": "Collaborators" },
+    "/drivers/{driverId}/vehicles/{vehicleId}": { "schema": "Vehicle", "description": "Vehicles" },
+    "/drivers/{driverId}/students/{studentId}": { "schema": "Student", "description": "Students" },
+    "/drivers/{driverId}/finance/{financeId}": { "schema": "Finance", "description": "Finance records" },
+    "/drivers/{driverId}/leads/{leadId}": { "schema": "Lead", "description": "Leads" },
+    "/drivers/{driverId}/absences/{absenceId}": { "schema": "Absence", "description": "Absences" },
+    "/tickets/{ticketId}": { "schema": "Ticket", "description": "Support tickets" },
+    "/adminConfig/global": { "schema": "AdminConfig", "description": "Global settings" }
+  }
+}

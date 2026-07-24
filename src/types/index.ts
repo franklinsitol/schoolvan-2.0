@@ -1,0 +1,155 @@
+export type BoardingStatus = 'Casa' | 'Van' | 'Escola' | 'A CAMINHO' | 'NÃO VAI';
+export type InvoiceStatus = 'Em Dia' | 'Em Atraso' | 'Aguardando Pagamento';
+export type AccountStatus = 'Ativo' | 'Bloqueado' | 'AvisoPagamento';
+export type Role = 'admin' | 'superadmin' | 'colab' | 'parent';
+export type PlanTier = 'Gratuito' | 'Pro' | 'Frota';
+
+export interface Driver {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  city?: string;
+  cpfCnpj?: string;
+  pixKey?: string;
+  birthDate?: string;
+  plan?: PlanTier;
+  status: AccountStatus;
+  pricePerStudent?: number;
+  invoiceStatus?: InvoiceStatus;
+  termsAccepted?: string;
+  lastBilledMonth?: string;
+  role?: 'admin' | 'superadmin';
+  paymentPromiseUntil?: string; // Grace period extension date
+  customStudentLimit?: number;
+  trialEndsAt?: string;
+  discountType?: 'temporary' | 'permanent' | 'none';
+  discountPercent?: number;
+  discountUntil?: string;
+  cancellationReason?: string;
+  cancelledAt?: string;
+  paymentProofUrl?: string;
+  paymentProofNotes?: string;
+  paymentProofSubmittedAt?: string;
+}
+
+export interface TeamMember {
+  id: string;
+  ownerId: string;
+  name: string;
+  email: string;
+  phone?: string;
+  vehicleId?: string;
+  canEdit?: boolean;
+  role: 'colab';
+}
+
+export interface Vehicle {
+  id: string;
+  driverId: string;
+  name: string;
+  capacity: number;
+  about?: string;
+  iconType?: string;
+  uncleName?: string;
+  state?: string;
+  city?: string;
+  neighborhood?: string;
+  garageAddress?: string;
+  value?: number;
+}
+
+export interface Student {
+  id: string;
+  driverId: string;
+  name: string;
+  parentName: string;
+  parentEmail: string;
+  studentAddress?: string;
+  schoolAddress?: string;
+  value?: number;
+  status: 'Ativo' | 'Excluido';
+  entryTime?: string;
+  exitTime?: string;
+  paymentDay?: number;
+  vehicleId?: string;
+  seat?: number;
+  boardingStatus: BoardingStatus;
+  schoolName?: string;
+  lastCheck?: string;
+  parentPhone?: string;
+  parentAccess?: boolean;
+  grade?: string;
+  prof1?: string;
+  prof2?: string;
+  resp1?: string;
+  resp2?: string;
+  tel1?: string;
+  tel2?: string;
+  tel3?: string;
+  nextAlert?: string;
+  ausenteHoje?: boolean;
+}
+
+export interface Finance {
+  id: string;
+  driverId: string;
+  studentId: string;
+  studentName: string;
+  value: number;
+  dueDate: string;
+  status: InvoiceStatus;
+  ref?: string;
+  type: 'Receita' | 'Despesa';
+}
+
+export interface Lead {
+  id: string;
+  driverId: string;
+  parentName: string;
+  phone: string;
+  email: string;
+  childName: string;
+  school: string;
+  address: string;
+  date: string;
+  status: 'Pendente' | 'Aprovado';
+}
+
+export interface Absence {
+  id: string;
+  studentId: string;
+  date: string;
+  reason?: string;
+  registeredAt: string;
+}
+
+export interface Ticket {
+  id: string;
+  dateTime: string;
+  profile: string;
+  subject: string;
+  name: string;
+  contact: string;
+  message: string;
+  status: 'Aberto' | 'Em Andamento' | 'Fechado';
+}
+
+export interface AdminConfig {
+  pixAdmin?: string;
+  defaultPrice?: number;
+  proPrice?: number;
+  frotaPrice?: number;
+  freeStudentLimit?: number;
+  proStudentLimit?: number;
+  graceDaysAllowed?: number;
+  trialDaysAllowed?: number;
+  supportEmails?: string;
+  onboardTitle?: string;
+  onboardMsg?: string;
+  popupActive?: boolean;
+  popupMsg?: string;
+  termsText?: string;
+  lgpdText?: string;
+  masterPass?: string;
+}

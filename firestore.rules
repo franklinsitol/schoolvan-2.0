@@ -1,0 +1,145 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: drivers
+// Document ID: {driverId}
+// Fields: name, email, phone, city, cpfCnpj, pixKey, birthDate, plan, status, pricePerStudent, invoiceStatus, termsAccepted, lastBilledMonth, role
+//
+// Subcollection: drivers/{driverId}/team
+// Document ID: {memberId}
+// Fields: ownerId, name, email, phone, vehicleId, canEdit, role
+//
+// Subcollection: drivers/{driverId}/vehicles
+// Document ID: {vehicleId}
+// Fields: driverId, name, capacity, about, iconType, uncleName, state, city, neighborhood, garageAddress, value
+//
+// Subcollection: drivers/{driverId}/students
+// Document ID: {studentId}
+// Fields: driverId, name, parentName, parentEmail, studentAddress, schoolAddress, value, status, entryTime, exitTime, paymentDay, vehicleId, seat, boardingStatus, schoolName, lastCheck, parentPhone, parentAccess, grade, prof1, prof2, resp1, resp2, tel1, tel2, tel3, nextAlert
+//
+// Subcollection: drivers/{driverId}/finance
+// Document ID: {financeId}
+// Fields: driverId, studentId, studentName, value, dueDate, status, ref, type
+//
+// Subcollection: drivers/{driverId}/leads
+// Document ID: {leadId}
+// Fields: driverId, parentName, phone, email, childName, school, address, date, status
+//
+// Subcollection: drivers/{driverId}/absences
+// Document ID: {absenceId}
+// Fields: studentId, date, reason, registeredAt
+//
+// Collection: tickets
+// Document ID: {ticketId}
+// Fields: dateTime, profile, subject, name, contact, message, status
+//
+// Collection: adminConfig
+// Document ID: global
+// Fields: pixAdmin, defaultPrice, supportEmails, onboardTitle, onboardMsg, popupActive, popupMsg, termsText, lgpdText, masterPass
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email == "franklin.toledo@gmail.com" && request.auth.token.email_verified == true);
+    }
+
+    function isDriver(driverId) {
+      return isAuthenticated() && request.auth.uid == driverId;
+    }
+
+    function isTeamMember(driverId) {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/drivers/$(driverId)/team/$(request.auth.uid));
+    }
+
+    function canTeamMemberEdit(driverId) {
+      return isTeamMember(driverId) && 
+        get(/databases/$(database)/documents/drivers/$(driverId)/team/$(request.auth.uid)).data.canEdit == true;
+    }
+
+    function isParentOfStudent(driverId, studentId) {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/drivers/$(driverId)/students/$(studentId)).data.parentEmail == request.auth.token.email;
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /drivers/{driverId} {
+      allow read: if isDriver(driverId) || isTeamMember(driverId) || isSuperAdmin();
+      allow create: if isAuthenticated() && request.auth.uid == driverId;
+      allow update: if (isDriver(driverId) || isSuperAdmin()) && hasOnlyAllowedFields(['name', 'email', 'phone', 'city', 'cpfCnpj', 'pixKey', 'birthDate', 'plan', 'status', 'pricePerStudent', 'invoiceStatus', 'termsAccepted', 'lastBilledMonth', 'role']);
+      allow delete: if isSuperAdmin();
+
+      match /team/{memberId} {
+        allow read: if isDriver(driverId) || isSuperAdmin() || request.auth.uid == memberId;
+        allow write: if isDriver(driverId) || isSuperAdmin();
+      }
+
+      match /vehicles/{vehicleId} {
+        allow read: if isDriver(driverId) || isTeamMember(driverId) || isSuperAdmin();
+        allow write: if isDriver(driverId) || canTeamMemberEdit(driverId) || isSuperAdmin();
+      }
+
+      match /students/{studentId} {
+        allow read: if isDriver(driverId) || isTeamMember(driverId) || isSuperAdmin() || isParentOfStudent(driverId, studentId);
+        allow write: if isDriver(driverId) || canTeamMemberEdit(driverId) || isSuperAdmin();
+      }
+
+      match /finance/{financeId} {
+        allow read: if isDriver(driverId) || isSuperAdmin();
+        allow write: if isDriver(driverId) || isSuperAdmin();
+      }
+
+      match /leads/{leadId} {
+        allow read: if isDriver(driverId) || isTeamMember(driverId) || isSuperAdmin();
+        allow write: if isDriver(driverId) || canTeamMemberEdit(driverId) || isSuperAdmin();
+      }
+
+      match /absences/{absenceId} {
+        allow read: if isDriver(driverId) || isTeamMember(driverId) || isSuperAdmin() || isParentOfStudent(driverId, get(/databases/$(database)/documents/drivers/$(driverId)/absences/$(absenceId)).data.studentId);
+        allow create: if isDriver(driverId) || canTeamMemberEdit(driverId) || isSuperAdmin() || (isAuthenticated() && request.resource.data.studentId != null);
+        allow update, delete: if isDriver(driverId) || canTeamMemberEdit(driverId) || isSuperAdmin();
+      }
+    }
+
+    match /tickets/{ticketId} {
+      allow read: if isSuperAdmin();
+      allow create: if true; // Anyone can create a support ticket
+      allow update, delete: if isSuperAdmin();
+    }
+
+    match /adminConfig/{configId} {
+      allow read: if true; // Public configs like popup msg
+      allow write: if isSuperAdmin();
+    }
+
+    // Marketplace queries
+    match /{path=**}/vehicles/{vehicleId} {
+      allow list: if true; // Public marketplace
+    }
+
+    match /{path=**}/students/{studentId} {
+      allow list: if isAuthenticated() && resource.data.parentEmail == request.auth.token.email;
+    }
+  }
+}
