@@ -71,8 +71,20 @@ export function AuthModal({ isOpen, onClose, type }: AuthModalProps) {
       }
       onClose();
     } catch (error: any) {
-      console.error(error);
-      toast.error(error.message || 'Erro na autenticação');
+      console.error('Erro no Submit:', error);
+      if (error?.code === 'auth/unauthorized-domain') {
+        toast.error('Domínio não autorizado no Firebase Auth! Adicione o seu domínio do Cloudflare no Firebase Console > Authentication > Settings > Authorized Domains.', { duration: 8000 });
+      } else if (error?.code === 'auth/operation-not-allowed') {
+        toast.error('Este provedor de login não está ativado no Firebase Console.', { duration: 6000 });
+      } else if (error?.code === 'auth/invalid-credential' || error?.code === 'auth/wrong-password' || error?.code === 'auth/user-not-found') {
+        toast.error('E-mail ou senha incorretos.');
+      } else if (error?.code === 'auth/email-already-in-use') {
+        toast.error('Este e-mail já está cadastrado.');
+      } else if (error?.code === 'auth/weak-password') {
+        toast.error('A senha deve ter pelo menos 6 caracteres.');
+      } else {
+        toast.error(error.message || 'Erro na autenticação');
+      }
     } finally {
       setLoading(false);
     }
@@ -100,7 +112,16 @@ export function AuthModal({ isOpen, onClose, type }: AuthModalProps) {
       toast.success('Login realizado com sucesso!');
       onClose();
     } catch (error: any) {
-      toast.error('Erro ao entrar com Google');
+      console.error('Erro no Google Login:', error);
+      if (error?.code === 'auth/unauthorized-domain') {
+        toast.error('Domínio não autorizado no Firebase Auth! Adicione seu domínio nas configurações do Firebase.', { duration: 8000 });
+      } else if (error?.code === 'auth/operation-not-allowed') {
+        toast.error('Login do Google não está ativado no Firebase Console > Authentication > Sign-in method.', { duration: 6000 });
+      } else if (error?.code === 'auth/popup-closed-by-user') {
+        toast.error('Janela de login foi fechada antes de concluir.');
+      } else {
+        toast.error(error.message || 'Erro ao entrar com Google');
+      }
     }
   };
 
