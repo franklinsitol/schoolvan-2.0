@@ -1,24 +1,33 @@
-// SchoolVan Service Worker for Real PWA Offline & Web Push
-const CACHE_NAME = 'schoolvan-v3';
-const ASSETS_TO_CACHE = [
+// SchoolVan Service Worker - Clean & Reliable PWA
+const CACHE_NAME = 'schoolvan-pwa-v4';
+
+const PRECACHE_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
   '/icon.png',
-  '/icon-512.png',
   '/favicon.png',
   '/favicon.ico',
   '/apple-touch-icon.png'
 ];
 
+// Install Event
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    }).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then(async (cache) => {
+      for (const asset of PRECACHE_ASSETS) {
+        try {
+          await cache.add(asset);
+        } catch (e) {
+          console.warn('PWA precache warning for:', asset, e);
+        }
+      }
+    })
   );
 });
 
+// Activate Event
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -33,35 +42,41 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch handler: Network-first with cache fallback and offline index.html fallback
+// Fetch Event - Network First with Graceful Fallback
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+
   const url = new URL(event.request.url);
 
-  // Skip cross-origin and API requests
-  if (url.origin !== location.origin || url.pathname.startsWith('/api')) {
+  // Do NOT intercept API calls or dev server HMR
+  if (
+    url.origin !== location.origin ||
+    url.pathname.startsWith('/api') ||
+    url.pathname.includes('/@') ||
+    url.pathname.includes('hot-update')
+  ) {
     return;
   }
 
   event.respondWith(
     fetch(event.request)
-      .then((response) => {
-        if (response && response.status === 200 && response.type === 'basic') {
-          const responseToCache = response.clone();
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const responseToCache = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseToCache);
           });
         }
-        return response;
+        return networkResponse;
       })
       .catch(async () => {
-        const cachedResponse = await caches.match(event.request);
-        if (cachedResponse) {
-          return cachedResponse;
-        }
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
         if (event.request.mode === 'navigate') {
-          return caches.match('/index.html') || caches.match('/');
+          const indexCached = await caches.match('/index.html') || await caches.match('/');
+          if (indexCached) return indexCached;
         }
+        return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
       })
   );
 });
