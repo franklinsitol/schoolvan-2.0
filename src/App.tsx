@@ -322,47 +322,47 @@ export default function App() {
       <Toaster position="top-right" />
 
       {/* Navbar */}
-      <nav className="sticky top-0 z-40 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-3">
+      <nav className="sticky top-0 z-40 bg-white border-b border-gray-100 px-3 sm:px-6 py-3 flex items-center justify-between gap-2 shadow-sm">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {user && (
             <button 
               onClick={() => setIsSidebarOpen(true)}
-              className="p-2 hover:bg-gray-100 rounded-lg lg:hidden"
+              className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg lg:hidden"
             >
-              <Menu size={24} />
+              <Menu size={22} />
             </button>
           )}
           <div 
-            className="flex items-center gap-2 cursor-pointer"
+            className="flex items-center gap-1.5 sm:gap-2 cursor-pointer shrink-0"
             onClick={() => setCurrentView(user ? 'dash' : 'market')}
           >
-            <Bus className="text-yellow-400" size={28} />
-            <span className="text-xl font-extrabold tracking-tight">SchoolVan</span>
+            <Bus className="text-yellow-400 shrink-0" size={26} />
+            <span className="text-lg sm:text-xl font-extrabold tracking-tight">SchoolVan</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           {!user ? (
             <>
               <button 
                 onClick={() => setAuthModal({ open: true, type: 'driver' })}
-                className="px-4 py-2 bg-gray-900 text-yellow-400 rounded-full font-bold text-sm hover:bg-gray-800 transition-colors"
+                className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-gray-900 text-yellow-400 rounded-full font-extrabold text-[11px] sm:text-sm hover:bg-gray-800 transition-colors whitespace-nowrap shadow-sm cursor-pointer"
               >
                 MOTORISTA
               </button>
               <button 
                 onClick={() => setAuthModal({ open: true, type: 'parent' })}
-                className="px-4 py-2 border-2 border-gray-900 text-gray-900 rounded-full font-bold text-sm hover:bg-gray-50 transition-colors"
+                className="px-2.5 sm:px-4 py-1.5 sm:py-2 border-2 border-gray-900 text-gray-900 rounded-full font-extrabold text-[11px] sm:text-sm hover:bg-gray-50 transition-colors whitespace-nowrap cursor-pointer"
               >
                 RESPONSÁVEL
               </button>
             </>
           ) : (
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <span className="hidden md:block font-bold text-sm">{profile?.name || user.displayName || user.email}</span>
               <button 
                 onClick={handleLogout}
-                className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors cursor-pointer"
               >
                 <LogOut size={20} />
               </button>

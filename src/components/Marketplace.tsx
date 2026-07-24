@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { 
   Search, 
   MapPin, 
@@ -25,7 +25,8 @@ import {
   PlayCircle,
   Shield,
   PhoneCall,
-  Heart
+  Heart,
+  UserCheck
 } from 'lucide-react';
 import { useCollectionGroup } from '../hooks/useFirestore';
 import { Vehicle } from '../types';
@@ -39,6 +40,15 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
   const [studentCountCalc, setStudentCountCalc] = useState<number>(35);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [activeDemoTab, setActiveDemoTab] = useState<'driver' | 'parent' | 'finance' | 'routes'>('driver');
+
+  const searchSectionRef = useRef<HTMLDivElement>(null);
+
+  const handleGoToSearch = () => {
+    setActiveTab('search');
+    setTimeout(() => {
+      searchSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  };
 
   const cities = useMemo(() => {
     const set = new Set<string>();
@@ -100,21 +110,22 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
             </p>
 
             {/* CTAs */}
-            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
+            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 pt-2">
               <button
                 onClick={onOpenAuth}
-                className="w-full sm:w-auto px-8 py-4 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-2xl text-base shadow-xl hover:shadow-yellow-400/20 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full sm:w-auto px-6 py-3.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-2xl text-sm shadow-xl hover:shadow-yellow-400/20 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>CRIAR CONTA GRATUITA</span>
-                <ArrowRight size={20} />
+                <Bus size={18} />
+                <span>SOU MOTORISTA - CRIAR CONTA</span>
+                <ArrowRight size={18} />
               </button>
 
               <button
-                onClick={() => setActiveTab('search')}
-                className="w-full sm:w-auto px-6 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl text-base transition-all border border-white/20 flex items-center justify-center gap-2 cursor-pointer"
+                onClick={handleGoToSearch}
+                className="w-full sm:w-auto px-6 py-3.5 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl text-sm transition-all border border-white/20 flex items-center justify-center gap-2 cursor-pointer"
               >
-                <Search size={18} />
-                <span>Buscar Vans por Região</span>
+                <Search size={18} className="text-yellow-400" />
+                <span>PROCURO VAN PARA MEU FILHO</span>
               </button>
             </div>
 
@@ -210,7 +221,7 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
         </button>
 
         <button
-          onClick={() => setActiveTab('search')}
+          onClick={handleGoToSearch}
           className={cn(
             "px-6 py-3 rounded-2xl font-black text-sm transition-all flex items-center gap-2 cursor-pointer",
             activeTab === 'search' 
@@ -704,7 +715,7 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
 
       {/* 🔍 MARKETPLACE SEARCH TAB */}
       {activeTab === 'search' && (
-        <div className="space-y-8">
+        <div ref={searchSectionRef} className="space-y-8 scroll-mt-20">
           <div className="text-center max-w-2xl mx-auto space-y-2">
             <h2 className="text-3xl font-extrabold text-gray-900">Buscar Vans Escolares Credenciadas</h2>
             <p className="text-gray-500 text-sm">Encontre motoristas cadastrados na sua cidade com vagas abertas.</p>
