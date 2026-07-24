@@ -25,9 +25,10 @@ import { cn } from './lib/utils';
 import { useFirestore, useCollectionGroup } from './hooks/useFirestore';
 import { Student, Vehicle } from './types';
 
-import { auth } from './lib/firebase';
+import { auth, db } from './lib/firebase';
 import { signOut } from 'firebase/auth';
-import { where } from 'firebase/firestore';
+import { where, doc, updateDoc } from 'firebase/firestore';
+import toast from 'react-hot-toast';
 import { AuthModal } from './components/AuthModal';
 import { Marketplace } from './components/Marketplace';
 import { Dashboard } from './components/Dashboard';
@@ -51,15 +52,43 @@ const ParentView = () => {
     where('parentEmail', '==', user?.email)
   ]);
   
-  if (loading) return <div className="p-8 text-center">Carregando...</div>;
+  if (loading) return <div className="p-8 text-center font-bold text-gray-500">Carregando dados do aluno...</div>;
+
+  const toggleAbsence = async (student: Student) => {
+    if (!student.driverId || !student.id) {
+      toast.error('Identificador do aluno não encontrado.');
+      return;
+    }
+    try {
+      const studentRef = doc(db, 'drivers', student.driverId, 'students', student.id);
+      await updateDoc(studentRef, {
+        ausenteHoje: !student.ausenteHoje,
+        lastCheck: new Date().toISOString()
+      });
+      toast.success(student.ausenteHoje ? 'Aluno marcado como PRESENTE hoje!' : 'Aviso de AUSÊNCIA enviado ao motorista!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao registrar alteração de ausência.');
+    }
+  };
+
+  const contactDriver = (student: Student) => {
+    const msg = `Olá Tio/Tia da Van! Sou o responsável do(a) ${student.name}. Gostaria de confirmar informações sobre o transporte de hoje.`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+  };
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto">
-      <div className="flex justify-between items-center mb-8">
-        <h2 className="text-3xl font-extrabold text-gray-900">Área do Responsável</h2>
+    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6">
+      <div className="flex justify-between items-center mb-4">
+        <div>
+          <span className="bg-yellow-400 text-gray-900 text-xs font-black px-3 py-1 rounded-full uppercase">
+            Acompanhamento em Tempo Real
+          </span>
+          <h2 className="text-3xl font-extrabold text-gray-900 mt-1">Área do Responsável</h2>
+        </div>
         <button 
           onClick={() => signOut(auth)}
-          className="text-sm font-bold text-gray-500 hover:text-red-500"
+          className="text-sm font-bold text-gray-500 hover:text-red-500 cursor-pointer px-4 py-2 hover:bg-gray-100 rounded-xl transition-all"
         >
           Sair
         </button>
@@ -67,49 +96,59 @@ const ParentView = () => {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {students.map(student => {
-          const status = student.boardingStatus || 'Casa';
-          const isApath = status === 'A CAMINHO';
+          const status = student.boardingStatus || (student.ausenteHoje ? 'NÃO VAI' : 'Casa');
           
           return (
             <div key={student.id} className="space-y-6">
               <div className={cn(
                 "p-8 rounded-[40px] shadow-xl text-center transition-all",
-                status === 'Van' ? "bg-gradient-to-br from-yellow-400 to-yellow-500 text-gray-900" :
-                status === 'Escola' ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white" :
-                status === 'NÃO VAI' ? "bg-gradient-to-br from-gray-400 to-gray-500 text-white" :
-                "bg-gradient-to-br from-red-500 to-red-600 text-white"
+                status === 'Van' ? "bg-gradient-to-br from-yellow-400 to-amber-500 text-gray-950" :
+                status === 'Escola' ? "bg-gradient-to-br from-blue-500 to-indigo-600 text-white" :
+                student.ausenteHoje || status === 'NÃO VAI' ? "bg-gradient-to-br from-gray-500 to-gray-700 text-white" :
+                "bg-gradient-to-br from-emerald-500 to-teal-600 text-white"
               )}>
-                 <Bus size={48} className="mx-auto mb-4" />
-                 <h2 className="text-4xl font-black mb-2 uppercase">{status}</h2>
-                 <p className="font-bold opacity-80">
-                   {status === 'Van' ? 'A caminho' : 
-                    status === 'Escola' ? 'Na escola' :
-                    status === 'Casa' ? 'Em casa' : 'Ausente hoje'}
+                 <Bus size={48} className="mx-auto mb-4 animate-bounce-short" />
+                 <h2 className="text-3xl font-black mb-2 uppercase tracking-wide">
+                   {student.ausenteHoje ? 'AUSENTE HOJE' : status}
+                 </h2>
+                 <p className="font-bold text-sm opacity-90">
+                   {student.ausenteHoje ? 'Aviso de ausência enviado ao motorista' :
+                    status === 'Van' ? 'Em trânsito na Van Escolar' : 
+                    status === 'Escola' ? 'Entregue com segurança na Escola' :
+                    'Em casa / Aguardando embarque'}
                  </p>
               </div>
               
-              <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-                <h3 className="text-xl font-bold mb-4">{student.name}</h3>
-                <div className="space-y-4">
+              <div className="bg-white p-6 rounded-[36px] shadow-sm border border-gray-100 space-y-4">
+                <h3 className="text-xl font-black text-gray-900">{student.name}</h3>
+                <div className="space-y-3 text-sm">
                   <div className="flex items-center gap-3 text-gray-600">
-                    <School size={20} className="text-yellow-500" />
+                    <School size={18} className="text-yellow-500 shrink-0" />
                     <span>{student.schoolName || 'Escola não informada'}</span>
                   </div>
                   <div className="flex items-center gap-3 text-gray-600">
-                    <Users size={20} className="text-yellow-500" />
-                    <span>Último check: {student.lastCheck ? new Date(student.lastCheck).toLocaleTimeString() : '--:--'}</span>
+                    <Users size={18} className="text-yellow-500 shrink-0" />
+                    <span>Último Status: {student.lastCheck ? new Date(student.lastCheck).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--'}</span>
                   </div>
                 </div>
                 
-                <div className="mt-8 flex gap-3">
-                  <button className="flex-1 py-3 bg-green-500 text-white font-bold rounded-2xl shadow-lg hover:bg-green-600 transition-all active:scale-95">
-                    WhatsApp
+                <div className="mt-6 flex gap-3 pt-2">
+                  <button 
+                    onClick={() => contactDriver(student)}
+                    className="flex-1 py-3 bg-green-500 text-white font-extrabold rounded-2xl shadow-md hover:bg-green-600 transition-all cursor-pointer active:scale-95 text-xs flex items-center justify-center gap-1.5"
+                  >
+                    Falar no WhatsApp
                   </button>
                   <button 
-                    className="flex-1 py-3 bg-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-200 transition-all active:scale-95"
-                    onClick={() => {/* Report absence */}}
+                    className={cn(
+                      "flex-1 py-3 font-extrabold rounded-2xl transition-all cursor-pointer active:scale-95 text-xs",
+                      student.ausenteHoje 
+                        ? "bg-yellow-400 text-gray-900 hover:bg-yellow-300 shadow-md" 
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    )}
+                    onClick={() => toggleAbsence(student)}
                   >
-                    {student.ausenteHoje ? 'Vai hoje' : 'Não vai hoje'}
+                    {student.ausenteHoje ? '✓ Vai hoje' : '✕ Não vai hoje'}
                   </button>
                 </div>
               </div>
@@ -117,8 +156,10 @@ const ParentView = () => {
           );
         })}
         {students.length === 0 && (
-          <div className="col-span-full text-center py-20 text-gray-400">
-            Nenhum aluno vinculado ao seu e-mail.
+          <div className="col-span-full text-center py-20 bg-white rounded-3xl border border-gray-100 text-gray-400 space-y-2">
+            <Users size={40} className="mx-auto opacity-30" />
+            <p className="font-bold text-gray-600">Nenhum aluno vinculado ao e-mail ({user?.email})</p>
+            <p className="text-xs text-gray-400">Solicite ao seu motorista que cadastre este mesmo e-mail no perfil do aluno.</p>
           </div>
         )}
       </div>

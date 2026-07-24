@@ -1,14 +1,44 @@
 import React, { useState, useMemo } from 'react';
-import { Search, MapPin, Bus, Star, CheckCircle2, ShieldCheck, Smartphone, Zap, ArrowRight, DollarSign, Users, Award } from 'lucide-react';
+import { 
+  Search, 
+  MapPin, 
+  Bus, 
+  Star, 
+  CheckCircle2, 
+  ShieldCheck, 
+  Smartphone, 
+  Zap, 
+  ArrowRight, 
+  Wallet, 
+  Users, 
+  Award, 
+  Clock, 
+  Sparkles, 
+  Calculator, 
+  ChevronDown, 
+  ChevronUp, 
+  MessageSquare, 
+  TrendingUp, 
+  Check, 
+  Share2, 
+  Bell, 
+  PlayCircle,
+  Shield,
+  PhoneCall,
+  Heart
+} from 'lucide-react';
 import { useCollectionGroup } from '../hooks/useFirestore';
 import { Vehicle } from '../types';
 import { cn } from '../lib/utils';
 
 export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
-  const { data: vehicles, loading } = useCollectionGroup<Vehicle>('vehicles');
-  const [activeTab, setActiveTab] = useState<'saas' | 'search'>('saas');
+  const { data: vehicles } = useCollectionGroup<Vehicle>('vehicles');
+  const [activeTab, setActiveTab] = useState<'landing' | 'search' | 'calc'>('landing');
   const [cityFilter, setCityFilter] = useState('');
   const [neighborhoodFilter, setNeighborhoodFilter] = useState('');
+  const [studentCountCalc, setStudentCountCalc] = useState<number>(35);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [activeDemoTab, setActiveDemoTab] = useState<'driver' | 'parent' | 'finance' | 'routes'>('driver');
 
   const cities = useMemo(() => {
     const set = new Set<string>();
@@ -34,236 +64,650 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
     });
   }, [vehicles, cityFilter, neighborhoodFilter]);
 
+  const toggleFaq = (idx: number) => {
+    setOpenFaq(openFaq === idx ? null : idx);
+  };
+
+  // Calculator estimations
+  const monthlyRevenue = studentCountCalc * 220; // Average R$ 220 per student
+  const estimatedTimeSavedHours = Math.round(studentCountCalc * 0.8);
+  const estimatedDelinquencyReduced = Math.round(monthlyRevenue * 0.15); // 15% reduction in late payments
+
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-16">
-      {/* SaaS Hero Section */}
-      <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white p-8 md:p-16 rounded-[48px] shadow-2xl relative overflow-hidden text-center md:text-left flex flex-col md:flex-row items-center justify-between gap-12">
-        <div className="max-w-2xl space-y-6 relative z-10">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-yellow-400 text-gray-900 text-xs font-black uppercase tracking-wider">
-            <Zap size={14} className="fill-current" /> Plataforma #1 para Transporte Escolar
-          </div>
+    <div className="max-w-7xl mx-auto px-4 py-6 md:py-12 space-y-16">
+      
+      {/* 🚀 SALES HERO SECTION */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-gray-950 via-gray-900 to-black text-white rounded-[40px] md:rounded-[56px] p-6 md:p-16 border border-yellow-400/20 shadow-2xl">
+        {/* Subtle Background Glow */}
+        <div className="absolute -top-24 -right-24 w-96 h-96 bg-yellow-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           
-          <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight">
-            Gerencie suas Vans e informe os pais <span className="text-yellow-400">em tempo real.</span>
-          </h1>
+          {/* Hero Copy */}
+          <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-yellow-400/10 border border-yellow-400/30 text-yellow-400 text-xs font-black uppercase tracking-wider">
+              <Zap size={15} className="fill-current text-yellow-400" />
+              <span>A Solução Definitiva para Transporte Escolar</span>
+            </div>
 
-          <p className="text-gray-300 text-base md:text-lg leading-relaxed">
-            Elimine a inadimplência com cobranças automáticas via Pix, organize suas rotas em segundos e ofereça o acompanhamento de embarque para os pais via **PWA nativo**, sem precisar da PlayStore.
-          </p>
+            <h1 className="text-3xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight">
+              Gerencie suas Vans, receba via <span className="text-yellow-400 underline decoration-yellow-400/40 decoration-4">Pix sem atrasos</span> e encante os pais.
+            </h1>
 
-          <div className="flex flex-col sm:flex-row gap-4 pt-4">
-            <button
-              onClick={onOpenAuth}
-              className="px-8 py-4 bg-yellow-400 text-gray-900 font-extrabold rounded-2xl text-base shadow-xl hover:bg-yellow-300 transition-all active:scale-95 flex items-center justify-center gap-2"
-            >
-              CRIAR CONTA GRATUITA <ArrowRight size={20} />
-            </button>
-            <button
-              onClick={() => setActiveTab('search')}
-              className="px-8 py-4 bg-white/10 text-white font-bold rounded-2xl text-base hover:bg-white/20 transition-all border border-white/20 flex items-center justify-center gap-2"
-            >
-              <Search size={20} /> BUSCAR VANS POR CIDADE
-            </button>
+            <p className="text-gray-300 text-base md:text-lg leading-relaxed max-w-2xl mx-auto lg:mx-0">
+              Substitua pranchetas de papel por um <strong className="text-white">App PWA Nativo</strong>. Faça chamada em tempo real, envie comprovantes no WhatsApp, trace rotas no mapa e ofereça paz de espírito aos responsáveis.
+            </p>
+
+            {/* CTAs */}
+            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
+              <button
+                onClick={onOpenAuth}
+                className="w-full sm:w-auto px-8 py-4 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-2xl text-base shadow-xl hover:shadow-yellow-400/20 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>CRIAR CONTA GRATUITA</span>
+                <ArrowRight size={20} />
+              </button>
+
+              <button
+                onClick={() => setActiveTab('search')}
+                className="w-full sm:w-auto px-6 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl text-base transition-all border border-white/20 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Search size={18} />
+                <span>Buscar Vans por Região</span>
+              </button>
+            </div>
+
+            {/* Trust Badges */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-6 border-t border-white/10 text-xs font-bold text-gray-300">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
+                <span>Grátis até 25 alunos</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
+                <span>Instalação PWA Sem Lojas</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
+                <span>Notificações em Tempo Real</span>
+              </div>
+            </div>
           </div>
 
-          <div className="flex items-center gap-6 pt-6 text-xs text-gray-400 font-bold border-t border-white/10">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 size={16} className="text-yellow-400" /> Até 25 Alunos Grátis
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 size={16} className="text-yellow-400" /> PWA Direto no Celular
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 size={16} className="text-yellow-400" /> Cobrança via Pix
+          {/* Hero Interactive Card / Phone Mockup Badge */}
+          <div className="lg:col-span-5 flex justify-center">
+            <div className="w-full max-w-sm bg-gradient-to-b from-gray-900 to-gray-950 p-6 rounded-[36px] border border-white/15 shadow-2xl space-y-6 relative group">
+              <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-yellow-400 text-gray-900 rounded-xl flex items-center justify-center font-black">
+                    <Bus size={22} />
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-sm text-white">Van do Tio Carlos</h4>
+                    <p className="text-xs text-yellow-400 font-medium">Rota Escolar - Manhã</p>
+                  </div>
+                </div>
+                <span className="px-2.5 py-1 bg-green-500/20 text-green-400 text-[10px] font-bold rounded-full border border-green-500/30">
+                  Em Trânsito
+                </span>
+              </div>
+
+              {/* Sample Live Student Boarding Mock */}
+              <div className="space-y-3 bg-black/40 p-4 rounded-2xl border border-white/5">
+                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider flex justify-between">
+                  <span>Aluno</span>
+                  <span>Status</span>
+                </div>
+                <div className="flex justify-between items-center bg-white/5 p-2.5 rounded-xl text-xs">
+                  <span className="font-bold text-white">Guilherme Silva</span>
+                  <span className="bg-yellow-400 text-gray-900 font-black px-2 py-0.5 rounded-md text-[10px]">NA VAN</span>
+                </div>
+                <div className="flex justify-between items-center bg-white/5 p-2.5 rounded-xl text-xs">
+                  <span className="font-bold text-white">Mariana Santos</span>
+                  <span className="bg-blue-500 text-white font-bold px-2 py-0.5 rounded-md text-[10px]">NA ESCOLA</span>
+                </div>
+                <div className="flex justify-between items-center bg-white/5 p-2.5 rounded-xl text-xs opacity-60">
+                  <span className="font-bold text-white">Lucas Oliveira</span>
+                  <span className="bg-gray-700 text-gray-300 font-bold px-2 py-0.5 rounded-md text-[10px]">AUSENTE</span>
+                </div>
+              </div>
+
+              <div className="bg-yellow-400/10 border border-yellow-400/30 p-3 rounded-2xl flex items-center gap-3 text-xs text-yellow-300">
+                <Bell size={18} className="shrink-0" />
+                <span>Notificação enviada ao WhatsApp do responsável automaticamente!</span>
+              </div>
             </div>
           </div>
+
         </div>
+      </section>
 
-        {/* Decorative App Mockup Badge */}
-        <div className="relative z-10 w-full md:w-80 bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/20 text-center space-y-4 shrink-0 shadow-2xl">
-          <div className="w-16 h-16 bg-yellow-400 text-gray-900 rounded-2xl flex items-center justify-center mx-auto font-black shadow-lg">
-            <Bus size={36} />
-          </div>
-          <div className="font-extrabold text-xl">SchoolVan PWA</div>
-          <p className="text-xs text-gray-300">
-            Instalação instantânea no Android e iPhone. Sem burocracia de loja.
-          </p>
-          <div className="bg-yellow-400/20 text-yellow-300 text-xs font-bold py-2 rounded-xl border border-yellow-400/30">
-            100% Responsivo & Notificações Push
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs Navigation */}
-      <div className="flex justify-center gap-4">
+      {/* 📊 PLATFORM NAVIGATION SELECTOR */}
+      <div className="flex justify-center gap-2 md:gap-4 flex-wrap">
         <button
-          onClick={() => setActiveTab('saas')}
+          onClick={() => setActiveTab('landing')}
           className={cn(
-            "px-6 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2",
-            activeTab === 'saas' 
+            "px-6 py-3 rounded-2xl font-black text-sm transition-all flex items-center gap-2 cursor-pointer",
+            activeTab === 'landing' 
               ? "bg-gray-900 text-yellow-400 shadow-xl" 
               : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           )}
         >
-          <Zap size={18} /> Planos & Recursos do SaaS
+          <Zap size={18} /> Recursos & Demonstração
         </button>
+
+        <button
+          onClick={() => setActiveTab('calc')}
+          className={cn(
+            "px-6 py-3 rounded-2xl font-black text-sm transition-all flex items-center gap-2 cursor-pointer",
+            activeTab === 'calc' 
+              ? "bg-gray-900 text-yellow-400 shadow-xl" 
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          )}
+        >
+          <Calculator size={18} /> Calculadora de Economia
+        </button>
+
         <button
           onClick={() => setActiveTab('search')}
           className={cn(
-            "px-6 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2",
+            "px-6 py-3 rounded-2xl font-black text-sm transition-all flex items-center gap-2 cursor-pointer",
             activeTab === 'search' 
               ? "bg-gray-900 text-yellow-400 shadow-xl" 
               : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           )}
         >
-          <Search size={18} /> Encontrar Vans (Marketplace)
+          <Search size={18} /> Encontrar Vans na Minha Região
         </button>
       </div>
 
-      {/* SECTION 1: SAAS PRICING TIERS */}
-      {activeTab === 'saas' && (
-        <div className="space-y-12">
-          <div className="text-center max-w-2xl mx-auto">
-            <h2 className="text-3xl font-black text-gray-900">Planos Feitos para Todos os Portes</h2>
-            <p className="text-gray-500 mt-2 text-sm">
-              Comece no Gratuito e escale sua frota com tranquilidade. Cancele ou altere a qualquer momento.
-            </p>
-          </div>
+      {/* 🌟 MAIN LANDING CONTENT */}
+      {activeTab === 'landing' && (
+        <div className="space-y-20">
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* PLANO GRATUITO */}
-            <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm flex flex-col justify-between space-y-6 hover:border-yellow-400 transition-all">
-              <div className="space-y-4">
-                <span className="text-xs font-black uppercase tracking-wider text-gray-400 bg-gray-100 px-3 py-1 rounded-full">
-                  Entrada
-                </span>
-                <h3 className="text-2xl font-black text-gray-900">Gratuito</h3>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-black text-gray-900">R$ 0</span>
-                  <span className="text-xs text-gray-400 font-bold">/mês</span>
-                </div>
-                <p className="text-xs text-gray-500">
-                  Ideal para motoristas no início ou quem tem poucas vans e quer experimentar.
-                </p>
+          {/* SECTION: INTERACTIVE APP PREVIEW DEMO */}
+          <section className="bg-white rounded-[40px] p-6 md:p-12 border border-gray-100 shadow-xl space-y-8">
+            <div className="text-center max-w-3xl mx-auto space-y-3">
+              <span className="bg-yellow-100 text-yellow-900 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider">
+                Interface Moderna & Fluida
+              </span>
+              <h2 className="text-3xl md:text-4xl font-black text-gray-900">
+                Veja o SchoolVan em Ação
+              </h2>
+              <p className="text-gray-500 text-sm">
+                Desenvolvido pensando na rotina corrida do motorista: botões grandes, chamadas de 1 toque e acesso rápido para os pais.
+              </p>
+            </div>
 
-                <ul className="space-y-3 pt-4 text-xs font-bold text-gray-700">
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 size={16} className="text-green-500 shrink-0" /> **Até 25 Alunos ativos**
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 size={16} className="text-green-500 shrink-0" /> Chamada e Controle de Embarque
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 size={16} className="text-green-500 shrink-0" /> Portal para os Pais
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 size={16} className="text-green-500 shrink-0" /> 1 Van Cadastrada
-                  </li>
-                </ul>
-              </div>
-
+            {/* Demo Tabs */}
+            <div className="flex justify-center gap-2 border-b border-gray-100 pb-4 overflow-x-auto">
               <button
-                onClick={onOpenAuth}
-                className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-900 font-bold rounded-2xl text-xs transition-colors"
+                onClick={() => setActiveDemoTab('driver')}
+                className={cn(
+                  "px-5 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all cursor-pointer whitespace-nowrap",
+                  activeDemoTab === 'driver' ? "bg-yellow-400 text-gray-900 shadow" : "text-gray-500 hover:bg-gray-50"
+                )}
               >
-                CRIAR CONTA GRÁTIS
+                🚌 Painel do Motorista
+              </button>
+              <button
+                onClick={() => setActiveDemoTab('parent')}
+                className={cn(
+                  "px-5 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all cursor-pointer whitespace-nowrap",
+                  activeDemoTab === 'parent' ? "bg-yellow-400 text-gray-900 shadow" : "text-gray-500 hover:bg-gray-50"
+                )}
+              >
+                👨‍👩‍👧 Portal do Responsável
+              </button>
+              <button
+                onClick={() => setActiveDemoTab('finance')}
+                className={cn(
+                  "px-5 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all cursor-pointer whitespace-nowrap",
+                  activeDemoTab === 'finance' ? "bg-yellow-400 text-gray-900 shadow" : "text-gray-500 hover:bg-gray-50"
+                )}
+              >
+                💰 Gestão Pix & Financeiro
+              </button>
+              <button
+                onClick={() => setActiveDemoTab('routes')}
+                className={cn(
+                  "px-5 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all cursor-pointer whitespace-nowrap",
+                  activeDemoTab === 'routes' ? "bg-yellow-400 text-gray-900 shadow" : "text-gray-500 hover:bg-gray-50"
+                )}
+              >
+                🗺️ Otimização de Rotas
               </button>
             </div>
 
-            {/* PLANO PRO (RECOMENDADO) */}
-            <div className="bg-gradient-to-b from-gray-900 to-black text-white p-8 rounded-3xl shadow-2xl relative flex flex-col justify-between space-y-6 border-2 border-yellow-400">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-yellow-400 text-gray-900 text-[10px] font-black uppercase px-4 py-1 rounded-full shadow">
-                Mais Popular
-              </div>
-
-              <div className="space-y-4">
-                <span className="text-xs font-black uppercase tracking-wider text-yellow-400 bg-yellow-400/10 px-3 py-1 rounded-full">
-                  Profissional
-                </span>
-                <h3 className="text-2xl font-black text-white">Plano Pro</h3>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-black text-yellow-400">R$ 79</span>
-                  <span className="text-xs text-gray-400 font-bold">/mês</span>
+            {/* Demo Screen Preview */}
+            <div className="bg-gray-900 text-white rounded-3xl p-6 md:p-8 border border-gray-800 shadow-2xl">
+              {activeDemoTab === 'driver' && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                  <div className="space-y-4 md:col-span-1">
+                    <span className="text-yellow-400 font-bold text-xs uppercase tracking-wider">Chamada em 1 Toque</span>
+                    <h3 className="text-2xl font-black">Embarque Rápido na Van</h3>
+                    <p className="text-gray-400 text-xs leading-relaxed">
+                      Marque o embarque do aluno com apenas um toque. O sistema altera o status em tempo real e já envia a notificação para a mãe ou pai.
+                    </p>
+                    <ul className="space-y-2 text-xs text-gray-300">
+                      <li className="flex items-center gap-2"><CheckCircle2 size={14} className="text-yellow-400" /> Confirmação sonora instantânea</li>
+                      <li className="flex items-center gap-2"><CheckCircle2 size={14} className="text-yellow-400" /> Registro do horário exato de embarque</li>
+                    </ul>
+                  </div>
+                  <div className="md:col-span-2 bg-gray-950 p-6 rounded-2xl border border-white/10 space-y-4">
+                    <div className="flex justify-between items-center text-xs font-bold text-gray-400 border-b border-white/10 pb-2">
+                      <span>Aluno</span>
+                      <span>Horário</span>
+                      <span>Ação de Chamada</span>
+                    </div>
+                    <div className="flex items-center justify-between bg-white/5 p-3 rounded-xl text-xs">
+                      <div>
+                        <div className="font-black text-white">Pedro Henrique</div>
+                        <div className="text-[10px] text-gray-400">Colegio Santo Agostinho</div>
+                      </div>
+                      <span className="font-mono text-gray-300">07:15</span>
+                      <button className="px-3 py-1.5 bg-yellow-400 text-gray-900 font-black rounded-lg cursor-pointer hover:bg-yellow-300">
+                        MARCAR NA VAN
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between bg-white/5 p-3 rounded-xl text-xs">
+                      <div>
+                        <div className="font-black text-white">Beatriz Lima</div>
+                        <div className="text-[10px] text-gray-400">Escola Dom Bosco</div>
+                      </div>
+                      <span className="font-mono text-gray-300">07:22</span>
+                      <span className="px-3 py-1 bg-green-500/20 text-green-400 font-bold rounded-lg border border-green-500/30">
+                        NA ESCOLA
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-xs text-gray-300">
-                  O motorista padrão roda de 30 a 50 alunos. O plano Pro atende com perfeição!
-                </p>
+              )}
 
-                <ul className="space-y-3 pt-4 text-xs font-bold text-gray-200">
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 size={16} className="text-yellow-400 shrink-0" /> **Até 60 Alunos ativos**
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 size={16} className="text-yellow-400 shrink-0" /> Notificações Web Push PWA aos Pais
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 size={16} className="text-yellow-400 shrink-0" /> Lembretes Automáticos no WhatsApp
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 size={16} className="text-yellow-400 shrink-0" /> Otimização de Rotas no Mapa
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 size={16} className="text-yellow-400 shrink-0" /> Cobrança Automatizada Pix
-                  </li>
-                </ul>
-              </div>
+              {activeDemoTab === 'parent' && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                  <div className="space-y-4 md:col-span-1">
+                    <span className="text-yellow-400 font-bold text-xs uppercase tracking-wider">Tranquilidade para os Pais</span>
+                    <h3 className="text-2xl font-black">Acompanhamento sem Instalar Lojas</h3>
+                    <p className="text-gray-400 text-xs leading-relaxed">
+                      Os pais acessam pelo PWA no celular, sabem onde o filho está e podem avisar ausência com 1 clique antes do motorista sair de casa!
+                    </p>
+                  </div>
+                  <div className="md:col-span-2 bg-gradient-to-br from-yellow-500 to-amber-600 text-gray-950 p-6 rounded-2xl shadow-xl space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="font-black text-sm uppercase tracking-wider">Status do Aluno</span>
+                      <span className="bg-gray-950 text-yellow-400 font-bold text-[10px] px-2.5 py-1 rounded-full">
+                        A CAMINHO
+                      </span>
+                    </div>
+                    <div className="text-center py-4 space-y-2">
+                      <Bus size={40} className="mx-auto text-gray-950" />
+                      <h4 className="text-3xl font-black uppercase">NA VAN ESCOLAR</h4>
+                      <p className="text-xs font-bold opacity-80">Seu filho foi embarcado às 07:15 e está a caminho da escola.</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button className="flex-1 py-2.5 bg-gray-950 text-white font-bold text-xs rounded-xl hover:bg-gray-900 cursor-pointer">
+                        Avisar "Não vai hoje"
+                      </button>
+                      <button className="flex-1 py-2.5 bg-green-700 text-white font-bold text-xs rounded-xl hover:bg-green-800 cursor-pointer">
+                        Falar no WhatsApp
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
-              <button
-                onClick={onOpenAuth}
-                className="w-full py-4 bg-yellow-400 text-gray-900 font-extrabold rounded-2xl text-xs hover:bg-yellow-300 transition-all shadow-xl active:scale-95"
-              >
-                ASSINAR PLANO PRO
-              </button>
+              {activeDemoTab === 'finance' && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                  <div className="space-y-4 md:col-span-1">
+                    <span className="text-yellow-400 font-bold text-xs uppercase tracking-wider">Fim da Inadimplência</span>
+                    <h3 className="text-2xl font-black">Cobrança e Lembrete Pix</h3>
+                    <p className="text-gray-400 text-xs leading-relaxed">
+                      Envie mensagens formatadas no WhatsApp com sua chave Pix e valor pré-preenchido. Baixa automática e controle de inadimplentes.
+                    </p>
+                  </div>
+                  <div className="md:col-span-2 bg-gray-950 p-6 rounded-2xl border border-white/10 space-y-3">
+                    <div className="flex justify-between items-center p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs">
+                      <div>
+                        <span className="font-bold text-white">Carla M. (Mãe do Matheus)</span>
+                        <div className="text-[10px] text-red-400">Mensalidade Vencida (R$ 220,00)</div>
+                      </div>
+                      <button className="px-3 py-1.5 bg-green-500 text-white font-bold rounded-lg cursor-pointer hover:bg-green-600 flex items-center gap-1">
+                        <MessageSquare size={14} /> Lembrar Pix
+                      </button>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-green-500/10 border border-green-500/30 rounded-xl text-xs">
+                      <div>
+                        <span className="font-bold text-white">Roberto F. (Pai da Julia)</span>
+                        <div className="text-[10px] text-green-400">Pago via Pix - Em Dia</div>
+                      </div>
+                      <span className="px-2.5 py-1 bg-green-500/20 text-green-400 font-bold rounded-lg">
+                        EM DIA
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeDemoTab === 'routes' && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                  <div className="space-y-4 md:col-span-1">
+                    <span className="text-yellow-400 font-bold text-xs uppercase tracking-wider">Economia de Combustível</span>
+                    <h3 className="text-2xl font-black">Rotas Inteligentes no GPS</h3>
+                    <p className="text-gray-400 text-xs leading-relaxed">
+                      O sistema reordena os alunos ativos e remove ausentes, gerando o link direto com todos os pontos para o Google Maps ou Waze.
+                    </p>
+                  </div>
+                  <div className="md:col-span-2 bg-gray-950 p-6 rounded-2xl border border-white/10 text-center space-y-4">
+                    <MapPin size={40} className="mx-auto text-yellow-400 animate-bounce" />
+                    <h4 className="text-lg font-bold text-white">Rota Otimizada com 12 Paradas</h4>
+                    <p className="text-xs text-gray-400 max-w-sm mx-auto">
+                      Alunos marcados como "Não vai hoje" foram removidos automaticamente da rota para poupar seu tempo!
+                    </p>
+                    <button className="px-6 py-3 bg-yellow-400 text-gray-900 font-black text-xs rounded-xl cursor-pointer hover:bg-yellow-300 shadow-lg">
+                      ABRIR NO GOOGLE MAPS GPS
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* SECTION: KEY FEATURES GRID */}
+          <section className="space-y-12">
+            <div className="text-center max-w-2xl mx-auto space-y-3">
+              <h2 className="text-3xl font-black text-gray-900">Por que o SchoolVan é o Preferido dos Motoristas?</h2>
+              <p className="text-gray-500 text-sm">Projetado com o feedback de dezenas de tios e tias de vans escolares em todo o Brasil.</p>
             </div>
 
-            {/* PLANO FROTA */}
-            <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm flex flex-col justify-between space-y-6 hover:border-yellow-400 transition-all">
-              <div className="space-y-4">
-                <span className="text-xs font-black uppercase tracking-wider text-purple-600 bg-purple-50 px-3 py-1 rounded-full">
-                  Empresarial
-                </span>
-                <h3 className="text-2xl font-black text-gray-900">Plano Frota</h3>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-black text-gray-900">R$ 149</span>
-                  <span className="text-xs text-gray-400 font-bold">/mês</span>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all space-y-4">
+                <div className="w-12 h-12 bg-yellow-100 text-yellow-900 rounded-2xl flex items-center justify-center font-bold">
+                  <Smartphone size={24} />
                 </div>
-                <p className="text-xs text-gray-500">
-                  Para empresas com múltiplas vans, monitores e equipe compartilhada.
+                <h3 className="text-xl font-bold text-gray-900">App PWA Nativo</h3>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Não ocupa memória do celular e funciona direto no navegador no Android ou iPhone. Basta clicar em "Adicionar à Tela Inicial".
                 </p>
-
-                <ul className="space-y-3 pt-4 text-xs font-bold text-gray-700">
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 size={16} className="text-purple-600 shrink-0" /> **Alunos Ilimitados**
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 size={16} className="text-purple-600 shrink-0" /> Vans e Rotas Ilimitadas
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 size={16} className="text-purple-600 shrink-0" /> Multi-usuários e Monitores
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 size={16} className="text-purple-600 shrink-0" /> Relatório Financeiro DRE Completo
-                  </li>
-                </ul>
               </div>
 
-              <button
-                onClick={onOpenAuth}
-                className="w-full py-3 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-2xl text-xs transition-colors"
-              >
-                CONTRATAR PLANO FROTA
-              </button>
+              <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all space-y-4">
+                <div className="w-12 h-12 bg-green-100 text-green-800 rounded-2xl flex items-center justify-center font-bold">
+                  <Wallet size={24} />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900">Pix & WhatsApp Integrados</h3>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Envie lembretes de cobrança com 1 clique diretamente pelo WhatsApp dos pais. Menos constrangimento e mais pontualidade.
+                </p>
+              </div>
+
+              <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all space-y-4">
+                <div className="w-12 h-12 bg-blue-100 text-blue-800 rounded-2xl flex items-center justify-center font-bold">
+                  <ShieldCheck size={24} />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900">Avisos de Ausência em Tempo Real</h3>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Chega de ir até a casa do aluno e descobrir que ele faltou. Os pais marcam "Ausente" e sua rota ajusta na hora.
+                </p>
+              </div>
             </div>
-          </div>
+          </section>
+
+          {/* SECTION: PRICING TIERS */}
+          <section className="space-y-12">
+            <div className="text-center max-w-2xl mx-auto space-y-3">
+              <span className="bg-green-100 text-green-900 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider">
+                Preços Justos e Acessíveis
+              </span>
+              <h2 className="text-3xl font-black text-gray-900">Escolha o Plano Ideal para Sua Frota</h2>
+              <p className="text-gray-500 text-sm">Comece no plano gratuito. Troque ou cancele quando quiser sem fidelidade.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
+              {/* PLANO GRATUITO */}
+              <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm flex flex-col justify-between space-y-6 hover:border-yellow-400 transition-all">
+                <div className="space-y-4">
+                  <span className="text-xs font-black uppercase tracking-wider text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                    Entrada
+                  </span>
+                  <h3 className="text-2xl font-black text-gray-900">Plano Gratuito</h3>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-4xl font-black text-gray-900">R$ 0</span>
+                    <span className="text-xs text-gray-400 font-bold">/para sempre</span>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Perfeito para quem tem até 1 van e quer testar a organização digital sem custo.
+                  </p>
+
+                  <ul className="space-y-3 pt-4 text-xs font-bold text-gray-700">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 size={16} className="text-green-500 shrink-0" />
+                      <span><strong>Até 25 Alunos Ativos</strong></span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 size={16} className="text-green-500 shrink-0" />
+                      <span>Controle de Embarque & Chamada</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 size={16} className="text-green-500 shrink-0" />
+                      <span>Portal do Responsável</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 size={16} className="text-green-500 shrink-0" />
+                      <span>Notificações Push no Celular</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <button
+                  onClick={onOpenAuth}
+                  className="w-full py-3.5 bg-gray-900 hover:bg-gray-800 text-yellow-400 font-extrabold rounded-2xl text-xs transition-all cursor-pointer shadow-md"
+                >
+                  CRIAR CONTA GRÁTIS
+                </button>
+              </div>
+
+              {/* PLANO PRO (DESTACADO) */}
+              <div className="bg-gradient-to-b from-gray-900 via-gray-950 to-black text-white p-8 rounded-3xl shadow-2xl relative flex flex-col justify-between space-y-6 border-2 border-yellow-400 transform md:-translate-y-2">
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-yellow-400 text-gray-950 text-[10px] font-black uppercase px-4 py-1 rounded-full shadow-lg flex items-center gap-1">
+                  <Sparkles size={12} /> MAIS POPULAR
+                </div>
+
+                <div className="space-y-4">
+                  <span className="text-xs font-black uppercase tracking-wider text-yellow-400 bg-yellow-400/10 px-3 py-1 rounded-full">
+                    Profissional
+                  </span>
+                  <h3 className="text-2xl font-black text-white">Plano Pro</h3>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-4xl font-black text-yellow-400">R$ 79</span>
+                    <span className="text-xs text-gray-400 font-bold">/mês</span>
+                  </div>
+                  <p className="text-xs text-gray-300">
+                    O tamanho ideal para cobrir até 60 alunos em 1 ou 2 vans com tranquilidade.
+                  </p>
+
+                  <ul className="space-y-3 pt-4 text-xs font-bold text-gray-200">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
+                      <span><strong>Até 60 Alunos Ativos</strong></span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
+                      <span>Lembretes Automáticos WhatsApp</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
+                      <span>Cobrança Automatizada Pix</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
+                      <span>Otimização e Traçado de Rotas</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <button
+                  onClick={onOpenAuth}
+                  className="w-full py-4 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-2xl text-xs transition-all shadow-xl cursor-pointer"
+                >
+                  EXPERIMENTAR PLANO PRO
+                </button>
+              </div>
+
+              {/* PLANO FROTA */}
+              <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm flex flex-col justify-between space-y-6 hover:border-yellow-400 transition-all">
+                <div className="space-y-4">
+                  <span className="text-xs font-black uppercase tracking-wider text-purple-600 bg-purple-50 px-3 py-1 rounded-full">
+                    Empresarial
+                  </span>
+                  <h3 className="text-2xl font-black text-gray-900">Plano Frota</h3>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-4xl font-black text-gray-900">R$ 149</span>
+                    <span className="text-xs text-gray-400 font-bold">/mês</span>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Para frotas maiores com múltiplos motoristas, monitores e relatórios completos.
+                  </p>
+
+                  <ul className="space-y-3 pt-4 text-xs font-bold text-gray-700">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 size={16} className="text-purple-600 shrink-0" />
+                      <span><strong>Alunos e Vans Ilimitados</strong></span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 size={16} className="text-purple-600 shrink-0" />
+                      <span>Acesso para Monitores de Van</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 size={16} className="text-purple-600 shrink-0" />
+                      <span>Relatórios Financeiros DRE</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 size={16} className="text-purple-600 shrink-0" />
+                      <span>Suporte Prioritário VIP</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <button
+                  onClick={onOpenAuth}
+                  className="w-full py-3.5 bg-gray-900 hover:bg-gray-800 text-white font-extrabold rounded-2xl text-xs transition-all cursor-pointer"
+                >
+                  CONTRATAR PLANO FROTA
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* SECTION: FAQ ACCORDION */}
+          <section className="bg-gray-50 rounded-[40px] p-8 md:p-12 space-y-8 border border-gray-100">
+            <div className="text-center max-w-2xl mx-auto space-y-2">
+              <h2 className="text-3xl font-black text-gray-900">Dúvidas Frequentes</h2>
+              <p className="text-gray-500 text-sm">Respostas para as perguntas mais comuns de motoristas e pais.</p>
+            </div>
+
+            <div className="max-w-3xl mx-auto space-y-4">
+              {[
+                {
+                  q: "Preciso baixar o aplicativo pela Google Play Store ou App Store?",
+                  a: "Não! O SchoolVan é um PWA (Progressive Web App) nativo. Você instala diretamente pelo navegador no seu celular com apenas 1 clique em 'Adicionar à Tela Inicial', sem ocupar espaço de memória."
+                },
+                {
+                  q: "O plano gratuito é grátis de verdade ou é teste por tempo limitado?",
+                  a: "O Plano Gratuito é 100% grátis sem prazo de expiração para até 25 alunos ativos. Você não precisa cadastrar cartão de crédito."
+                },
+                {
+                  q: "Como os pais sabem o horário que o filho entrou na van?",
+                  a: "Quando o motorista ou monitor realiza o check-in na lista de presença, o sistema altera o status do aluno e envia uma notificação push e aviso formatado diretamente para o responsável."
+                },
+                {
+                  q: "Como funciona a cobrança via Pix?",
+                  a: "Você cadastra sua chave Pix no seu Perfil. O sistema gera mensagens personalizadas com o valor da mensalidade e a chave Pix, que podem ser enviadas em 1 clique para o WhatsApp do responsável."
+                }
+              ].map((item, idx) => (
+                <div key={idx} className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+                  <button
+                    onClick={() => toggleFaq(idx)}
+                    className="w-full p-5 text-left font-bold text-gray-900 flex justify-between items-center gap-4 cursor-pointer hover:bg-gray-50/50"
+                  >
+                    <span>{item.q}</span>
+                    {openFaq === idx ? <ChevronUp size={20} className="text-yellow-600" /> : <ChevronDown size={20} className="text-gray-400" />}
+                  </button>
+                  {openFaq === idx && (
+                    <div className="px-5 pb-5 text-xs text-gray-600 leading-relaxed border-t border-gray-100 pt-3">
+                      {item.a}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+
         </div>
       )}
 
-      {/* SECTION 2: MARKETPLACE SEARCH */}
+      {/* 🧮 CALCULATOR TAB */}
+      {activeTab === 'calc' && (
+        <div className="bg-white rounded-[40px] p-8 md:p-12 border border-gray-100 shadow-xl space-y-8 max-w-3xl mx-auto">
+          <div className="text-center space-y-2">
+            <span className="bg-yellow-100 text-yellow-900 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider">
+              Calculadora de Impacto
+            </span>
+            <h2 className="text-3xl font-black text-gray-900">Quanto você economiza com o SchoolVan?</h2>
+            <p className="text-gray-500 text-sm">Ajuste o número de alunos e veja a estimativa de tempo e dinheiro preservados.</p>
+          </div>
+
+          <div className="space-y-6 bg-gray-50 p-6 rounded-3xl border border-gray-100">
+            <div className="flex justify-between items-center">
+              <label className="font-extrabold text-sm text-gray-900">Alunos Transportados:</label>
+              <span className="text-2xl font-black text-yellow-600">{studentCountCalc} Alunos</span>
+            </div>
+
+            <input
+              type="range"
+              min={10}
+              max={120}
+              step={5}
+              value={studentCountCalc}
+              onChange={(e) => setStudentCountCalc(Number(e.target.value))}
+              className="w-full accent-yellow-400 h-3 bg-gray-200 rounded-lg cursor-pointer"
+            />
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
+              <div className="bg-white p-4 rounded-2xl border border-gray-100 text-center space-y-1 shadow-sm">
+                <span className="text-[10px] text-gray-400 font-bold uppercase">Faturamento Estimado</span>
+                <div className="text-xl font-black text-gray-900">R$ {monthlyRevenue.toLocaleString('pt-BR')}/mês</div>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-gray-100 text-center space-y-1 shadow-sm">
+                <span className="text-[10px] text-gray-400 font-bold uppercase">Horas Salvas/Mês</span>
+                <div className="text-xl font-black text-yellow-600">~{estimatedTimeSavedHours} Horas</div>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-gray-100 text-center space-y-1 shadow-sm">
+                <span className="text-[10px] text-gray-400 font-bold uppercase">Inadimplência Evitada</span>
+                <div className="text-xl font-black text-green-600">R$ {estimatedDelinquencyReduced.toLocaleString('pt-BR')}</div>
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={onOpenAuth}
+            className="w-full py-4 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-2xl text-sm transition-all shadow-xl cursor-pointer flex items-center justify-center gap-2"
+          >
+            <span>COMEÇAR AGORA NO PLANO GRATUITO</span>
+            <ArrowRight size={18} />
+          </button>
+        </div>
+      )}
+
+      {/* 🔍 MARKETPLACE SEARCH TAB */}
       {activeTab === 'search' && (
         <div className="space-y-8">
-          <div className="text-center max-w-2xl mx-auto">
-            <h2 className="text-3xl font-extrabold text-gray-900">Buscar Vans Escolares Por Cidade</h2>
-            <p className="text-gray-500 text-sm mt-1">Encontre motoristas credenciados na sua região com vagas disponíveis.</p>
+          <div className="text-center max-w-2xl mx-auto space-y-2">
+            <h2 className="text-3xl font-extrabold text-gray-900">Buscar Vans Escolares Credenciadas</h2>
+            <p className="text-gray-500 text-sm">Encontre motoristas cadastrados na sua cidade com vagas abertas.</p>
 
             <div className="mt-6 flex flex-col md:flex-row justify-center gap-4 max-w-2xl mx-auto">
               <div className="relative flex-1">
@@ -271,7 +715,7 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
                 <select 
                   value={cityFilter}
                   onChange={(e) => setCityFilter(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-yellow-400 outline-none"
+                  className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-yellow-400 outline-none text-sm cursor-pointer"
                 >
                   <option value="">Todas as Cidades</option>
                   {cities.map(city => (
@@ -285,7 +729,7 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
                 <select 
                   value={neighborhoodFilter}
                   onChange={(e) => setNeighborhoodFilter(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-yellow-400 outline-none"
+                  className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-yellow-400 outline-none text-sm cursor-pointer"
                 >
                   <option value="">Todos os Bairros</option>
                   {neighborhoods.map(n => (
@@ -305,7 +749,7 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
                 <div className="h-48 bg-yellow-50 flex items-center justify-center relative overflow-hidden">
                   <Bus className="text-yellow-400 group-hover:scale-110 transition-transform duration-500" size={80} />
                   <div className="absolute top-4 right-4 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg">
-                    <Star size={12} fill="currentColor" /> Vagas Disponíveis
+                    <Star size={12} fill="currentColor" /> Vagas Abertas
                   </div>
                 </div>
 
@@ -329,7 +773,7 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
 
                   <button 
                     onClick={onOpenAuth}
-                    className="w-full py-3 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold rounded-2xl transition-colors shadow-md active:scale-95"
+                    className="w-full py-3 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold rounded-2xl transition-colors shadow-md active:scale-95 cursor-pointer"
                   >
                     SOLICITAR VAGA
                   </button>
@@ -339,22 +783,23 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
           </div>
 
           {filteredVehicles.length === 0 && (
-            <div className="text-center py-20">
-              <div className="bg-gray-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Search className="text-gray-400" size={32} />
+            <div className="text-center py-16 bg-white rounded-3xl border border-gray-100">
+              <div className="bg-gray-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Search className="text-gray-400" size={28} />
               </div>
-              <h3 className="text-xl font-bold text-gray-900">Nenhuma van encontrada</h3>
-              <p className="text-gray-500 text-sm">Tente selecionar outra cidade ou bairro.</p>
+              <h3 className="text-lg font-bold text-gray-900">Nenhuma van encontrada com esse filtro</h3>
+              <p className="text-gray-500 text-xs mt-1">Selecione outra cidade ou bairro para visualizar as vans disponíveis.</p>
             </div>
           )}
         </div>
       )}
 
-      {/* Footer */}
-      <footer className="pt-10 border-t border-gray-100 text-center text-gray-400 text-xs space-y-2">
-        <p>&copy; 2026 SchoolVan (schoolvan.com.br). Plataforma inteligente de transporte escolar.</p>
-        <p className="font-mono">Desenvolvido com tecnologia PWA, Firebase e React.</p>
+      {/* FOOTER */}
+      <footer className="pt-10 border-t border-gray-200 text-center text-gray-400 text-xs space-y-2">
+        <p>&copy; 2026 SchoolVan (schoolvan.com.br). Todos os direitos reservados.</p>
+        <p className="font-mono text-[11px]">Plataforma PWA Nativa • Notificações Push • Gestão Inteligente de Frota</p>
       </footer>
+
     </div>
   );
 }

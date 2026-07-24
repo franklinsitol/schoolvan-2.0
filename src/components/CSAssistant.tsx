@@ -25,6 +25,7 @@ export function CSAssistant() {
   const [adminConfig, setAdminConfig] = useState<AdminConfig | null>(null);
   const [requestingPromise, setRequestingPromise] = useState(false);
   const [copiedPix, setCopiedPix] = useState(false);
+  const [dismissedBilling, setDismissedBilling] = useState(false);
 
   React.useEffect(() => {
     const fetchConfig = async () => {
@@ -55,8 +56,11 @@ export function CSAssistant() {
     const pixKey = adminConfig?.pixAdmin || 'pix@schoolvan.com.br';
     navigator.clipboard.writeText(pixKey);
     setCopiedPix(true);
-    toast.success('Chave Pix copiada para a área de transferência!');
-    setTimeout(() => setCopiedPix(false), 3000);
+    toast.success('Chave Pix copiada! Fechando aviso de cobrança...');
+    setTimeout(() => {
+      setCopiedPix(false);
+      setDismissedBilling(true);
+    }, 1500);
   };
 
   const handleRequestPromise = async () => {
@@ -83,8 +87,15 @@ export function CSAssistant() {
   return (
     <div className="space-y-4 my-6">
       {/* Late Payment Notice + Auto CS Extension */}
-      {isLate && !hasActivePromise && (
-        <div className="bg-gradient-to-r from-red-600 via-rose-600 to-pink-600 text-white p-6 rounded-3xl shadow-xl space-y-4">
+      {isLate && !hasActivePromise && !dismissedBilling && (
+        <div className="bg-gradient-to-r from-red-600 via-rose-600 to-pink-600 text-white p-6 rounded-3xl shadow-xl space-y-4 relative">
+          <button 
+            onClick={() => setDismissedBilling(true)}
+            className="absolute top-4 right-4 p-1.5 text-white/70 hover:text-white bg-black/10 hover:bg-black/20 rounded-xl transition-all cursor-pointer"
+            title="Fechar aviso de cobrança"
+          >
+            <X size={18} />
+          </button>
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
               <AlertCircle size={28} className="text-yellow-300 animate-pulse" />
