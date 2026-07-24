@@ -1,8 +1,22 @@
-// SchoolVan Service Worker for PWA Offline & Web Push
-const CACHE_NAME = 'schoolvan-v2';
+// SchoolVan Service Worker for Real PWA Offline & Web Push
+const CACHE_NAME = 'schoolvan-v3';
+const ASSETS_TO_CACHE = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/icon.png',
+  '/icon-512.png',
+  '/favicon.png',
+  '/favicon.ico',
+  '/apple-touch-icon.png'
+];
 
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(ASSETS_TO_CACHE);
+    }).then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', (event) => {
@@ -19,10 +33,16 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Network-first strategy for dynamic site updates
+// Fetch handler: Network-first with cache fallback and offline index.html fallback
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
-  
+  const url = new URL(event.request.url);
+
+  // Skip cross-origin and API requests
+  if (url.origin !== location.origin || url.pathname.startsWith('/api')) {
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {
@@ -34,8 +54,14 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       })
-      .catch(() => {
-        return caches.match(event.request);
+      .catch(async () => {
+        const cachedResponse = await caches.match(event.request);
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        if (event.request.mode === 'navigate') {
+          return caches.match('/index.html') || caches.match('/');
+        }
       })
   );
 });
@@ -51,3 +77,4 @@ self.addEventListener('push', (event) => {
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
+
