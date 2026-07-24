@@ -65,6 +65,17 @@ export function AuthModal({ isOpen, onClose, type }: AuthModalProps) {
             state: 'SP',
             iconType: 'van-yellow'
           });
+        } else {
+          // Parent user record
+          await setDoc(doc(db, 'users', user.uid), {
+            name,
+            email,
+            phone,
+            city,
+            role: 'parent',
+            status: 'Ativo',
+            createdAt: new Date().toISOString()
+          });
         }
         
         toast.success('Conta criada com sucesso!');
@@ -95,18 +106,30 @@ export function AuthModal({ isOpen, onClose, type }: AuthModalProps) {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
       
-      // Check if driver profile exists
+      // Check if driver or user profile exists
       const driverDoc = await getDoc(doc(db, 'drivers', user.uid));
-      if (!driverDoc.exists() && type === 'driver') {
-        await setDoc(doc(db, 'drivers', user.uid), {
-          name: user.displayName,
-          email: user.email,
-          status: 'Ativo',
-          role: 'admin',
-          plan: 'Básico',
-          pricePerStudent: 7.90,
-          invoiceStatus: 'Em Dia'
-        });
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+
+      if (!driverDoc.exists() && !userDoc.exists()) {
+        if (type === 'driver') {
+          await setDoc(doc(db, 'drivers', user.uid), {
+            name: user.displayName || 'Motorista',
+            email: user.email,
+            status: 'Ativo',
+            role: 'admin',
+            plan: 'Básico',
+            pricePerStudent: 7.90,
+            invoiceStatus: 'Em Dia'
+          });
+        } else {
+          await setDoc(doc(db, 'users', user.uid), {
+            name: user.displayName || 'Responsável',
+            email: user.email,
+            role: 'parent',
+            status: 'Ativo',
+            createdAt: new Date().toISOString()
+          });
+        }
       }
       
       toast.success('Login realizado com sucesso!');
