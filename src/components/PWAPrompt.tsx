@@ -56,6 +56,17 @@ export function PWAPrompt() {
   }, []);
 
   const handleInstallClick = async () => {
+    // 1. Check if we are inside an iframe (preview environment)
+    const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
+
+    if (isInIframe) {
+      toast.success('Abrindo em nova aba para acionar a instalação nativa do seu navegador...', { duration: 4000 });
+      // Open in top-level browser window where browsers enable native beforeinstallprompt
+      window.open(window.location.href, '_blank');
+      return;
+    }
+
+    // 2. Real Native PWA Prompt invocation
     if (deferredPrompt) {
       try {
         deferredPrompt.prompt();
@@ -72,13 +83,8 @@ export function PWAPrompt() {
     } else if (isIOS) {
       setShowIosGuide(true);
     } else {
-      toast('Solicitando instalação nativa...', { icon: '📲' });
-      // Fallback try if browser supports standard prompt
-      if ('beforeinstallprompt' in window) {
-        toast.success('Clique em Instalar na janela do navegador');
-      } else {
-        toast.success('App SchoolVan está pronto para instalação no seu navegador!');
-      }
+      // Direct Chrome / Edge / Android install prompt fallback
+      toast('Aguardando prompt de instalação do navegador...', { icon: '📲' });
     }
   };
 
