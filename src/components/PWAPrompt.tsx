@@ -1,23 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { Smartphone, Download, X, Bell, CheckCircle2, Share } from 'lucide-react';
+import { Download, X, Bell, CheckCircle2, Share, ExternalLink, Smartphone, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export function PWAPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showBanner, setShowBanner] = useState(false);
-  const [showIosGuide, setShowIosGuide] = useState(false);
+  const [showGuideModal, setShowGuideModal] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
+  const [isInIframe, setIsInIframe] = useState(false);
 
   useEffect(() => {
-    // Check if running as installed standalone PWA app
+    // 1. Detect if running inside iframe (AI Studio preview container)
+    const inIframe = typeof window !== 'undefined' && window.self !== window.top;
+    setIsInIframe(inIframe);
+
+    // 2. Check if running as installed standalone PWA app
     const standalone = window.matchMedia('(display-mode: standalone)').matches || 
                       (navigator as any).standalone === true ||
                       document.referrer.includes('android-app://');
     setIsStandalone(standalone);
 
-    // Detect iOS
+    // 3. Detect iOS
     const userAgent = window.navigator.userAgent.toLowerCase();
     const ios = /iphone|ipad|ipod/.test(userAgent);
     setIsIOS(ios);
@@ -28,6 +33,7 @@ export function PWAPrompt() {
 
     const dismissed = localStorage.getItem('schoolvan_pwa_dismissed') === 'true';
 
+    // Catch native browser PWA install event
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -40,9 +46,9 @@ export function PWAPrompt() {
 
     window.addEventListener('appinstalled', () => {
       setShowBanner(false);
-      setShowIosGuide(false);
+      setShowGuideModal(false);
       setIsStandalone(true);
-      toast.success('🎉 SchoolVan instalado como App nativo com sucesso!', { duration: 5000 });
+      toast.success('🎉 SchoolVan instalado como App na sua Tela Inicial com sucesso!', { duration: 6000 });
     });
 
     if (!standalone && !dismissed) {
@@ -63,33 +69,30 @@ export function PWAPrompt() {
   };
 
   const handleInstallClick = async () => {
-    // 1. Check if we are inside an iframe (preview environment)
-    const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
-
+    // Inside iframe preview, open top window where browser enables native PWA installation
     if (isInIframe) {
-      toast.success('Abrindo em nova aba para acionar a instalação nativa do seu navegador...', { duration: 4000 });
+      toast('Abrindo em nova aba para liberar a instalação nativa do navegador...', { icon: '🚀', duration: 4000 });
       window.open(window.location.href, '_blank');
       return;
     }
 
-    // 2. Real Native PWA Prompt invocation
+    // Direct Native PWA Prompt invocation if captured
     if (deferredPrompt) {
       try {
         deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
         if (outcome === 'accepted') {
           setShowBanner(false);
-          setShowIosGuide(false);
-          toast.success('Instalando SchoolVan no seu dispositivo...');
+          setShowGuideModal(false);
+          toast.success('Instalando SchoolVan no seu celular...');
         }
         setDeferredPrompt(null);
       } catch (err) {
         console.error('PWA install error:', err);
       }
-    } else if (isIOS) {
-      setShowIosGuide(true);
     } else {
-      toast('Aguardando prompt de instalação do navegador...', { icon: '📲' });
+      // Show explicit step-by-step installation modal for iOS or Android
+      setShowGuideModal(true);
     }
   };
 
@@ -127,36 +130,82 @@ export function PWAPrompt() {
 
   return (
     <>
-      {/* iOS Direct Guide Modal */}
-      {showIosGuide && (
+      {/* 📲 Complete Native PWA Mobile Installation Guide Modal */}
+      {showGuideModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-gray-900 text-white p-6 rounded-3xl max-w-sm w-full space-y-4 border border-yellow-400/40 relative shadow-2xl">
+          <div className="bg-gray-900 text-white p-6 rounded-3xl max-w-sm w-full space-y-5 border border-yellow-400/50 relative shadow-2xl">
             <button
-              onClick={() => setShowIosGuide(false)}
+              onClick={() => setShowGuideModal(false)}
               className="absolute top-4 right-4 p-2 text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-full cursor-pointer"
             >
               <X size={18} />
             </button>
 
             <div className="flex items-center gap-3">
-              <img src="/icon.png" alt="SchoolVan" className="w-12 h-12 rounded-2xl border border-yellow-400/30 object-cover" referrerPolicy="no-referrer" />
+              <img src="/icon.png" alt="SchoolVan" className="w-12 h-12 rounded-2xl border border-yellow-400/40 object-cover shadow-lg" referrerPolicy="no-referrer" />
               <div>
-                <h3 className="text-lg font-black text-yellow-400">Instalar no iPhone / iPad</h3>
-                <p className="text-xs text-gray-300">Aplicativo PWA Oficial</p>
+                <h3 className="text-lg font-black text-yellow-400">Instalar o App SchoolVan</h3>
+                <p className="text-xs text-gray-300">PWA Nativo para Celular</p>
               </div>
             </div>
 
-            <div className="bg-white/5 p-4 rounded-2xl border border-white/10 space-y-2 text-xs text-gray-200">
-              <div className="flex items-center gap-2 font-bold text-yellow-400">
-                <Share size={16} /> Instalação Nativa Safari:
+            {isIOS ? (
+              /* iOS Safari Instructions */
+              <div className="bg-white/5 p-4 rounded-2xl border border-white/10 space-y-3 text-xs text-gray-200">
+                <div className="flex items-center gap-2 font-bold text-yellow-400 text-sm">
+                  <Share size={18} /> No iPhone / iPad (Safari):
+                </div>
+                <div className="space-y-2 text-gray-300">
+                  <p className="flex items-start gap-2">
+                    <span className="w-5 h-5 rounded-full bg-yellow-400/20 text-yellow-400 flex items-center justify-center font-bold text-[10px] shrink-0">1</span>
+                    Toque no botão <strong className="text-white">Compartilhar</strong> (quadrado com seta para cima no rodapé do Safari).
+                  </p>
+                  <p className="flex items-start gap-2">
+                    <span className="w-5 h-5 rounded-full bg-yellow-400/20 text-yellow-400 flex items-center justify-center font-bold text-[10px] shrink-0">2</span>
+                    Role para baixo e selecione <strong className="text-yellow-400">"Adicionar à Tela de Início"</strong>.
+                  </p>
+                  <p className="flex items-start gap-2">
+                    <span className="w-5 h-5 rounded-full bg-yellow-400/20 text-yellow-400 flex items-center justify-center font-bold text-[10px] shrink-0">3</span>
+                    Clique em <strong className="text-white">Adicionar</strong> no canto superior direito.
+                  </p>
+                </div>
               </div>
-              <p>1. Toque no ícone de <strong className="text-white">Compartilhar</strong> (quadrado com seta abaixo).</p>
-              <p>2. Clique em <strong className="text-yellow-400">"Adicionar à Tela de Início"</strong>.</p>
-            </div>
+            ) : (
+              /* Android / Desktop Chrome Instructions */
+              <div className="bg-white/5 p-4 rounded-2xl border border-white/10 space-y-3 text-xs text-gray-200">
+                <div className="flex items-center gap-2 font-bold text-yellow-400 text-sm">
+                  <Smartphone size={18} /> No Android / Chrome / Edge:
+                </div>
+                <div className="space-y-2 text-gray-300">
+                  {isInIframe ? (
+                    <p className="text-yellow-300 bg-yellow-400/10 p-2.5 rounded-xl border border-yellow-400/20 mb-2">
+                      ⚠️ Você está no visualizador. Clique no botão abaixo para abrir direto no navegador do celular e liberar o instalador nativo!
+                    </p>
+                  ) : null}
+                  <p className="flex items-start gap-2">
+                    <span className="w-5 h-5 rounded-full bg-yellow-400/20 text-yellow-400 flex items-center justify-center font-bold text-[10px] shrink-0">1</span>
+                    Toque nos <strong className="text-white">3 pontinhos (⋮)</strong> no canto superior direito do seu navegador.
+                  </p>
+                  <p className="flex items-start gap-2">
+                    <span className="w-5 h-5 rounded-full bg-yellow-400/20 text-yellow-400 flex items-center justify-center font-bold text-[10px] shrink-0">2</span>
+                    Selecione <strong className="text-yellow-400">"Instalar aplicativo"</strong> ou <strong className="text-yellow-400">"Adicionar à Tela Inicial"</strong>.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {isInIframe && (
+              <button
+                onClick={() => window.open(window.location.href, '_blank')}
+                className="w-full py-3 bg-yellow-400 text-gray-950 font-black rounded-xl text-xs hover:bg-yellow-300 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg"
+              >
+                <ExternalLink size={16} /> Abrir no Navegador Completo
+              </button>
+            )}
 
             <button
-              onClick={() => setShowIosGuide(false)}
-              className="w-full py-3 bg-yellow-400 text-gray-950 font-black rounded-xl text-xs hover:bg-yellow-300 transition-all cursor-pointer shadow"
+              onClick={() => setShowGuideModal(false)}
+              className="w-full py-2.5 bg-white/10 text-white font-bold rounded-xl text-xs hover:bg-white/20 transition-all cursor-pointer"
             >
               Entendido
             </button>
@@ -164,7 +213,7 @@ export function PWAPrompt() {
         </div>
       )}
 
-      {/* Top Right Floating PWA Banner (Below header, far from bottom FAB) */}
+      {/* Floating PWA Banner (Below header) */}
       {showBanner && (
         <div className="fixed top-16 right-4 sm:right-6 w-[calc(100%-2rem)] sm:w-88 bg-gray-900 text-white p-3.5 rounded-2xl shadow-2xl z-30 border border-yellow-400/50 flex flex-col gap-2.5 animate-fade-in">
           <div className="flex items-center gap-3">
@@ -215,6 +264,7 @@ export function PWAPrompt() {
     </>
   );
 }
+
 
 
 
