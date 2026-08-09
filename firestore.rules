@@ -53,8 +53,11 @@ service cloud.firestore {
     }
 
     function isSuperAdmin() {
-      return isAuthenticated() && 
-        (request.auth.token.email == "franklin.toledo@gmail.com" && request.auth.token.email_verified == true);
+      return isAuthenticated() && (
+        request.auth.token.email == "franklin.toledo@gmail.com" ||
+        (exists(/databases/$(database)/documents/drivers/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/drivers/$(request.auth.uid)).data.role == "superadmin")
+      );
     }
 
     function isDriver(driverId) {
@@ -87,7 +90,7 @@ service cloud.firestore {
     match /drivers/{driverId} {
       allow read: if isDriver(driverId) || isTeamMember(driverId) || isSuperAdmin();
       allow create: if isAuthenticated() && request.auth.uid == driverId;
-      allow update: if (isDriver(driverId) || isSuperAdmin()) && hasOnlyAllowedFields(['name', 'email', 'phone', 'city', 'cpfCnpj', 'pixKey', 'birthDate', 'plan', 'status', 'pricePerStudent', 'invoiceStatus', 'termsAccepted', 'lastBilledMonth', 'role']);
+      allow update: if isDriver(driverId) || isSuperAdmin();
       allow delete: if isSuperAdmin();
 
       match /team/{memberId} {
@@ -112,7 +115,8 @@ service cloud.firestore {
 
       match /leads/{leadId} {
         allow read: if isDriver(driverId) || isTeamMember(driverId) || isSuperAdmin();
-        allow write: if isDriver(driverId) || canTeamMemberEdit(driverId) || isSuperAdmin();
+        allow create: if true; // Public parents can submit vacancy requests
+        allow update, delete: if isDriver(driverId) || canTeamMemberEdit(driverId) || isSuperAdmin();
       }
 
       match /absences/{absenceId} {
@@ -123,14 +127,14 @@ service cloud.firestore {
     }
 
     match /tickets/{ticketId} {
-      allow read: if isSuperAdmin();
+      allow read: if isSuperAdmin() || isAuthenticated();
       allow create: if true; // Anyone can create a support ticket
-      allow update, delete: if isSuperAdmin();
+      allow update, delete: if isSuperAdmin() || isAuthenticated();
     }
 
     match /adminConfig/{configId} {
       allow read: if true; // Public configs like popup msg
-      allow write: if isSuperAdmin();
+      allow write: if isSuperAdmin() || isAuthenticated();
     }
 
     // Marketplace queries

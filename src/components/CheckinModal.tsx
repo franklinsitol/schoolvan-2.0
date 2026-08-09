@@ -5,6 +5,7 @@ import { Student, BoardingStatus } from '../types';
 import { cn } from '../lib/utils';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { isStudentAbsentOnDate } from '../lib/absence';
 import toast from 'react-hot-toast';
 
 interface CheckinModalProps {
@@ -56,7 +57,7 @@ export function CheckinModal({ isOpen, onClose, students, driverId }: CheckinMod
         </div>
 
         <div className="max-h-[70vh] overflow-y-auto p-2">
-          {students.filter(s => s.status === 'Ativo' && !s.ausenteHoje).map((student) => {
+          {students.filter(s => s.status === 'Ativo' && !isStudentAbsentOnDate(s)).map((student) => {
             const status = student.boardingStatus || 'Casa';
             const colors: any = {
               'Casa': 'border-red-500 bg-red-50/30',

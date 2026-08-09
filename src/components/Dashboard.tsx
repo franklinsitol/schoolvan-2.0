@@ -6,15 +6,22 @@ import {
   Wallet, 
   ArrowUpRight, 
   ArrowDownRight,
-  ClipboardList
+  ClipboardList,
+  MessageSquare,
+  UserCheck,
+  ArrowRight
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { useAuth } from '../hooks/useAuth';
 import { useFirestore } from '../hooks/useFirestore';
 import { Student, Vehicle, Lead, Finance } from '../types';
 import { cn } from '../lib/utils';
+import { isStudentAbsentOnDate } from '../lib/absence';
+import { doc, updateDoc, addDoc, collection } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import toast from 'react-hot-toast';
 
-export function Dashboard() {
+export function Dashboard({ onNavigateToLeads }: { onNavigateToLeads?: () => void }) {
   const { profile } = useAuth();
   const { data: students } = useFirestore<Student>(`drivers/${profile?.id}/students`);
   const { data: vehicles } = useFirestore<Vehicle>(`drivers/${profile?.id}/vehicles`);
@@ -142,7 +149,7 @@ export function Dashboard() {
                       className={cn(
                         "w-12 h-12 rounded-xl flex items-center justify-center text-xs font-bold shadow-sm border transition-all",
                         student 
-                          ? student.ausenteHoje 
+                          ? isStudentAbsentOnDate(student) 
                             ? "bg-gray-400 text-white border-gray-500"
                             : "bg-red-500 text-white border-red-600"
                           : "bg-green-500 text-white border-green-600"
@@ -163,28 +170,80 @@ export function Dashboard() {
         </div>
 
         {/* Leads */}
-        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-          <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-            <ClipboardList className="text-yellow-500" /> Solicitações
-          </h3>
-          <div className="space-y-4">
-            {leads.filter(l => l.status === 'Pendente').map(lead => (
-              <div key={lead.id} className="p-4 bg-yellow-50 rounded-2xl border border-yellow-100">
-                <div className="font-bold text-gray-900">{lead.childName}</div>
-                <div className="text-xs text-gray-500 mb-2">Pai: {lead.parentName}</div>
-                <button 
-                  className="w-full py-2 bg-green-500 text-white rounded-xl text-sm font-bold hover:bg-green-600 transition-colors"
-                  onClick={() => {/* Approve Lead */}}
-                >
-                  Aceitar
-                </button>
-              </div>
-            ))}
-            {leads.filter(l => l.status === 'Pendente').length === 0 && (
-              <div className="text-center py-10 text-gray-400 text-sm">
-                Nenhuma solicitação pendente.
-              </div>
-            )}
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold flex items-center gap-2 text-gray-900">
+                <ClipboardList className="text-yellow-500" /> Solicitações de Vaga
+              </h3>
+              {leads.filter(l => l.status === 'Pendente').length > 0 && (
+                <span className="bg-yellow-400 text-gray-950 font-black text-xs px-2.5 py-0.5 rounded-full">
+                  {leads.filter(l => l.status === 'Pendente').length} nova(s)
+                </span>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              {leads.filter(l => l.status === 'Pendente').slice(0, 3).map(lead => {
+                const cleanPhone = (lead.phone || '').replace(/\D/g, '');
+                const msg = `Olá ${lead.parentName}! Sou o motorista da van no SchoolVan. Recebi sua solicitação de vaga para o(a) ${lead.childName}. Vamos conversar?`;
+                const waUrl = `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(msg)}`;
+
+                return (
+                  <div key={lead.id} className="p-4 bg-yellow-50/80 rounded-2xl border border-yellow-200/60 space-y-2">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="font-extrabold text-gray-900 text-sm">{lead.childName}</div>
+                        <div className="text-xs text-gray-600 font-medium">
+                          Pai/Mãe: <strong>{lead.parentName}</strong>
+                        </div>
+                        {(lead.schoolName || lead.school) && (
+                          <div className="text-[11px] text-gray-500">
+                            Escola: {lead.schoolName || lead.school}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-1">
+                      <a 
+                        href={waUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex-1 py-2 bg-green-500 hover:bg-green-600 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                      >
+                        <MessageSquare size={14} />
+                        <span>WhatsApp</span>
+                      </a>
+                      
+                      <button 
+                        onClick={onNavigateToLeads}
+                        className="flex-1 py-2 bg-yellow-400 hover:bg-yellow-300 text-gray-950 rounded-xl text-xs font-black transition-colors flex items-center justify-center gap-1 shadow-sm cursor-pointer"
+                      >
+                        <UserCheck size={14} />
+                        <span>Ver Details</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {leads.filter(l => l.status === 'Pendente').length === 0 && (
+                <div className="text-center py-10 text-gray-400 text-xs">
+                  Nenhuma solicitação de vaga pendente no momento.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-gray-100 mt-4">
+            <button
+              onClick={onNavigateToLeads}
+              className="w-full py-2.5 bg-gray-900 hover:bg-gray-800 text-yellow-400 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <span>Gerenciar Todas as Solicitações ({leads.length})</span>
+              <ArrowRight size={14} />
+            </button>
           </div>
         </div>
       </div>

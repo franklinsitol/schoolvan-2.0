@@ -18,12 +18,16 @@ import {
   Bell,
   ShieldCheck,
   ShieldAlert,
-  School
+  School,
+  Calendar,
+  CalendarX,
+  Trash2
 } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
 import { cn } from './lib/utils';
 import { useFirestore, useCollectionGroup } from './hooks/useFirestore';
 import { Student, Vehicle } from './types';
+import { isStudentAbsentOnDate, getTodayStr, formatDateBR } from './lib/absence';
 
 import { auth, db } from './lib/firebase';
 import { signOut } from 'firebase/auth';
@@ -44,6 +48,7 @@ import { StudentModal } from './components/StudentModal';
 import { VehicleModal } from './components/VehicleModal';
 import { SuperAdminView } from './components/SuperAdminView';
 import { CSAssistant } from './components/CSAssistant';
+import { LeadsView } from './components/LeadsView';
 import { PWAPrompt } from './components/PWAPrompt';
 
 // Views
@@ -52,29 +57,131 @@ const ParentView = () => {
   const { data: students, loading } = useCollectionGroup<Student>('students', [
     where('parentEmail', '==', user?.email)
   ]);
-  
+
+  const [scheduleDates, setScheduleDates] = useState<Record<string, string>>({});
+  const [reasons, setReasons] = useState<Record<string, string>>({});
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
+
   if (loading) return <div className="p-8 text-center font-bold text-gray-500">Carregando dados do aluno...</div>;
 
-  const toggleAbsence = async (student: Student) => {
+  const todayStr = getTodayStr();
+
+  const toggleAbsenceToday = async (student: Student) => {
     if (!student.driverId || !student.id) {
       toast.error('Identificador do aluno não encontrado.');
       return;
     }
+    const isCurrentlyAbsent = isStudentAbsentOnDate(student, todayStr);
     try {
       const studentRef = doc(db, 'drivers', student.driverId, 'students', student.id);
+      const newAusenteState = !isCurrentlyAbsent;
+      
+      let newAbsenceDates = student.absenceDates || [];
+      if (newAusenteState) {
+        if (!newAbsenceDates.includes(todayStr)) {
+          newAbsenceDates = [...newAbsenceDates, todayStr];
+        }
+      } else {
+        newAbsenceDates = newAbsenceDates.filter(d => d !== todayStr);
+      }
+
       await updateDoc(studentRef, {
-        ausenteHoje: !student.ausenteHoje,
+        ausenteHoje: newAusenteState,
+        absenceDates: newAbsenceDates,
         lastCheck: new Date().toISOString()
       });
-      toast.success(student.ausenteHoje ? 'Aluno marcado como PRESENTE hoje!' : 'Aviso de AUSÊNCIA enviado ao motorista!');
+
+      toast.success(newAusenteState ? 'Aviso de AUSÊNCIA enviado ao motorista para HOJE!' : 'Aluno marcado como PRESENTE hoje!');
     } catch (err) {
       console.error(err);
       toast.error('Erro ao registrar alteração de ausência.');
     }
   };
 
-  const contactDriver = (student: Student) => {
-    const msg = `Olá Tio/Tia da Van! Sou o responsável do(a) ${student.name}. Gostaria de confirmar informações sobre o transporte de hoje.`;
+  const handleScheduleAbsence = async (student: Student) => {
+    const selectedDate = scheduleDates[student.id];
+    const reasonText = reasons[student.id] || 'Sem motivo informado';
+
+    if (!selectedDate) {
+      toast.error('Por favor, selecione uma data para agendar a falta.');
+      return;
+    }
+
+    if (!student.driverId || !student.id) {
+      toast.error('Erro ao identificar o motorista/aluno.');
+      return;
+    }
+
+    setSubmittingId(student.id);
+
+    try {
+      const studentRef = doc(db, 'drivers', student.driverId, 'students', student.id);
+      const currentScheduled = student.scheduledAbsences || [];
+      const currentDates = student.absenceDates || [];
+
+      if (currentDates.includes(selectedDate)) {
+        toast.error('Falta já agendada para este dia.');
+        setSubmittingId(null);
+        return;
+      }
+
+      const updatedScheduled = [
+        ...currentScheduled,
+        {
+          date: selectedDate,
+          reason: reasonText,
+          createdAt: new Date().toISOString()
+        }
+      ];
+
+      const updatedDates = [...currentDates, selectedDate];
+      const isToday = selectedDate === todayStr;
+
+      await updateDoc(studentRef, {
+        scheduledAbsences: updatedScheduled,
+        absenceDates: updatedDates,
+        ...(isToday ? { ausenteHoje: true } : {}),
+        lastCheck: new Date().toISOString()
+      });
+
+      toast.success(`Falta agendada com sucesso para ${formatDateBR(selectedDate)}!`);
+
+      // Clear input state
+      setScheduleDates(prev => ({ ...prev, [student.id]: '' }));
+      setReasons(prev => ({ ...prev, [student.id]: '' }));
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao agendar falta.');
+    } finally {
+      setSubmittingId(null);
+    }
+  };
+
+  const handleRemoveScheduledAbsence = async (student: Student, dateToRemove: string) => {
+    if (!student.driverId || !student.id) return;
+
+    try {
+      const studentRef = doc(db, 'drivers', student.driverId, 'students', student.id);
+      const updatedScheduled = (student.scheduledAbsences || []).filter(a => a.date !== dateToRemove);
+      const updatedDates = (student.absenceDates || []).filter(d => d !== dateToRemove);
+      const isToday = dateToRemove === todayStr;
+
+      await updateDoc(studentRef, {
+        scheduledAbsences: updatedScheduled,
+        absenceDates: updatedDates,
+        ...(isToday ? { ausenteHoje: false } : {}),
+        lastCheck: new Date().toISOString()
+      });
+
+      toast.success(`Falta do dia ${formatDateBR(dateToRemove)} cancelada.`);
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao cancelar falta agendada.');
+    }
+  };
+
+  const contactDriver = (student: Student, customMsg?: string) => {
+    const msg = customMsg || `Olá Tio/Tia da Van! Sou o responsável do(a) ${student.name}. Gostaria de confirmar informações sobre o transporte escolar.`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
@@ -95,67 +202,151 @@ const ParentView = () => {
         </button>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 gap-8">
         {students.map(student => {
-          const status = student.boardingStatus || (student.ausenteHoje ? 'NÃO VAI' : 'Casa');
+          const isAbsentToday = isStudentAbsentOnDate(student, todayStr);
+          const status = isAbsentToday ? 'NÃO VAI' : (student.boardingStatus || 'Casa');
+          const scheduledList = student.scheduledAbsences || [];
           
           return (
             <div key={student.id} className="space-y-6">
+              {/* Status Header Banner */}
               <div className={cn(
                 "p-8 rounded-[40px] shadow-xl text-center transition-all",
                 status === 'Van' ? "bg-gradient-to-br from-yellow-400 to-amber-500 text-gray-950" :
                 status === 'Escola' ? "bg-gradient-to-br from-blue-500 to-indigo-600 text-white" :
-                student.ausenteHoje || status === 'NÃO VAI' ? "bg-gradient-to-br from-gray-500 to-gray-700 text-white" :
+                isAbsentToday || status === 'NÃO VAI' ? "bg-gradient-to-br from-gray-600 to-gray-800 text-white" :
                 "bg-gradient-to-br from-emerald-500 to-teal-600 text-white"
               )}>
                  <Bus size={48} className="mx-auto mb-4 animate-bounce-short" />
                  <h2 className="text-3xl font-black mb-2 uppercase tracking-wide">
-                   {student.ausenteHoje ? 'AUSENTE HOJE' : status}
+                   {isAbsentToday ? 'AUSENTE HOJE' : status}
                  </h2>
                  <p className="font-bold text-sm opacity-90">
-                   {student.ausenteHoje ? 'Aviso de ausência enviado ao motorista' :
+                   {isAbsentToday ? 'Aviso de ausência registrado! O aluno não participará da rota de hoje.' :
                     status === 'Van' ? 'Em trânsito na Van Escolar' : 
                     status === 'Escola' ? 'Entregue com segurança na Escola' :
                     'Em casa / Aguardando embarque'}
                  </p>
               </div>
               
-              <div className="bg-white p-6 rounded-[36px] shadow-sm border border-gray-100 space-y-4">
-                <h3 className="text-xl font-black text-gray-900">{student.name}</h3>
-                <div className="space-y-3 text-sm">
-                  <div className="flex items-center gap-3 text-gray-600">
-                    <School size={18} className="text-yellow-500 shrink-0" />
-                    <span>{student.schoolName || 'Escola não informada'}</span>
+              <div className="bg-white p-6 rounded-[36px] shadow-sm border border-gray-100 space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-4">
+                  <div>
+                    <h3 className="text-2xl font-black text-gray-900">{student.name}</h3>
+                    <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                      <School size={16} className="text-yellow-500 shrink-0" />
+                      <span>{student.schoolName || 'Escola não informada'}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3 text-gray-600">
-                    <Users size={18} className="text-yellow-500 shrink-0" />
-                    <span>Último Status: {student.lastCheck ? new Date(student.lastCheck).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--'}</span>
+                  <div className="text-xs text-gray-400">
+                    Última att: {student.lastCheck ? new Date(student.lastCheck).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
                   </div>
                 </div>
                 
-                <div className="mt-6 flex gap-3 pt-2">
+                {/* Immediate Action Buttons */}
+                <div className="flex flex-wrap gap-3">
                   <button 
                     onClick={() => contactDriver(student)}
-                    className="flex-1 py-3 bg-green-500 text-white font-extrabold rounded-2xl shadow-md hover:bg-green-600 transition-all cursor-pointer active:scale-95 text-xs flex items-center justify-center gap-1.5"
+                    className="flex-1 min-w-[140px] py-3 bg-green-500 text-white font-extrabold rounded-2xl shadow-md hover:bg-green-600 transition-all cursor-pointer active:scale-95 text-xs flex items-center justify-center gap-1.5"
                   >
                     Falar no WhatsApp
                   </button>
                   <button 
                     className={cn(
-                      "flex-1 py-3 font-extrabold rounded-2xl transition-all cursor-pointer active:scale-95 text-xs",
-                      student.ausenteHoje 
-                        ? "bg-yellow-400 text-gray-900 hover:bg-yellow-300 shadow-md" 
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      "flex-1 min-w-[140px] py-3 font-extrabold rounded-2xl transition-all cursor-pointer active:scale-95 text-xs border",
+                      isAbsentToday 
+                        ? "bg-yellow-400 text-gray-900 border-yellow-400 hover:bg-yellow-300 shadow-md" 
+                        : "bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200"
                     )}
-                    onClick={() => toggleAbsence(student)}
+                    onClick={() => toggleAbsenceToday(student)}
                   >
-                    {student.ausenteHoje ? '✓ Vai hoje' : '✕ Não vai hoje'}
+                    {isAbsentToday ? '✓ Vai hoje' : '✕ Não vai HOJE'}
                   </button>
                 </div>
+
+                {/* Schedule Absence Block */}
+                <div className="bg-gradient-to-br from-amber-50/60 to-yellow-50/60 p-5 rounded-3xl border border-amber-200 space-y-4">
+                  <div className="flex items-center gap-2 text-amber-900 font-extrabold text-sm">
+                    <CalendarX size={20} className="text-amber-600" />
+                    <span>Agendar Falta Futura</span>
+                  </div>
+                  <p className="text-xs text-gray-600">
+                    Programe ausências futuras (ex: consultas médicas, viagens). O motorista receberá o aviso antecipadamente e o aluno será removido da rota no dia agendado.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-gray-600 uppercase mb-1">Data da Falta</label>
+                      <input 
+                        type="date"
+                        min={todayStr}
+                        value={scheduleDates[student.id] || ''}
+                        onChange={(e) => setScheduleDates({ ...scheduleDates, [student.id]: e.target.value })}
+                        className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-yellow-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-gray-600 uppercase mb-1">Motivo (Opcional)</label>
+                      <select 
+                        value={reasons[student.id] || ''}
+                        onChange={(e) => setReasons({ ...reasons, [student.id]: e.target.value })}
+                        className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-yellow-400"
+                      >
+                        <option value="">Selecione um motivo...</option>
+                        <option value="Consulta médica">Consulta Médica / Exames</option>
+                        <option value="Viagem">Viagem Familiar</option>
+                        <option value="Doença / Indisposto">Doença / Indisposto</option>
+                        <option value="Compromisso pessoal">Compromisso Pessoal</option>
+                        <option value="Outro">Outro Motivo</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <button
+                    disabled={submittingId === student.id}
+                    onClick={() => handleScheduleAbsence(student)}
+                    className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs rounded-xl shadow-md transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <Calendar size={16} />
+                    {submittingId === student.id ? 'Agendando...' : 'Confirmar Agendamento de Falta'}
+                  </button>
+                </div>
+
+                {/* List of Scheduled Absences */}
+                {scheduledList.length > 0 && (
+                  <div className="space-y-3 pt-2">
+                    <h4 className="text-xs font-black text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                      <Calendar size={14} /> Faltas Futuras Agendadas ({scheduledList.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {scheduledList.map((item, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-xs">
+                          <div>
+                            <div className="font-extrabold text-gray-900 text-sm">
+                              {formatDateBR(item.date)}
+                              {item.date === todayStr && <span className="ml-2 text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded font-black">HOJE</span>}
+                            </div>
+                            <div className="text-gray-500 text-xs">{item.reason || 'Sem motivo especificado'}</div>
+                          </div>
+
+                          <button
+                            onClick={() => handleRemoveScheduledAbsence(student, item.date)}
+                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all cursor-pointer"
+                            title="Cancelar esta falta agendada"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           );
         })}
+
         {students.length === 0 && (
           <div className="col-span-full text-center py-20 bg-white rounded-3xl border border-gray-100 text-gray-400 space-y-2">
             <Users size={40} className="mx-auto opacity-30" />
@@ -217,9 +408,9 @@ const Students = () => {
                   <tr key={student.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="font-bold text-gray-900">{student.name}</div>
-                      {student.ausenteHoje && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                          Ausente
+                      {isStudentAbsentOnDate(student) && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-800 uppercase mt-0.5">
+                          Ausente Hoje
                         </span>
                       )}
                     </td>
@@ -264,7 +455,7 @@ const Students = () => {
   );
 };
 
-type View = 'market' | 'dash' | 'students' | 'routes' | 'vehicles' | 'team' | 'finance' | 'profile' | 'support' | 'parent' | 'superadmin';
+type View = 'market' | 'dash' | 'leads' | 'students' | 'routes' | 'vehicles' | 'team' | 'finance' | 'profile' | 'support' | 'parent' | 'superadmin';
 
 export default function App() {
   const { user, profile, loading } = useAuth();
@@ -312,11 +503,13 @@ export default function App() {
     { id: 'support', label: 'Ajuda & Suporte', icon: LifeBuoy, className: 'text-yellow-600 font-bold' }
   ] : [
     { id: 'dash', label: 'Início', icon: Bus },
+    { id: 'leads', label: 'Solicitações de Vaga', icon: ClipboardCheck, className: 'text-yellow-700 font-black bg-yellow-50/80 hover:bg-yellow-100' },
     { id: 'students', label: 'Alunos', icon: Users },
     { id: 'routes', label: 'Rotas', icon: MapPinned },
     { id: 'vehicles', label: 'Frota', icon: Bus },
     { id: 'team', label: 'Minha Equipe', icon: ShieldCheck },
     { id: 'finance', label: 'Financeiro', icon: Wallet },
+    { id: 'parent', label: 'Área do Responsável', icon: Users, className: 'text-indigo-600 font-bold bg-indigo-50/50 hover:bg-indigo-100' },
     { id: 'profile', label: 'Perfil', icon: Settings },
     { id: 'support', label: 'Ajuda & Suporte', icon: LifeBuoy, className: 'text-yellow-600 font-bold' },
     ...(isSuperAdmin ? [{ id: 'superadmin', label: 'Super Admin', icon: ShieldAlert, className: 'text-red-600 font-black bg-red-50' }] : []),
@@ -471,7 +664,8 @@ export default function App() {
                 transition={{ duration: 0.2 }}
               >
                 {currentView === 'market' && <Marketplace onOpenAuth={() => setAuthModal({ open: true, type: 'driver' })} />}
-                {currentView === 'dash' && <Dashboard />}
+                {currentView === 'dash' && <Dashboard onNavigateToLeads={() => setCurrentView('leads')} />}
+                {currentView === 'leads' && <LeadsView />}
                 {currentView === 'students' && <Students />}
                 {currentView === 'routes' && <RoutesView />}
                 {currentView === 'vehicles' && <VehiclesView />}

@@ -96,6 +96,12 @@ export interface Student {
   tel3?: string;
   nextAlert?: string;
   ausenteHoje?: boolean;
+  absenceDates?: string[];
+  scheduledAbsences?: {
+    date: string;
+    reason?: string;
+    createdAt: string;
+  }[];
 }
 
 export interface Finance {
@@ -113,14 +119,24 @@ export interface Finance {
 export interface Lead {
   id: string;
   driverId: string;
+  vehicleId?: string;
+  vehicleName?: string;
   parentName: string;
   phone: string;
-  email: string;
+  email?: string;
   childName: string;
-  school: string;
-  address: string;
+  school?: string;
+  schoolName?: string;
+  schoolAddress?: string;
+  address?: string;
+  studentAddress?: string;
+  shift?: string;
+  entryTime?: string;
+  exitTime?: string;
+  notes?: string;
   date: string;
-  status: 'Pendente' | 'Aprovado';
+  status: 'Pendente' | 'Em Contato' | 'Convertido' | 'Recusado' | 'Aprovado';
+  value?: number;
 }
 
 export interface Absence {

@@ -127,10 +127,11 @@ export function SuperAdminView() {
   }, []);
 
   const handleToggleDriverStatus = async (driver: Driver) => {
-    const newStatus = driver.status === 'Ativo' ? 'Bloqueado' : 'Ativo';
+    const currentStatus = driver.status || 'Ativo';
+    const newStatus = currentStatus === 'Ativo' ? 'Bloqueado' : 'Ativo';
     try {
-      await updateDoc(doc(db, 'drivers', driver.id), { status: newStatus });
-      toast.success(`Motorista ${driver.name} alterado para ${newStatus}`);
+      await setDoc(doc(db, 'drivers', driver.id), { status: newStatus }, { merge: true });
+      toast.success(`Motorista ${driver.name || 'Motorista'} alterado para ${newStatus}`);
     } catch (e) {
       console.error(e);
       toast.error("Erro ao alterar status do motorista");
@@ -140,8 +141,8 @@ export function SuperAdminView() {
   const handleToggleRole = async (driver: Driver) => {
     const newRole = driver.role === 'superadmin' ? 'admin' : 'superadmin';
     try {
-      await updateDoc(doc(db, 'drivers', driver.id), { role: newRole });
-      toast.success(`Permissão de ${driver.name} alterada para ${newRole.toUpperCase()}`);
+      await setDoc(doc(db, 'drivers', driver.id), { role: newRole }, { merge: true });
+      toast.success(`Permissão de ${driver.name || 'Motorista'} alterada para ${newRole.toUpperCase()}`);
     } catch (e) {
       console.error(e);
       toast.error("Erro ao alterar permissão");
@@ -150,8 +151,8 @@ export function SuperAdminView() {
 
   const handleSetPlan = async (driver: Driver, newPlan: 'Gratuito' | 'Pro' | 'Frota') => {
     try {
-      await updateDoc(doc(db, 'drivers', driver.id), { plan: newPlan });
-      toast.success(`Plano de ${driver.name} alterado para ${newPlan}`);
+      await setDoc(doc(db, 'drivers', driver.id), { plan: newPlan }, { merge: true });
+      toast.success(`Plano de ${driver.name || 'Motorista'} alterado para ${newPlan}`);
     } catch (e) {
       console.error(e);
       toast.error("Erro ao alterar plano");
@@ -164,12 +165,12 @@ export function SuperAdminView() {
     const promiseIso = now.toISOString();
 
     try {
-      await updateDoc(doc(db, 'drivers', driver.id), { 
+      await setDoc(doc(db, 'drivers', driver.id), { 
         paymentPromiseUntil: promiseIso,
         status: 'Ativo',
         invoiceStatus: 'Aguardando Pagamento'
-      });
-      toast.success(`Concedido prazo de 3 dias para ${driver.name}`);
+      }, { merge: true });
+      toast.success(`Concedido prazo de 3 dias para ${driver.name || 'Motorista'}`);
     } catch (e) {
       console.error(e);
       toast.error("Erro ao conceder promessa de pagamento");
@@ -178,12 +179,12 @@ export function SuperAdminView() {
 
   const handleApprovePaymentProof = async (driver: Driver) => {
     try {
-      await updateDoc(doc(db, 'drivers', driver.id), {
+      await setDoc(doc(db, 'drivers', driver.id), {
         invoiceStatus: 'Em Dia',
         status: 'Ativo',
         paymentProofNotes: null
-      });
-      toast.success(`Pagamento de ${driver.name} APROVADO! Conta ativada e fatura em dia.`);
+      }, { merge: true });
+      toast.success(`Pagamento de ${driver.name || 'Motorista'} APROVADO! Conta ativada e fatura em dia.`);
     } catch (e) {
       console.error(e);
       toast.error("Erro ao aprovar pagamento");
@@ -192,7 +193,7 @@ export function SuperAdminView() {
 
   const handleUpdateTicketStatus = async (ticketId: string, newStatus: Ticket['status']) => {
     try {
-      await updateDoc(doc(db, 'tickets', ticketId), { status: newStatus });
+      await setDoc(doc(db, 'tickets', ticketId), { status: newStatus }, { merge: true });
       toast.success(`Chamado atualizado para ${newStatus}`);
     } catch (e) {
       console.error(e);

@@ -31,6 +31,7 @@ import {
 import { useCollectionGroup } from '../hooks/useFirestore';
 import { Vehicle } from '../types';
 import { cn } from '../lib/utils';
+import { RequestVacancyModal } from './RequestVacancyModal';
 
 export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
   const { data: vehicles } = useCollectionGroup<Vehicle>('vehicles');
@@ -40,6 +41,7 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
   const [studentCountCalc, setStudentCountCalc] = useState<number>(35);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [activeDemoTab, setActiveDemoTab] = useState<'driver' | 'parent' | 'finance' | 'routes'>('driver');
+  const [selectedVehicleForLead, setSelectedVehicleForLead] = useState<Vehicle | null>(null);
 
   const searchSectionRef = useRef<HTMLDivElement>(null);
 
@@ -783,8 +785,8 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
                   </div>
 
                   <button 
-                    onClick={onOpenAuth}
-                    className="w-full py-3 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold rounded-2xl transition-colors shadow-md active:scale-95 cursor-pointer"
+                    onClick={() => setSelectedVehicleForLead(vehicle)}
+                    className="w-full py-3 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-black rounded-2xl transition-colors shadow-md active:scale-95 cursor-pointer flex items-center justify-center gap-2"
                   >
                     SOLICITAR VAGA
                   </button>
@@ -804,6 +806,13 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
           )}
         </div>
       )}
+
+      {/* REQUEST VACANCY MODAL FOR PARENTS (NO REGISTRATION NEEDED) */}
+      <RequestVacancyModal 
+        isOpen={!!selectedVehicleForLead}
+        onClose={() => setSelectedVehicleForLead(null)}
+        vehicle={selectedVehicleForLead}
+      />
 
       {/* FOOTER */}
       <footer className="pt-10 border-t border-gray-200 text-center text-gray-400 text-xs space-y-2">
