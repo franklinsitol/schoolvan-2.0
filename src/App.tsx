@@ -489,13 +489,15 @@ export default function App() {
 
       <PWAPrompt />
 
-      {/* FAB (Mobile Check-in) */}
+      {/* FAB (Mobile Check-in / Checklist) */}
       {user && profile?.role === 'admin' && (
         <button 
-          className="fixed bottom-6 right-6 w-16 h-16 bg-gray-900 text-yellow-400 rounded-full shadow-2xl flex items-center justify-center z-40 hover:scale-110 transition-transform active:scale-95"
+          className="fixed bottom-6 right-6 px-5 py-3.5 bg-gray-900 text-yellow-400 font-extrabold rounded-full shadow-2xl flex items-center gap-2.5 z-40 hover:bg-gray-800 hover:scale-105 transition-all cursor-pointer active:scale-95 border-2 border-yellow-400/50"
           onClick={() => setIsCheckinOpen(true)}
+          title="Abrir Chamada / Checklist dos Alunos"
         >
-          <ClipboardCheck size={28} />
+          <ClipboardCheck size={24} className="shrink-0 text-yellow-400" />
+          <span className="text-xs font-black uppercase tracking-wider text-yellow-400">Checklist</span>
         </button>
       )}
 
