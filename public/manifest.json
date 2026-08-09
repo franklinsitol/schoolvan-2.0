@@ -1,8 +1,8 @@
 {
   "short_name": "SchoolVan",
-  "name": "SchoolVan - Transporte Escolar",
+  "name": "SchoolVan - Gestão de Transporte Escolar",
   "id": "/",
-  "description": "Gestão e localização de transporte escolar em tempo real para motoristas e pais.",
+  "description": "A plataforma definitiva para gestão de transporte escolar e rastreamento em tempo real.",
   "icons": [
     {
       "src": "/favicon.png",
@@ -20,33 +20,21 @@
       "src": "/icon.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     }
   ],
   "start_url": "/",
-  "background_color": "#111827",
-  "theme_color": "#FACC15",
+  "background_color": "#121212",
+  "theme_color": "#FFC107",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
-  "orientation": "portrait",
+  "orientation": "any",
   "scope": "/",
   "prefer_related_applications": false,
   "categories": ["education", "travel", "productivity"]

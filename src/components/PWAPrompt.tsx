@@ -134,7 +134,7 @@ export function PWAPrompt() {
             </button>
 
             <div className="flex items-center gap-3">
-              <img src="/icon.png" alt="SchoolVan" className="w-12 h-12 rounded-2xl border border-yellow-400/30" />
+              <img src="/icon.png" alt="SchoolVan" className="w-12 h-12 rounded-2xl border border-yellow-400/30 object-cover" referrerPolicy="no-referrer" />
               <div>
                 <h3 className="text-lg font-black text-yellow-400">Instalar no iPhone / iPad</h3>
                 <p className="text-xs text-gray-300">Aplicativo PWA Oficial</p>
@@ -163,7 +163,7 @@ export function PWAPrompt() {
       {showBanner && (
         <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-gray-900 text-white p-4 rounded-3xl shadow-2xl z-40 border border-yellow-400/50 flex flex-col gap-3 animate-fade-in">
           <div className="flex items-center gap-3">
-            <img src="/icon.png" alt="SchoolVan" className="w-11 h-11 rounded-2xl shrink-0 border border-yellow-400/40 shadow-md" />
+            <img src="/icon.png" alt="SchoolVan" className="w-11 h-11 rounded-2xl shrink-0 border border-yellow-400/40 shadow-md object-cover" referrerPolicy="no-referrer" />
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">

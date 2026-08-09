@@ -1,86 +1,84 @@
-// SchoolVan Service Worker - Clean & Reliable PWA
-const CACHE_NAME = 'schoolvan-pwa-v4';
-
-const PRECACHE_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icon.png',
-  '/favicon.png',
-  '/favicon.ico',
-  '/apple-touch-icon.png'
+// NOME DO ARQUIVO: sw.js
+const CACHE_NAME = 'schoolvan-v9'; 
+const ASSETS_TO_CACHE = [
+    '/',
+    '/index.html',
+    '/manifest.json',
+    '/icon.png',
+    '/icon-512.png',
+    '/favicon.png',
+    '/apple-touch-icon.png'
 ];
 
-// Install Event
+// 1. Instalação
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(async (cache) => {
-      for (const asset of PRECACHE_ASSETS) {
-        try {
-          await cache.add(asset);
-        } catch (e) {
-          console.warn('PWA precache warning for:', asset, e);
-        }
-      }
-    })
-  );
-});
-
-// Activate Event
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            return caches.delete(cache);
-          }
+    self.skipWaiting(); // Força o novo SW a assumir o controle imediatamente
+    event.waitUntil(
+        caches.open(CACHE_NAME).then((cache) => {
+            console.log('[SW] Cacheando nova versão v9');
+            return cache.addAll(ASSETS_TO_CACHE);
         })
-      );
-    }).then(() => self.clients.claim())
-  );
+    );
 });
 
-// Fetch Event - Network First with Graceful Fallback
+// 2. Ativação (Limpa caches antigos)
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
+        caches.keys().then((keyList) => {
+            return Promise.all(keyList.map((key) => {
+                if (key !== CACHE_NAME) {
+                    console.log('[SW] Removendo cache antigo', key);
+                    return caches.delete(key);
+                }
+            }));
+        })
+    );
+    return self.clients.claim();
+});
+
+// 3. Interceptação (Fetch)
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
+    if (event.request.method !== 'GET') return;
 
-  const url = new URL(event.request.url);
+    const url = new URL(event.request.url);
 
-  // Do NOT intercept API calls or dev server HMR
-  if (
-    url.origin !== location.origin ||
-    url.pathname.startsWith('/api') ||
-    url.pathname.includes('/@') ||
-    url.pathname.includes('hot-update')
-  ) {
-    return;
-  }
+    // Ignora chamadas para APIs externas ou rotas de dev HMR
+    if (
+        url.origin !== location.origin ||
+        url.pathname.startsWith('/api') ||
+        url.pathname.includes('script.google.com') ||
+        url.pathname.includes('/@') ||
+        url.pathname.includes('hot-update')
+    ) {
+        return;
+    }
 
-  event.respondWith(
-    fetch(event.request)
-      .then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200) {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
-        }
-        return networkResponse;
-      })
-      .catch(async () => {
-        const cached = await caches.match(event.request);
-        if (cached) return cached;
-        if (event.request.mode === 'navigate') {
-          const indexCached = await caches.match('/index.html') || await caches.match('/');
-          if (indexCached) return indexCached;
-        }
-        return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
-      })
-  );
+    // Estratégia: Tenta Rede primeiro, depois Cache (Network First)
+    event.respondWith(
+        fetch(event.request)
+            .then((response) => {
+                if (!response || response.status !== 200 || response.type !== 'basic') {
+                    return response;
+                }
+                const responseToCache = response.clone();
+                caches.open(CACHE_NAME).then((cache) => {
+                    cache.put(event.request, responseToCache);
+                });
+                return response;
+            })
+            .catch(() => {
+                return caches.match(event.request).then((response) => {
+                    if (response) return response;
+
+                    if (event.request.mode === 'navigate') {
+                        return caches.match('/index.html') || caches.match('/');
+                    }
+                });
+            })
+    );
 });
 
+// 4. Push Notifications
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {};
   const title = data.title || 'SchoolVan Notificação';
@@ -92,4 +90,5 @@ self.addEventListener('push', (event) => {
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
+
 
