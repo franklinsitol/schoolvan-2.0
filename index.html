@@ -24,8 +24,32 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icon.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-    <link rel="apple-touch-icon" href="/icon-512.png" />
     <link rel="manifest" href="/manifest.json" />
+
+    <!-- Self-healing script for stale script bundles / Service Worker MIME type errors -->
+    <script>
+      window.addEventListener('error', function(e) {
+        var msg = e && e.message ? e.message.toLowerCase() : '';
+        var isScriptError = e && e.target && e.target.tagName === 'SCRIPT';
+        if (msg.includes('module script') || msg.includes('mime type') || msg.includes('failed to load') || isScriptError) {
+          console.warn('Detectado erro de carregamento de script ou Service Worker obsoleto. Recarregando...');
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+              for (var reg of registrations) { reg.unregister(); }
+              if (window.caches) {
+                caches.keys().then(function(names) {
+                  Promise.all(names.map(function(n) { return caches.delete(n); })).then(function() {
+                    window.location.reload(true);
+                  });
+                });
+              } else {
+                window.location.reload(true);
+              }
+            });
+          }
+        }
+      }, true);
+    </script>
 
     <!-- Web Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">

@@ -1,7 +1,7 @@
 // =============================================================
 // SERVICE WORKER - PWA SHELL ISOLATION & CACHE
 // =============================================================
-const CACHE_NAME = 'pwa-shell-v2';
+const CACHE_NAME = 'pwa-shell-v3';
 const SHELL_ASSETS = [
   '/app.html',
   '/Site/app.html',
@@ -51,25 +51,31 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   // STRICT BYPASS: Let native browser handle ALL code modules, Vite assets, and backend APIs
-  if (
-    url.origin !== location.origin ||
-    url.pathname.startsWith('/api') ||
-    url.pathname.startsWith('/src') ||
-    url.pathname.startsWith('/assets') ||
-    url.pathname.startsWith('/node_modules') ||
-    url.pathname.startsWith('/@') ||
+  const isScriptOrAsset = 
     url.pathname.endsWith('.js') ||
     url.pathname.endsWith('.mjs') ||
     url.pathname.endsWith('.css') ||
     url.pathname.endsWith('.ts') ||
     url.pathname.endsWith('.tsx') ||
+    url.pathname.endsWith('.json') ||
     url.pathname.endsWith('.map') ||
+    url.pathname.startsWith('/src') ||
+    url.pathname.startsWith('/assets') ||
+    url.pathname.startsWith('/node_modules') ||
+    url.pathname.startsWith('/@') ||
+    event.request.destination === 'script' ||
+    event.request.destination === 'style';
+
+  if (
+    url.origin !== location.origin ||
+    isScriptOrAsset ||
+    url.pathname.startsWith('/api') ||
     url.pathname.includes('script.google.com') ||
     url.pathname.includes('firestore') ||
     url.pathname.includes('firebase') ||
     url.pathname.includes('hot-update')
   ) {
-    return; // Pass through to native network, zero SW intervention
+    return; // Pass through to native network with ZERO Service Worker interference
   }
 
   // Network-First strategy for Shell HTML & Shell icons only
@@ -89,8 +95,10 @@ self.addEventListener('fetch', (event) => {
         if (cachedResponse) return cachedResponse;
 
         if (event.request.mode === 'navigate') {
-          const shellFallback = (await caches.match('/app.html')) || (await caches.match('/Site/app.html'));
-          if (shellFallback) return shellFallback;
+          if (url.pathname.includes('/app.html')) {
+            const shellFallback = (await caches.match('/app.html')) || (await caches.match('/Site/app.html'));
+            if (shellFallback) return shellFallback;
+          }
         }
 
         return new Response('Modo Offline', { status: 503, statusText: 'Service Unavailable' });
