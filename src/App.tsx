@@ -24,6 +24,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
+import { usePWAShellIntegration } from './hooks/usePWAShellIntegration';
 import { cn } from './lib/utils';
 import { useFirestore, useCollectionGroup } from './hooks/useFirestore';
 import { Student, Vehicle } from './types';
@@ -459,6 +460,7 @@ type View = 'market' | 'dash' | 'leads' | 'students' | 'routes' | 'vehicles' | '
 
 export default function App() {
   const { user, profile, loading } = useAuth();
+  const { triggerShellLogout } = usePWAShellIntegration();
   const [currentView, setCurrentView] = useState<View>('market');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCheckinOpen, setIsCheckinOpen] = useState(false);
@@ -479,6 +481,7 @@ export default function App() {
   }, [user, profile]);
 
   const handleLogout = async () => {
+    triggerShellLogout();
     await signOut(auth);
     setCurrentView('market');
   };

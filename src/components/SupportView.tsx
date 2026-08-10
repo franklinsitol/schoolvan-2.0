@@ -23,11 +23,14 @@ import { useAuth } from '../hooks/useAuth';
 import { db } from '../lib/firebase';
 import { collection, addDoc, onSnapshot, query, where, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { Ticket, AdminConfig } from '../types';
+import { PWAShellDocsModal } from './PWAShellDocsModal';
+import { Layers } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export function SupportView() {
   const { profile } = useAuth();
   const [activeTab, setActiveTab] = useState<'tickets' | 'financial' | 'cancellation'>('tickets');
+  const [showPwaModal, setShowPwaModal] = useState(false);
 
   // Ticket Form States
   const [ticketProfile, setTicketProfile] = useState('Motorista');
@@ -258,8 +261,17 @@ export function SupportView() {
           <LifeBuoy size={40} className="text-gray-900" />
         </div>
         <h2 className="text-4xl font-black text-gray-900 mb-2">Central de Sucesso & Atendimento</h2>
-        <p className="text-gray-500 text-base">Atendimento automatizado, negociações financeiras e suporte em tempo real.</p>
+        <p className="text-gray-500 text-base mb-4">Atendimento automatizado, negociações financeiras e suporte em tempo real.</p>
+        
+        <button
+          onClick={() => setShowPwaModal(true)}
+          className="inline-flex items-center gap-2 bg-gray-900 text-yellow-400 border border-yellow-400/40 px-4 py-2 rounded-full font-extrabold text-xs uppercase tracking-wider hover:bg-gray-800 transition-all cursor-pointer shadow-md hover:scale-105"
+        >
+          <Layers size={16} /> Ver Documentação da Arquitetura PWA Shell + Iframe
+        </button>
       </div>
+
+      <PWAShellDocsModal isOpen={showPwaModal} onClose={() => setShowPwaModal(false)} />
 
       {/* Tabs */}
       <div className="flex flex-wrap justify-center gap-3 border-b border-gray-200 pb-4">
