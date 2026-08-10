@@ -1,10 +1,12 @@
 // =============================================================
 // SERVICE WORKER - PWA SHELL ISOLATION & CACHE (/Site/sw.js)
 // =============================================================
-const CACHE_NAME = 'pwa-shell-site-v1';
+const CACHE_NAME = 'pwa-shell-v2';
 const SHELL_ASSETS = [
+  '/app.html',
   '/Site/app.html',
   '/manifest.json',
+  '/Site/manifest.json',
   '/sw.js',
   '/icon.png',
   '/icon-512.png',
@@ -16,7 +18,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(SHELL_ASSETS).catch(err => console.warn(err));
+      return cache.addAll(SHELL_ASSETS).catch((err) => console.warn(err));
     })
   );
 });
@@ -37,14 +39,25 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
-  const requestUrl = new URL(event.request.url);
+  const url = new URL(event.request.url);
 
   if (
-    requestUrl.origin !== location.origin ||
-    requestUrl.pathname.startsWith('/api') ||
-    requestUrl.pathname.includes('script.google.com') ||
-    requestUrl.pathname.includes('firestore') ||
-    requestUrl.pathname.includes('firebase')
+    url.origin !== location.origin ||
+    url.pathname.startsWith('/api') ||
+    url.pathname.startsWith('/src') ||
+    url.pathname.startsWith('/assets') ||
+    url.pathname.startsWith('/node_modules') ||
+    url.pathname.startsWith('/@') ||
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.mjs') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname.endsWith('.ts') ||
+    url.pathname.endsWith('.tsx') ||
+    url.pathname.endsWith('.map') ||
+    url.pathname.includes('script.google.com') ||
+    url.pathname.includes('firestore') ||
+    url.pathname.includes('firebase') ||
+    url.pathname.includes('hot-update')
   ) {
     return;
   }
@@ -52,22 +65,24 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-          return networkResponse;
+        if (networkResponse && networkResponse.ok) {
+          const responseClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseClone).catch(() => {});
+          });
         }
-        const responseClone = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseClone);
-        });
         return networkResponse;
       })
-      .catch(() => {
-        return caches.match(event.request).then((cachedResponse) => {
-          if (cachedResponse) return cachedResponse;
-          if (event.request.mode === 'navigate') {
-            return caches.match('/Site/app.html') || caches.match('/app.html');
-          }
-        });
+      .catch(async () => {
+        const cachedResponse = await caches.match(event.request);
+        if (cachedResponse) return cachedResponse;
+
+        if (event.request.mode === 'navigate') {
+          const shellFallback = (await caches.match('/Site/app.html')) || (await caches.match('/app.html'));
+          if (shellFallback) return shellFallback;
+        }
+
+        return new Response('Modo Offline', { status: 503, statusText: 'Service Unavailable' });
       })
   );
 });

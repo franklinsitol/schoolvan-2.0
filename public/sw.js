@@ -1,10 +1,12 @@
 // =============================================================
 // SERVICE WORKER - PWA SHELL ISOLATION & CACHE
 // =============================================================
-const CACHE_NAME = 'pwa-shell-v1';
+const CACHE_NAME = 'pwa-shell-v2';
 const SHELL_ASSETS = [
   '/app.html',
+  '/Site/app.html',
   '/manifest.json',
+  '/Site/manifest.json',
   '/sw.js',
   '/icon.png',
   '/icon-512.png',
@@ -19,13 +21,13 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME).then((cache) => {
       console.log('[SW Shell] Cacheando arquivos estáticos da casca PWA...');
       return cache.addAll(SHELL_ASSETS).catch((err) => {
-        console.warn('[SW Shell] Alguns assets do shell não puderam ser cacheados diretamente:', err);
+        console.warn('[SW Shell] Alguns assets estáticos não puderam ser pre-cacheados:', err);
       });
     })
   );
 });
 
-// 2. Activate Event - Clean Stale Caches
+// 2. Activate Event - Purge ALL stale caches from previous versions
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -42,52 +44,56 @@ self.addEventListener('activate', (event) => {
   return self.clients.claim();
 });
 
-// 3. Fetch Event - Network-First Strategy for Shell + Isolation Bypass for Remote Iframe
+// 3. Fetch Event - Strict Isolation Bypass for JS Modules & Application Assets
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
-  const requestUrl = new URL(event.request.url);
+  const url = new URL(event.request.url);
 
-  // ORIGIN ISOLATION BYPASS:
-  // Se a requisição for para um host externo, API remota, ou tráfego do iframe principal,
-  // NÃO interfere no fetch (deixa passar direto para a rede).
+  // STRICT BYPASS: Let native browser handle ALL code modules, Vite assets, and backend APIs
   if (
-    requestUrl.origin !== location.origin ||
-    requestUrl.pathname.startsWith('/api') ||
-    requestUrl.pathname.includes('script.google.com') ||
-    requestUrl.pathname.includes('firestore') ||
-    requestUrl.pathname.includes('firebase') ||
-    requestUrl.pathname.includes('hot-update') ||
-    requestUrl.pathname.includes('/@')
+    url.origin !== location.origin ||
+    url.pathname.startsWith('/api') ||
+    url.pathname.startsWith('/src') ||
+    url.pathname.startsWith('/assets') ||
+    url.pathname.startsWith('/node_modules') ||
+    url.pathname.startsWith('/@') ||
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.mjs') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname.endsWith('.ts') ||
+    url.pathname.endsWith('.tsx') ||
+    url.pathname.endsWith('.map') ||
+    url.pathname.includes('script.google.com') ||
+    url.pathname.includes('firestore') ||
+    url.pathname.includes('firebase') ||
+    url.pathname.includes('hot-update')
   ) {
-    return;
+    return; // Pass through to native network, zero SW intervention
   }
 
-  // Network-First Strategy para a Casca do Shell
+  // Network-First strategy for Shell HTML & Shell icons only
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-          return networkResponse;
+        if (networkResponse && networkResponse.ok) {
+          const responseClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseClone).catch(() => {});
+          });
         }
-
-        // Atualiza cache silenciosamente
-        const responseClone = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseClone);
-        });
-
         return networkResponse;
       })
-      .catch(() => {
-        // Fallback em caso de modo offline
-        return caches.match(event.request).then((cachedResponse) => {
-          if (cachedResponse) return cachedResponse;
+      .catch(async () => {
+        const cachedResponse = await caches.match(event.request);
+        if (cachedResponse) return cachedResponse;
 
-          if (event.request.mode === 'navigate') {
-            return caches.match('/app.html') || caches.match('/');
-          }
-        });
+        if (event.request.mode === 'navigate') {
+          const shellFallback = (await caches.match('/app.html')) || (await caches.match('/Site/app.html'));
+          if (shellFallback) return shellFallback;
+        }
+
+        return new Response('Modo Offline', { status: 503, statusText: 'Service Unavailable' });
       })
   );
 });
