@@ -1,13 +1,12 @@
 // =============================================================
 // SERVICE WORKER - PWA SHELL ISOLATION & CACHE
 // =============================================================
-const CACHE_NAME = 'pwa-shell-v3';
+const CACHE_NAME = 'pwa-shell-v4';
 const SHELL_ASSETS = [
   '/app.html',
   '/Site/app.html',
   '/manifest.json',
   '/Site/manifest.json',
-  '/sw.js',
   '/icon.png',
   '/icon-512.png',
   '/favicon.png',
@@ -19,7 +18,6 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[SW Shell] Cacheando arquivos estáticos da casca PWA...');
       return cache.addAll(SHELL_ASSETS).catch((err) => {
         console.warn('[SW Shell] Alguns assets estáticos não puderam ser pre-cacheados:', err);
       });
@@ -44,41 +42,22 @@ self.addEventListener('activate', (event) => {
   return self.clients.claim();
 });
 
-// 3. Fetch Event - Strict Isolation Bypass for JS Modules & Application Assets
+// 3. Fetch Event - Zero Intervention for JS Modules, CSS, and API requests
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
 
-  // STRICT BYPASS: Let native browser handle ALL code modules, Vite assets, and backend APIs
-  const isScriptOrAsset = 
-    url.pathname.endsWith('.js') ||
-    url.pathname.endsWith('.mjs') ||
-    url.pathname.endsWith('.css') ||
-    url.pathname.endsWith('.ts') ||
-    url.pathname.endsWith('.tsx') ||
-    url.pathname.endsWith('.json') ||
-    url.pathname.endsWith('.map') ||
-    url.pathname.startsWith('/src') ||
-    url.pathname.startsWith('/assets') ||
-    url.pathname.startsWith('/node_modules') ||
-    url.pathname.startsWith('/@') ||
-    event.request.destination === 'script' ||
-    event.request.destination === 'style';
+  // ONLY handle requests for Shell assets or shell navigation
+  const isShellAsset = SHELL_ASSETS.includes(url.pathname);
+  const isShellNav = event.request.mode === 'navigate' && url.pathname.includes('app.html');
 
-  if (
-    url.origin !== location.origin ||
-    isScriptOrAsset ||
-    url.pathname.startsWith('/api') ||
-    url.pathname.includes('script.google.com') ||
-    url.pathname.includes('firestore') ||
-    url.pathname.includes('firebase') ||
-    url.pathname.includes('hot-update')
-  ) {
-    return; // Pass through to native network with ZERO Service Worker interference
+  if (!isShellAsset && !isShellNav) {
+    // Return immediately -> native browser network handling, ZERO interference
+    return;
   }
 
-  // Network-First strategy for Shell HTML & Shell icons only
+  // Network-First strategy for Shell HTML & Shell icons
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {
@@ -93,15 +72,7 @@ self.addEventListener('fetch', (event) => {
       .catch(async () => {
         const cachedResponse = await caches.match(event.request);
         if (cachedResponse) return cachedResponse;
-
-        if (event.request.mode === 'navigate') {
-          if (url.pathname.includes('/app.html')) {
-            const shellFallback = (await caches.match('/app.html')) || (await caches.match('/Site/app.html'));
-            if (shellFallback) return shellFallback;
-          }
-        }
-
-        return new Response('Modo Offline', { status: 503, statusText: 'Service Unavailable' });
+        return new Response('Off-line', { status: 503, statusText: 'Service Unavailable' });
       })
   );
 });

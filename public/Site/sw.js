@@ -1,13 +1,12 @@
 // =============================================================
 // SERVICE WORKER - PWA SHELL ISOLATION & CACHE (/Site/sw.js)
 // =============================================================
-const CACHE_NAME = 'pwa-shell-v3';
+const CACHE_NAME = 'pwa-shell-v4';
 const SHELL_ASSETS = [
   '/app.html',
   '/Site/app.html',
   '/manifest.json',
   '/Site/manifest.json',
-  '/sw.js',
   '/icon.png',
   '/icon-512.png',
   '/favicon.png',
@@ -41,30 +40,10 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
 
-  const isScriptOrAsset = 
-    url.pathname.endsWith('.js') ||
-    url.pathname.endsWith('.mjs') ||
-    url.pathname.endsWith('.css') ||
-    url.pathname.endsWith('.ts') ||
-    url.pathname.endsWith('.tsx') ||
-    url.pathname.endsWith('.json') ||
-    url.pathname.endsWith('.map') ||
-    url.pathname.startsWith('/src') ||
-    url.pathname.startsWith('/assets') ||
-    url.pathname.startsWith('/node_modules') ||
-    url.pathname.startsWith('/@') ||
-    event.request.destination === 'script' ||
-    event.request.destination === 'style';
+  const isShellAsset = SHELL_ASSETS.includes(url.pathname);
+  const isShellNav = event.request.mode === 'navigate' && url.pathname.includes('app.html');
 
-  if (
-    url.origin !== location.origin ||
-    isScriptOrAsset ||
-    url.pathname.startsWith('/api') ||
-    url.pathname.includes('script.google.com') ||
-    url.pathname.includes('firestore') ||
-    url.pathname.includes('firebase') ||
-    url.pathname.includes('hot-update')
-  ) {
+  if (!isShellAsset && !isShellNav) {
     return;
   }
 
@@ -82,15 +61,7 @@ self.addEventListener('fetch', (event) => {
       .catch(async () => {
         const cachedResponse = await caches.match(event.request);
         if (cachedResponse) return cachedResponse;
-
-        if (event.request.mode === 'navigate') {
-          if (url.pathname.includes('/app.html')) {
-            const shellFallback = (await caches.match('/Site/app.html')) || (await caches.match('/app.html'));
-            if (shellFallback) return shellFallback;
-          }
-        }
-
-        return new Response('Modo Offline', { status: 503, statusText: 'Service Unavailable' });
+        return new Response('Off-line', { status: 503, statusText: 'Service Unavailable' });
       })
   );
 });
