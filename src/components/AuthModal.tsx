@@ -3,11 +3,12 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signInWithPopup,
-  updateProfile
+  updateProfile,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../lib/firebase';
-import { X, Mail, Lock, User, Phone, MapPin } from 'lucide-react';
+import { X, Mail, Lock, User, Phone, MapPin, KeyRound } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface AuthModalProps {
@@ -24,19 +25,50 @@ export function AuthModal({ isOpen, onClose, type }: AuthModalProps) {
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   if (!isOpen) return null;
+
+  const handlePasswordReset = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
+      toast.error('Informe seu e-mail no campo acima para solicitar a redefinição de senha.');
+      return;
+    }
+    setLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, cleanEmail);
+      setResetSent(true);
+      toast.success(`E-mail de redefinição enviado para ${cleanEmail}! Verifique sua caixa de entrada e spam.`, { duration: 6000 });
+    } catch (err: any) {
+      console.error('Erro reset senha:', err);
+      if (err?.code === 'auth/user-not-found') {
+        toast.error('Nenhuma conta encontrada com este e-mail.');
+      } else {
+        toast.error('Erro ao enviar e-mail de redefinição. Verifique o e-mail digitado.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
+      toast.error('Informe um e-mail válido.');
+      setLoading(false);
+      return;
+    }
+
     try {
       if (isLogin) {
-        await signInWithEmailAndPassword(auth, email, password);
+        await signInWithEmailAndPassword(auth, cleanEmail, password);
         toast.success('Bem-vindo de volta!');
       } else {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
         const user = userCredential.user;
 
         await updateProfile(user, { displayName: name });
@@ -44,7 +76,7 @@ export function AuthModal({ isOpen, onClose, type }: AuthModalProps) {
         if (type === 'driver') {
           await setDoc(doc(db, 'drivers', user.uid), {
             name,
-            email,
+            email: cleanEmail,
             phone,
             city,
             status: 'Ativo',
@@ -69,7 +101,7 @@ export function AuthModal({ isOpen, onClose, type }: AuthModalProps) {
           // Parent user record
           await setDoc(doc(db, 'users', user.uid), {
             name,
-            email,
+            email: cleanEmail,
             phone,
             city,
             role: 'parent',
@@ -89,8 +121,10 @@ export function AuthModal({ isOpen, onClose, type }: AuthModalProps) {
         toast.error('Este provedor de login não está ativado no Firebase Console.', { duration: 6000 });
       } else if (error?.code === 'auth/invalid-credential' || error?.code === 'auth/wrong-password' || error?.code === 'auth/user-not-found') {
         toast.error('E-mail ou senha incorretos.');
+      } else if (error?.code === 'auth/invalid-email') {
+        toast.error('O formato do e-mail é inválido. Verifique se digitou corretamente.');
       } else if (error?.code === 'auth/email-already-in-use') {
-        toast.error('Este e-mail já está cadastrado.');
+        toast.error('Este e-mail já está cadastrado em outra conta. Faça login ou use o recurso de redefinir senha.');
       } else if (error?.code === 'auth/weak-password') {
         toast.error('A senha deve ter pelo menos 6 caracteres.');
       } else {
@@ -107,29 +141,33 @@ export function AuthModal({ isOpen, onClose, type }: AuthModalProps) {
       const user = result.user;
       
       // Check if driver or user profile exists
-      const driverDoc = await getDoc(doc(db, 'drivers', user.uid));
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      try {
+        const driverDoc = await getDoc(doc(db, 'drivers', user.uid));
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
 
-      if (!driverDoc.exists() && !userDoc.exists()) {
-        if (type === 'driver') {
-          await setDoc(doc(db, 'drivers', user.uid), {
-            name: user.displayName || 'Motorista',
-            email: user.email,
-            status: 'Ativo',
-            role: 'admin',
-            plan: 'Básico',
-            pricePerStudent: 7.90,
-            invoiceStatus: 'Em Dia'
-          });
-        } else {
-          await setDoc(doc(db, 'users', user.uid), {
-            name: user.displayName || 'Responsável',
-            email: user.email,
-            role: 'parent',
-            status: 'Ativo',
-            createdAt: new Date().toISOString()
-          });
+        if (!driverDoc.exists() && !userDoc.exists()) {
+          if (type === 'driver') {
+            await setDoc(doc(db, 'drivers', user.uid), {
+              name: user.displayName || 'Motorista',
+              email: user.email,
+              status: 'Ativo',
+              role: 'admin',
+              plan: 'Básico',
+              pricePerStudent: 7.90,
+              invoiceStatus: 'Em Dia'
+            });
+          } else {
+            await setDoc(doc(db, 'users', user.uid), {
+              name: user.displayName || 'Responsável',
+              email: user.email,
+              role: 'parent',
+              status: 'Ativo',
+              createdAt: new Date().toISOString()
+            });
+          }
         }
+      } catch (profileErr) {
+        console.warn('Aviso ao verificar ou criar perfil no Google Login:', profileErr);
       }
       
       toast.success('Login realizado com sucesso!');
@@ -139,7 +177,7 @@ export function AuthModal({ isOpen, onClose, type }: AuthModalProps) {
       if (error?.code === 'auth/unauthorized-domain') {
         toast.error('Domínio não autorizado no Firebase Auth! Adicione seu domínio nas configurações do Firebase.', { duration: 8000 });
       } else if (error?.code === 'auth/operation-not-allowed') {
-        toast.error('Login do Google não está ativado no Firebase Console > Authentication > Sign-in method.', { duration: 6000 });
+        toast.error('O login do Google precisa ser ativado no Firebase Console: Authentication > Sign-in method > Google > Ativar.', { duration: 8000 });
       } else if (error?.code === 'auth/popup-closed-by-user') {
         toast.error('Janela de login foi fechada antes de concluir.');
       } else {
@@ -211,10 +249,13 @@ export function AuthModal({ isOpen, onClose, type }: AuthModalProps) {
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               <input 
                 type="email" 
-                placeholder="E-mail"
+                placeholder="E-mail (aceita qualquer provedor)"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-yellow-400 outline-none"
+                autoCapitalize="none"
+                autoCorrect="off"
+                inputMode="email"
+                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm"
                 required
               />
             </div>
@@ -226,10 +267,22 @@ export function AuthModal({ isOpen, onClose, type }: AuthModalProps) {
                 placeholder="Senha"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-yellow-400 outline-none"
+                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm"
                 required
               />
             </div>
+
+            {isLogin && (
+              <div className="text-right pt-0.5">
+                <button
+                  type="button"
+                  onClick={handlePasswordReset}
+                  className="text-xs font-bold text-yellow-600 hover:text-yellow-700 underline cursor-pointer"
+                >
+                  Esqueceu a senha? Redefinir por e-mail
+                </button>
+              </div>
+            )}
 
             <button 
               type="submit"

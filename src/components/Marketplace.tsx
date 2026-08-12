@@ -70,6 +70,7 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
 
   const filteredVehicles = useMemo(() => {
     return vehicles.filter(v => {
+      if ((v as any).hiddenInMarketplace === true) return false;
       const matchesCity = !cityFilter || v.city?.toLowerCase().includes(cityFilter.toLowerCase());
       const matchesNeighborhood = !neighborhoodFilter || v.neighborhood?.toLowerCase().includes(neighborhoodFilter.toLowerCase());
       return matchesCity && matchesNeighborhood;

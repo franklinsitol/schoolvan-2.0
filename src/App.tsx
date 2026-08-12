@@ -27,7 +27,7 @@ import { useAuth } from './hooks/useAuth';
 import { usePWAShellIntegration } from './hooks/usePWAShellIntegration';
 import { cn } from './lib/utils';
 import { useFirestore, useCollectionGroup } from './hooks/useFirestore';
-import { Student, Vehicle } from './types';
+import { Student, Vehicle, Driver } from './types';
 import { isStudentAbsentOnDate, getTodayStr, formatDateBR } from './lib/absence';
 
 import { auth, db } from './lib/firebase';
@@ -465,8 +465,11 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCheckinOpen, setIsCheckinOpen] = useState(false);
   const [authModal, setAuthModal] = useState<{ open: boolean; type: 'driver' | 'parent' }>({ open: false, type: 'driver' });
+  const [impersonatedDriver, setImpersonatedDriver] = useState<Driver | null>(null);
 
-  const { data: students } = useFirestore<Student>(profile?.id ? `drivers/${profile.id}/students` : '');
+  const activeProfile = impersonatedDriver || profile;
+
+  const { data: students } = useFirestore<Student>(activeProfile?.id ? `drivers/${activeProfile.id}/students` : '');
 
   useEffect(() => {
     if (user && currentView === 'market') {
@@ -480,7 +483,14 @@ export default function App() {
     }
   }, [user, profile]);
 
+  useEffect(() => {
+    if (user && authModal.open) {
+      setAuthModal(prev => ({ ...prev, open: false }));
+    }
+  }, [user, authModal.open]);
+
   const handleLogout = async () => {
+    setImpersonatedDriver(null);
     triggerShellLogout();
     await signOut(auth);
     setCurrentView('market');
@@ -521,6 +531,29 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
       <Toaster position="top-right" />
+
+      {/* LGPD Impersonation Banner */}
+      {impersonatedDriver && (
+        <div className="bg-purple-900 text-white px-4 py-2 text-xs font-bold flex items-center justify-between shadow-md border-b border-purple-700 z-50 sticky top-0">
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="text-yellow-400 shrink-0" size={18} />
+            <span>
+              <strong>MODO SUPORTE LGPD ATIVO:</strong> Acessando como <strong>{impersonatedDriver.name}</strong> ({impersonatedDriver.email}).
+              <span className="opacity-80 ml-2 hidden md:inline font-normal">Acesso auditado para suporte técnico.</span>
+            </span>
+          </div>
+          <button
+            onClick={() => {
+              setImpersonatedDriver(null);
+              setCurrentView('superadmin');
+              toast.success('Modo suporte finalizado. Retornando ao Super Admin.');
+            }}
+            className="px-3 py-1 bg-yellow-400 text-purple-950 font-black rounded-lg text-xs hover:bg-yellow-300 transition-all cursor-pointer shrink-0 shadow-sm"
+          >
+            SAIR DO MODO SUPORTE
+          </button>
+        </div>
+      )}
 
       {/* Navbar */}
       <nav className="sticky top-0 z-40 bg-white border-b border-gray-100 px-3 sm:px-6 py-3 flex items-center justify-between gap-2 shadow-sm">
@@ -677,7 +710,14 @@ export default function App() {
                 {currentView === 'profile' && <ProfileView />}
                 {currentView === 'support' && <SupportView />}
                 {currentView === 'parent' && <ParentView />}
-                {currentView === 'superadmin' && <SuperAdminView />}
+                {currentView === 'superadmin' && (
+                  <SuperAdminView 
+                    onImpersonate={(driver) => { 
+                      setImpersonatedDriver(driver); 
+                      setCurrentView('dash'); 
+                    }} 
+                  />
+                )}
               </motion.div>
             </AnimatePresence>
           </ErrorBoundary>
@@ -702,7 +742,7 @@ export default function App() {
         isOpen={isCheckinOpen} 
         onClose={() => setIsCheckinOpen(false)} 
         students={students} 
-        driverId={profile?.id || ''} 
+        driverId={activeProfile?.id || ''} 
       />
     </div>
   );

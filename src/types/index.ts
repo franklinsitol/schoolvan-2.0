@@ -1,5 +1,5 @@
 export type BoardingStatus = 'Casa' | 'Van' | 'Escola' | 'A CAMINHO' | 'NÃO VAI';
-export type InvoiceStatus = 'Em Dia' | 'Em Atraso' | 'Aguardando Pagamento';
+export type InvoiceStatus = 'Em Dia' | 'Em Atraso' | 'Aguardando Pagamento' | 'Pendente';
 export type AccountStatus = 'Ativo' | 'Bloqueado' | 'AvisoPagamento';
 export type Role = 'admin' | 'superadmin' | 'colab' | 'parent';
 export type PlanTier = 'Gratuito' | 'Pro' | 'Frota';
@@ -17,6 +17,7 @@ export interface Driver {
   status: AccountStatus;
   pricePerStudent?: number;
   invoiceStatus?: InvoiceStatus;
+  hiddenInMarketplace?: boolean;
   termsAccepted?: string;
   lastBilledMonth?: string;
   role?: Role;

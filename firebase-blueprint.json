@@ -151,6 +151,21 @@
       },
       "required": ["name", "contact", "message"]
     },
+    "User": {
+      "title": "User",
+      "description": "Parent / User account",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "city": { "type": "string" },
+        "role": { "type": "string", "enum": ["parent", "superadmin"] },
+        "status": { "type": "string", "enum": ["Ativo", "Bloqueado"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email", "role"]
+    },
     "AdminConfig": {
       "title": "Admin Config",
       "description": "Global settings",
@@ -177,6 +192,7 @@
     "/drivers/{driverId}/finance/{financeId}": { "schema": "Finance", "description": "Finance records" },
     "/drivers/{driverId}/leads/{leadId}": { "schema": "Lead", "description": "Leads" },
     "/drivers/{driverId}/absences/{absenceId}": { "schema": "Absence", "description": "Absences" },
+    "/users/{userId}": { "schema": "User", "description": "User / Parent accounts" },
     "/tickets/{ticketId}": { "schema": "Ticket", "description": "Support tickets" },
     "/adminConfig/global": { "schema": "AdminConfig", "description": "Global settings" }
   }
