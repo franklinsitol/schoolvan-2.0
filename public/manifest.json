@@ -98,10 +98,19 @@
   ],
   "scope_extensions": [
     {
+      "origin": "https://schoolvansandbox.pages.dev"
+    },
+    {
+      "origin": "https://schoolvan.app"
+    },
+    {
       "origin": "schoolvansandbox.pages.dev"
     },
     {
       "origin": "schoolvan.app"
+    },
+    {
+      "origin": "*.pages.dev"
     }
   ],
   "icons": [
