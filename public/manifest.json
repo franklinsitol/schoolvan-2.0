@@ -105,10 +105,6 @@
     {
       "type": "origin",
       "origin": "https://schoolvan.app"
-    },
-    {
-      "type": "origin",
-      "origin": "*.pages.dev"
     }
   ],
   "icons": [
