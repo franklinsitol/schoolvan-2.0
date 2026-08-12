@@ -1,7 +1,7 @@
 // =============================================================
 // SERVICE WORKER - PWA SHELL ISOLATION & CACHE
 // =============================================================
-const CACHE_NAME = 'pwa-shell-v4';
+const CACHE_NAME = 'pwa-shell-v5';
 const SHELL_ASSETS = [
   '/app.html',
   '/Site/app.html',

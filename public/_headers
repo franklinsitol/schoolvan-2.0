@@ -1,0 +1,29 @@
+/*.js
+  Content-Type: application/javascript; charset=utf-8
+  Access-Control-Allow-Origin: *
+
+/assets/*.js
+  Content-Type: application/javascript; charset=utf-8
+  Access-Control-Allow-Origin: *
+
+/sw.js
+  Content-Type: application/javascript; charset=utf-8
+  Service-Worker-Allowed: /
+
+/*.css
+  Content-Type: text/css; charset=utf-8
+
+/assets/*.css
+  Content-Type: text/css; charset=utf-8
+
+/manifest.json
+  Content-Type: application/manifest+json; charset=utf-8
+
+/icon.png
+  Content-Type: image/png
+
+/icon-512.png
+  Content-Type: image/png
+
+/favicon.png
+  Content-Type: image/png
