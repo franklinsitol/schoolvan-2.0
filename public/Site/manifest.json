@@ -12,15 +12,37 @@
   "dir": "ltr",
   "orientation": "portrait",
   "description": "Aplicativo PWA oficial para gestão de transporte escolar, carteira de alunos e rastreamento em tempo real.",
+  "iarc_rating_id": "e58c1714-4b5f-4024-82a1-0f7236531d0f",
   "prefer_related_applications": false,
   "related_applications": [],
   "categories": ["education", "travel", "productivity", "utilities"],
   "launch_handler": {
     "client_mode": ["navigate-existing", "auto"]
   },
+  "handle_links": "preferred",
   "edge_side_panel": {
     "preferred_width": 480
   },
+  "share_target": {
+    "action": "/?share=true",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "protocol_handlers": [
+    {
+      "protocol": "web+schoolvan",
+      "url": "/?protocol=%s"
+    }
+  ],
+  "scope_extensions": [
+    {
+      "origin": "schoolvansandbox.pages.dev"
+    }
+  ],
   "icons": [
     {
       "src": "/favicon.png",
