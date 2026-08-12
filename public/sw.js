@@ -1,120 +1,133 @@
-// NOME DO ARQUIVO: sw.js
-const CACHE_NAME = 'schoolvan-v10'; 
-const ASSETS_TO_CACHE = [
-    '/',
-    '/index.html',
-    '/manifest.json',
-    '/icon.png',
-    '/icon-512.png',
-    '/favicon.png',
-    '/apple-touch-icon.png'
+const CACHE_NAME = 'schoolvan-pwa-v11';
+const STATIC_ASSETS = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/favicon.png',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/apple-touch-icon.png',
+  '/screenshot-desktop.png',
+  '/screenshot-mobile.png'
 ];
 
-// 1. Instalação (Força o novo SW a assumir o controle imediatamente)
+// 1. Install Event - Cache Core Assets
 self.addEventListener('install', (event) => {
-    self.skipWaiting();
-    event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => {
-            console.log('[SW] Cacheando nova versão v10');
-            return cache.addAll(ASSETS_TO_CACHE).catch((err) => {
-                console.warn('[SW] Falha ao pre-cachear ativos estáticos:', err);
-            });
-        })
-    );
+  self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      console.log('[Service Worker] Pre-caching core PWA shell assets');
+      return cache.addAll(STATIC_ASSETS).catch((err) => {
+        console.warn('[Service Worker] Pre-cache warning:', err);
+      });
+    })
+  );
 });
 
-// 2. Ativação (Limpa caches antigos e toma o controle)
+// 2. Activate Event - Claim Clients & Clean Stale Caches
 self.addEventListener('activate', (event) => {
-    event.waitUntil(
-        caches.keys().then((keyList) => {
-            return Promise.all(keyList.map((key) => {
-                if (key !== CACHE_NAME) {
-                    console.log('[SW] Removendo cache antigo:', key);
-                    return caches.delete(key);
-                }
-            }));
+  event.waitUntil(
+    caches.keys().then((keyList) => {
+      return Promise.all(
+        keyList.map((key) => {
+          if (key !== CACHE_NAME) {
+            console.log('[Service Worker] Purging old cache:', key);
+            return caches.delete(key);
+          }
         })
-    );
-    return self.clients.claim();
+      );
+    })
+  );
+  return self.clients.claim();
 });
 
-// 3. Interceptação (Fetch) - Estratégia Network First com Fallback para Cache
+// 3. Fetch Event - Network First with Cache Fallback for Offline Capability
 self.addEventListener('fetch', (event) => {
-    // Ignora requisições não-GET ou chamadas de API externas e Firebase
-    if (
-        event.request.method !== 'GET' ||
-        event.request.url.includes('script.google.com') ||
-        event.request.url.includes('firestore.googleapis.com') ||
-        event.request.url.includes('identitytoolkit.googleapis.com')
-    ) {
-        return; // Deixa o navegador lidar normalmente
-    }
+  if (event.request.method !== 'GET') return;
 
-    // Estratégia: Tenta Rede primeiro, depois Cache (Network First)
-    event.respondWith(
-        fetch(event.request)
-            .then((response) => {
-                // Se a rede respondeu com sucesso, atualiza o cache e retorna
-                if (!response || response.status !== 200 || response.type !== 'basic') {
-                    return response;
-                }
-                const responseToCache = response.clone();
-                caches.open(CACHE_NAME).then((cache) => {
-                    cache.put(event.request, responseToCache);
-                });
-                return response;
-            })
-            .catch(() => {
-                // Se estiver offline ou a rede falhar, tenta buscar no cache
-                return caches.match(event.request).then((response) => {
-                    if (response) return response;
+  const url = new URL(event.request.url);
 
-                    // Se for uma navegação e não achar nada no cache, retorna a home (SPA Fallback)
-                    if (event.request.mode === 'navigate') {
-                        return caches.match('/index.html') || caches.match('/');
-                    }
-                });
-            })
-    );
-});
+  // Skip API, Google OAuth, Firestore, and external scripts
+  if (
+    url.pathname.startsWith('/api') ||
+    url.hostname.includes('firestore.googleapis.com') ||
+    url.hostname.includes('identitytoolkit.googleapis.com') ||
+    url.hostname.includes('script.google.com') ||
+    url.hostname.includes('googleapis.com')
+  ) {
+    return;
+  }
 
-// 4. Suporte a Notificações Push
-self.addEventListener('push', (event) => {
-    let data = {};
-    if (event.data) {
-        try {
-            data = event.data.json();
-        } catch (e) {
-            data = { body: event.data.text() };
+  event.respondWith(
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache).catch(() => {});
+          });
         }
+        return networkResponse;
+      })
+      .catch(async () => {
+        const cachedResponse = await caches.match(event.request);
+        if (cachedResponse) return cachedResponse;
+
+        // Offline navigation fallback for SPA
+        if (event.request.mode === 'navigate') {
+          const indexFallback = await caches.match('/index.html') || await caches.match('/');
+          if (indexFallback) return indexFallback;
+        }
+
+        return new Response('Off-line', {
+          status: 503,
+          statusText: 'Service Unavailable',
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+        });
+      })
+  );
+});
+
+// 4. Push Notifications Support
+self.addEventListener('push', (event) => {
+  let data = {};
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data = { body: event.data.text() };
     }
+  }
 
-    const title = data.title || 'SchoolVan - Notificação';
-    const options = {
-        body: data.body || 'Você recebeu uma nova atualização no transporte escolar.',
-        icon: '/icon.png',
-        badge: '/icon.png',
-        vibrate: [100, 50, 100],
-        data: data.url || '/'
-    };
+  const title = data.title || 'SchoolVan - Atualização';
+  const options = {
+    body: data.body || 'Você recebeu uma nova atualização no transporte escolar.',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    vibrate: [100, 50, 100],
+    tag: 'schoolvan-notification',
+    renotify: true,
+    data: data.url || '/'
+  };
 
-    event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
-// 5. Clique em Notificações
+// 5. Notification Click Handler - Focus/Open PWA Window
 self.addEventListener('notificationclick', (event) => {
-    event.notification.close();
-    event.waitUntil(
-        clients.matchAll({ type: 'window' }).then((clientList) => {
-            for (const client of clientList) {
-                if (client.url && 'focus' in client) {
-                    return client.focus();
-                }
-            }
-            if (clients.openWindow) {
-                return clients.openWindow('/');
-            }
-        })
-    );
-});
+  event.notification.close();
+  const targetUrl = event.notification.data || '/';
 
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
