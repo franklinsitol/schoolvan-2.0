@@ -11,11 +11,24 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="SchoolVan">
   
-  <link rel="manifest" href="/manifest.json">
+  <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" href="/icon.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
-  <!-- Estilos Puros Ultra-Leves do Shell -->
+  <!-- Optional OneSignal SDK Hook (Descomente e substitua o appId para produção) -->
+  <!-- 
+  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+  <script>
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    OneSignalDeferred.push(async function(OneSignal) {
+      await OneSignal.init({
+        appId: "SEU_ONESIGNAL_APP_ID_AQUI",
+      });
+    });
+  </script>
+  -->
+
+  <!-- Estilos Puros Ultra-Leves do Shell (Carregamento em milissegundos) -->
   <style>
     :root {
       --primary: #f59e0b;
@@ -41,6 +54,7 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
 
+    /* Container do Shell */
     #pwa-shell-container {
       position: relative;
       width: 100%;
@@ -49,6 +63,7 @@
       flex-direction: column;
     }
 
+    /* Iframe da Aplicação Principal */
     #app-frame {
       position: absolute;
       top: 0;
@@ -60,6 +75,7 @@
       background-color: var(--bg-dark);
     }
 
+    /* Botão Flutuante / Banner Customizado de Instalação PWA */
     #pwa-install-banner {
       position: fixed;
       bottom: 24px;
@@ -138,6 +154,10 @@
       transform: scale(1.04);
     }
 
+    .btn-install-pwa:active {
+      transform: scale(0.96);
+    }
+
     .btn-close-pwa {
       background: transparent;
       border: none;
@@ -149,6 +169,11 @@
       align-items: center;
       justify-content: center;
       border-radius: 50%;
+      transition: color 0.2s;
+    }
+
+    .btn-close-pwa:hover {
+      color: var(--text-white);
     }
 
     @keyframes pwaPulse {
@@ -161,10 +186,12 @@
 <body>
 
   <div id="pwa-shell-container">
+    <!-- Iframe Dinâmico da Aplicação Principal -->
     <iframe id="app-frame" src="/" allow="geolocation; microphone; camera; autoplay; clipboard-write; display-capture;"></iframe>
 
-    <div id="pwa-install-banner">
-      <img src="/icon.png" alt="SchoolVan" class="install-icon">
+    <!-- Floating Custom PWA Installation Banner -->
+    <div id="pwa-install-banner" aria-label="Instalar aplicativo">
+      <img src="/icon.png" alt="SchoolVan" class="install-icon" onerror="this.onerror=null;this.src='/favicon.png';">
       <div class="install-info">
         <span class="install-title">SchoolVan App</span>
         <span class="install-subtitle">Acesso rápido & Rastreamento</span>
@@ -173,19 +200,25 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Baixar App
       </button>
-      <button id="btn-install-close" class="btn-close-pwa">&times;</button>
+      <button id="btn-install-close" class="btn-close-pwa" title="Fechar">&times;</button>
     </div>
   </div>
 
   <script>
+    // -------------------------------------------------------------
+    // 1. REGISTRO DO SERVICE WORKER NO SHELL
+    // -------------------------------------------------------------
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js')
-          .then(reg => console.log('[PWA Shell] Service Worker registrado:', reg.scope))
-          .catch(err => console.error('[PWA Shell] Falha SW:', err));
+          .then(reg => console.log('[PWA Shell] Service Worker registrado com sucesso:', reg.scope))
+          .catch(err => console.error('[PWA Shell] Falha ao registrar Service Worker:', err));
       });
     }
 
+    // -------------------------------------------------------------
+    // 2. APLICAÇÃO DE PARÂMETROS DE SESSÃO / AUTO-LOGIN NO IFRAME
+    // -------------------------------------------------------------
     const appFrame = document.getElementById('app-frame');
 
     function applySessionParamsToIframe() {
@@ -210,24 +243,33 @@
           appFrame.src = targetUrl;
         }
       } catch (err) {
-        console.warn('[PWA Shell] Erro sessão:', err);
+        console.warn('[PWA Shell] Erro ao ler sessão:', err);
       }
     }
 
     window.addEventListener('load', applySessionParamsToIframe);
 
+    // -------------------------------------------------------------
+    // 3. PROMPT CUSTOMIZADO DE INSTALAÇÃO (beforeinstallprompt)
+    // -------------------------------------------------------------
     let deferredPrompt = null;
     const installBanner = document.getElementById('pwa-install-banner');
     const btnInstall = document.getElementById('btn-install-trigger');
     const btnClose = document.getElementById('btn-install-close');
 
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                          window.navigator.standalone === true;
 
     window.addEventListener('beforeinstallprompt', (e) => {
+      // Impede o banner nativo padrão do navegador
       e.preventDefault();
       deferredPrompt = e;
+
+      // Exibe nosso botão flutuante elegante
       if (!isStandalone && !localStorage.getItem('pwa_shell_dismissed')) {
-        setTimeout(() => { installBanner.classList.add('visible'); }, 1200);
+        setTimeout(() => {
+          installBanner.classList.add('visible');
+        }, 1200);
       }
     });
 
@@ -235,11 +277,13 @@
       btnInstall.addEventListener('click', async () => {
         if (deferredPrompt) {
           deferredPrompt.prompt();
-          await deferredPrompt.userChoice;
+          const { outcome } = await deferredPrompt.userChoice;
+          console.log('[PWA Shell] Resultado da instalação:', outcome);
           deferredPrompt = null;
           installBanner.classList.remove('visible');
         } else {
-          alert('Para instalar:\n• iOS: Compartilhar > "Adicionar à Tela de Início".\n• Android: Menu de 3 pontos > "Instalar aplicativo".');
+          // Fallback para iOS / Outros
+          alert('Para instalar este app:\n• No iOS (Safari): toque em Compartilhar e "Adicionar à Tela de Início".\n• No Android: clique no menu de 3 pontos do navegador e escolha "Instalar aplicativo".');
         }
       });
     }
@@ -251,21 +295,38 @@
       });
     }
 
+    window.addEventListener('appinstalled', () => {
+      console.log('[PWA Shell] PWA foi instalado com sucesso!');
+      installBanner.classList.remove('visible');
+    });
+
+    // -------------------------------------------------------------
+    // 4. COMUNICAÇÃO BIDIRECIONAL COM O IFRAME (postMessage)
+    // -------------------------------------------------------------
     window.addEventListener('message', (event) => {
       const data = event.data;
       if (!data) return;
 
+      // Ação de Logout requisitada pelo app dentro do iframe
       if (data.action === 'logout') {
+        console.log('[PWA Shell] Logout recebido do iframe. Limpando sessão...');
         sessionStorage.removeItem('pwa_session');
         localStorage.removeItem('pwa_session');
-        if (appFrame) { appFrame.src = '/'; }
+        if (appFrame) {
+          appFrame.src = '/';
+        }
       }
 
+      // Se o iframe confirmar recebimento do pushToken
       if (data.action === 'pushTokenReceived') {
+        console.log('[PWA Shell] Token de Push recebido com sucesso pelo iframe!');
         window.iframePushTokenAck = true;
       }
     });
 
+    // -------------------------------------------------------------
+    // 5. GERENCIAMENTO E PUSH NOTIFICATION TOKEN + SOFT POLLING
+    // -------------------------------------------------------------
     let currentPushToken = null;
 
     async function initPushSubscription() {
@@ -275,20 +336,29 @@
           if (permission === 'granted') {
             const registration = await navigator.serviceWorker.ready;
             let subscription = await registration.pushManager.getSubscription();
+            
+            if (!subscription) {
+              // Exemplo com VAPID Key pública se configurado no backend
+              // const vapidPublicKey = 'SEU_VAPID_KEY_PUBLIC_AQUI';
+              // subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidPublicKey });
+            }
+
             if (subscription) {
               currentPushToken = JSON.stringify(subscription);
             } else {
+              // Token genérico / simulado para teste de ponte
               currentPushToken = 'pwa_shell_token_' + Math.random().toString(36).substring(2);
             }
           }
         } catch (err) {
-          console.warn('[PWA Shell] Erro push:', err);
+          console.warn('[PWA Shell] Erro ao obter permissão Push:', err);
         }
       }
     }
 
     initPushSubscription();
 
+    // Soft Polling a cada 5 segundos para garantir que o iframe receba o Push Token
     setInterval(() => {
       if (currentPushToken && appFrame && appFrame.contentWindow && !window.iframePushTokenAck) {
         appFrame.contentWindow.postMessage({
@@ -298,6 +368,7 @@
         }, '*');
       }
     }, 5000);
+
   </script>
 </body>
 </html>

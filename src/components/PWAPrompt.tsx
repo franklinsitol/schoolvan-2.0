@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Share, PlusSquare, X } from 'lucide-react';
+import { Download, Share, PlusSquare, X, Bus } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export function PWAPrompt() {
@@ -9,6 +9,7 @@ export function PWAPrompt() {
   const [isIOS, setIsIOS] = useState(false);
   const [showIOSModal, setShowIOSModal] = useState(false);
   const [installing, setInstalling] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   useEffect(() => {
     // 1. Detect if running inside preview iframe
@@ -150,13 +151,18 @@ export function PWAPrompt() {
             <span className="relative inline-flex rounded-full h-3 w-3 bg-gray-950"></span>
           </span>
 
-          <div className="w-7 h-7 rounded-lg overflow-hidden bg-white/30 p-0.5 shadow-inner shrink-0 flex items-center justify-center">
-            <img 
-              src="/icon-192.png" 
-              alt="SchoolVan" 
-              className="w-full h-full object-cover rounded-md" 
-              referrerPolicy="no-referrer"
-            />
+          <div className="w-7 h-7 rounded-lg overflow-hidden bg-slate-950/20 p-0.5 shadow-inner shrink-0 flex items-center justify-center">
+            {!imgError ? (
+              <img 
+                src="/icon-192.png" 
+                alt="SchoolVan" 
+                className="w-full h-full object-cover rounded-md" 
+                referrerPolicy="no-referrer"
+                onError={() => setImgError(true)}
+              />
+            ) : (
+              <Bus size={18} className="text-slate-950 stroke-[2.5]" />
+            )}
           </div>
 
           <span className="text-xs sm:text-sm font-extrabold tracking-wide uppercase">
