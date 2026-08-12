@@ -5,7 +5,6 @@ import toast from 'react-hot-toast';
 export function PWAPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showModal, setShowModal] = useState(false);
-  const [showMiniFooter, setShowMiniFooter] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
   const [isInIframe, setIsInIframe] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
@@ -26,17 +25,12 @@ export function PWAPrompt() {
     const ios = /iphone|ipad|ipod/.test(userAgent);
     setIsIOS(ios);
 
-    const dismissed = localStorage.getItem('schoolvan_pwa_modal_dismissed') === 'true';
-
     // 4. Capture native browser PWA installation trigger
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
       if (!standalone) {
-        setShowMiniFooter(true);
-        if (!dismissed) {
-          setShowModal(true);
-        }
+        setShowModal(true);
       }
     };
 
@@ -50,17 +44,15 @@ export function PWAPrompt() {
 
     window.addEventListener('appinstalled', () => {
       setShowModal(false);
-      setShowMiniFooter(false);
       setIsStandalone(true);
       toast.success('🎉 SchoolVan instalado com sucesso na sua Tela Inicial!', { duration: 5000 });
     });
 
-    // Auto-display modal / bar after 1.2s if not already standalone & not dismissed
-    if (!standalone && !dismissed) {
+    // Auto-display modal after 1.5s if not already standalone
+    if (!standalone) {
       const timer = setTimeout(() => {
-        setShowMiniFooter(true);
         setShowModal(true);
-      }, 1200);
+      }, 1500);
       return () => clearTimeout(timer);
     }
 
@@ -72,12 +64,6 @@ export function PWAPrompt() {
 
   const handleCloseModal = () => {
     setShowModal(false);
-    localStorage.setItem('schoolvan_pwa_modal_dismissed', 'true');
-  };
-
-  const handleDismissMiniFooter = () => {
-    setShowMiniFooter(false);
-    localStorage.setItem('schoolvan_pwa_modal_dismissed', 'true');
   };
 
   const installPWA = async () => {
@@ -95,7 +81,7 @@ export function PWAPrompt() {
         const { outcome } = await deferredPrompt.userChoice;
         if (outcome === 'accepted') {
           setShowModal(false);
-          setShowMiniFooter(false);
+          setIsStandalone(true);
           toast.success('Instalando SchoolVan no seu dispositivo...');
         }
         setDeferredPrompt(null);
@@ -120,12 +106,21 @@ export function PWAPrompt() {
 
   return (
     <>
-      {/* 1. Modal "Instale o app" (Exact match with user screenshot) */}
+      {/* 1. Modal "Instale o app" */}
       {showModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-[28px] p-6 sm:p-7 max-w-md w-full shadow-2xl border border-gray-100 text-gray-900 animate-scale-up">
+          <div className="bg-white rounded-[28px] p-6 sm:p-7 max-w-md w-full shadow-2xl border border-gray-100 text-gray-900 animate-scale-up relative">
+            {/* Close Button Top Right */}
+            <button
+              onClick={handleCloseModal}
+              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
+              title="Fechar"
+            >
+              <X size={20} />
+            </button>
+
             {/* Header */}
-            <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-6 tracking-tight">
+            <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-6 tracking-tight pr-8">
               Instale o app
             </h3>
 
@@ -150,13 +145,14 @@ export function PWAPrompt() {
               </div>
             </div>
 
-            {/* Action Buttons (Bottom Right) */}
+            {/* Action Buttons */}
             <div className="flex items-center justify-end gap-3 mt-8">
               <button
                 type="button"
                 onClick={installPWA}
-                className="bg-[#e8def8] hover:bg-[#decbf7] text-[#1d192b] font-semibold px-7 py-2.5 rounded-full text-sm sm:text-base transition-all shadow-sm active:scale-95 cursor-pointer"
+                className="bg-[#e8def8] hover:bg-[#decbf7] text-[#1d192b] font-semibold px-7 py-2.5 rounded-full text-sm sm:text-base transition-all shadow-sm active:scale-95 cursor-pointer flex items-center gap-2"
               >
+                <Download size={18} />
                 Instalar
               </button>
               <button
@@ -171,35 +167,33 @@ export function PWAPrompt() {
         </div>
       )}
 
-      {/* 2. Floating Bottom Mini-Bar (if modal closed) */}
-      {showMiniFooter && !showModal && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900/95 text-white px-4 py-2.5 rounded-full shadow-2xl border border-yellow-400/40 backdrop-blur-md flex items-center gap-3 whitespace-nowrap animate-fade-in max-w-[92vw] sm:max-w-md">
-          <div className="flex items-center gap-2">
-            <img 
-              src="/icon.png" 
-              alt="SchoolVan Logo" 
-              className="w-7 h-7 rounded-lg border border-yellow-400/40 object-cover shrink-0" 
-              referrerPolicy="no-referrer"
-            />
-            <span className="text-xs font-bold text-gray-200 hidden sm:inline">
-              App SchoolVan
-            </span>
-          </div>
-
+      {/* 2. Floating Action Button (Positioned above the Checklist button on the bottom right) */}
+      {!showModal && (
+        <div className="fixed bottom-22 right-6 z-40 animate-fade-in">
           <button
             onClick={() => setShowModal(true)}
-            className="bg-yellow-400 text-gray-950 px-4 py-1.5 rounded-xl text-xs font-extrabold uppercase tracking-wider hover:bg-yellow-300 transition-all shadow-lg hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-1.5 animate-pulse"
+            className="group relative flex items-center gap-2.5 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-gray-950 font-bold px-4 py-3 sm:px-5 sm:py-3.5 rounded-full shadow-2xl hover:shadow-amber-500/40 border-2 border-white/80 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+            title="Instalar aplicativo SchoolVan no dispositivo"
           >
-            <Download size={14} className="stroke-[3]" />
-            Baixar o App
-          </button>
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-900 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-gray-950"></span>
+            </span>
 
-          <button
-            onClick={handleDismissMiniFooter}
-            className="p-1 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer shrink-0"
-            title="Fechar"
-          >
-            <X size={16} />
+            <div className="w-7 h-7 rounded-lg overflow-hidden bg-white/30 p-0.5 shadow-inner shrink-0 flex items-center justify-center">
+              <img 
+                src="/icon.png" 
+                alt="SchoolVan" 
+                className="w-full h-full object-cover rounded-md" 
+                referrerPolicy="no-referrer"
+              />
+            </div>
+
+            <span className="text-xs sm:text-sm font-extrabold tracking-wide uppercase">
+              Instalar App
+            </span>
+
+            <Download size={18} className="stroke-[2.5] group-hover:translate-y-0.5 transition-transform" />
           </button>
         </div>
       )}
