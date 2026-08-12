@@ -84,6 +84,7 @@
   "share_target": {
     "action": "/?share=true",
     "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
     "params": {
       "title": "title",
       "text": "text",
@@ -98,18 +99,15 @@
   ],
   "scope_extensions": [
     {
+      "type": "origin",
       "origin": "https://schoolvansandbox.pages.dev"
     },
     {
+      "type": "origin",
       "origin": "https://schoolvan.app"
     },
     {
-      "origin": "schoolvansandbox.pages.dev"
-    },
-    {
-      "origin": "schoolvan.app"
-    },
-    {
+      "type": "origin",
       "origin": "*.pages.dev"
     }
   ],
