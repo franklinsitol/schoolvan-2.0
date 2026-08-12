@@ -1,8 +1,8 @@
 {
   "short_name": "SchoolVan",
   "name": "SchoolVan - Gestão de Transporte Escolar",
-  "id": "/app.html",
-  "description": "A casca PWA com alta performance para gestão de transporte escolar e rastreamento em tempo real.",
+  "id": "/",
+  "description": "Aplicativo PWA para gestão de transporte escolar e rastreamento em tempo real.",
   "icons": [
     {
       "src": "/favicon.png",
@@ -23,7 +23,7 @@
       "purpose": "maskable any"
     }
   ],
-  "start_url": "/app.html",
+  "start_url": "/",
   "background_color": "#0b0f17",
   "theme_color": "#0b0f17",
   "display": "standalone",
