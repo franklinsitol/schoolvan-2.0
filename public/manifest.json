@@ -1,11 +1,11 @@
 {
   "name": "SchoolVan - Gestão de Transporte Escolar",
   "short_name": "SchoolVan",
-  "id": "/",
+  "id": "schoolvan-app-pwa",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "background_color": "#0b0f17",
   "theme_color": "#0b0f17",
   "lang": "pt-BR",
@@ -13,7 +13,14 @@
   "orientation": "portrait",
   "description": "Aplicativo PWA oficial para gestão de transporte escolar, carteira de alunos e rastreamento em tempo real.",
   "prefer_related_applications": false,
+  "related_applications": [],
   "categories": ["education", "travel", "productivity", "utilities"],
+  "launch_handler": {
+    "client_mode": ["navigate-existing", "auto"]
+  },
+  "edge_side_panel": {
+    "preferred_width": 480
+  },
   "icons": [
     {
       "src": "/favicon.png",
@@ -68,14 +75,28 @@
       "short_name": "Rotas",
       "description": "Visualizar mapa de rotas ativas",
       "url": "/?view=routes",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "any"
+        }
+      ]
     },
     {
       "name": "Passageiros",
       "short_name": "Alunos",
       "description": "Lista de alunos e presença",
       "url": "/?view=students",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "any"
+        }
+      ]
     }
   ]
 }
