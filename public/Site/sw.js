@@ -1,4 +1,4 @@
-const CACHE_NAME = 'schoolvan-pwa-v11';
+const CACHE_NAME = 'schoolvan-pwa-v12';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
