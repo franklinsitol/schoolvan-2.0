@@ -140,7 +140,7 @@ export function PWAPrompt() {
       )}
 
       {/* 2. Botão Flutuante (INSTALAR APP) */}
-      <div className="fixed bottom-22 right-6 z-40 animate-fade-in">
+      <div className="fixed bottom-20 sm:bottom-24 right-3 sm:right-6 z-40 animate-fade-in">
         <button
           onClick={handleInstallPWA}
           disabled={installing}

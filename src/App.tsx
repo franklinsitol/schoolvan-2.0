@@ -534,20 +534,20 @@ export default function App() {
   const isParent = profile?.role === 'parent';
 
   const navItems = isParent ? [
-    { id: 'parent', label: 'Área dos Alunos & Pais', icon: Users },
-    { id: 'support', label: 'Ajuda do Tio & Suporte VIP', icon: LifeBuoy, className: 'text-yellow-600 font-bold' }
+    { id: 'parent', label: 'Área dos Pais', icon: Users },
+    { id: 'support', label: 'Suporte & Ajuda', icon: LifeBuoy, className: 'text-yellow-600 font-bold' }
   ] : [
-    { id: 'dash', label: 'Painel do Tio (Resumo)', icon: Bus },
-    { id: 'leads', label: 'Pedidos de Vagas (Pais)', icon: ClipboardCheck, className: 'text-yellow-700 font-black bg-yellow-50/80 hover:bg-yellow-100' },
-    { id: 'students', label: 'Meus Passageiros (Alunos)', icon: Users },
-    { id: 'routes', label: 'Ordem de Parada & GPS', icon: MapPinned },
-    { id: 'vehicles', label: 'Minhas Vans & Frota', icon: Bus },
-    { id: 'team', label: 'Tios & Monitores', icon: ShieldCheck },
-    { id: 'finance', label: 'Mensalidades & Zap do Pix', icon: Wallet },
-    { id: 'parent', label: 'Visão dos Pais (Demonstração)', icon: Users, className: 'text-indigo-600 font-bold bg-indigo-50/50 hover:bg-indigo-100' },
-    { id: 'profile', label: 'Perfil & Chave Pix do Tio', icon: Settings },
-    { id: 'support', label: 'Central de Ajuda do Tio', icon: LifeBuoy, className: 'text-yellow-600 font-bold' },
-    ...(isSuperAdmin ? [{ id: 'superadmin', label: 'Central de Controle', icon: ShieldAlert, className: 'text-red-600 font-black bg-red-50' }] : []),
+    { id: 'dash', label: 'Painel Geral', icon: Bus },
+    { id: 'leads', label: 'Pedidos de Vagas', icon: ClipboardCheck, className: 'text-yellow-700 font-black bg-yellow-50/80 hover:bg-yellow-100' },
+    { id: 'students', label: 'Passageiros', icon: Users },
+    { id: 'routes', label: 'Rotas & GPS', icon: MapPinned },
+    { id: 'vehicles', label: 'Minha Frota', icon: Bus },
+    { id: 'team', label: 'Monitores', icon: ShieldCheck },
+    { id: 'finance', label: 'Mensalidades & Pix', icon: Wallet },
+    { id: 'parent', label: 'Visão dos Pais', icon: Users, className: 'text-indigo-600 font-bold bg-indigo-50/50 hover:bg-indigo-100' },
+    { id: 'profile', label: 'Meu Perfil & Pix', icon: Settings },
+    { id: 'support', label: 'Suporte', icon: LifeBuoy, className: 'text-yellow-600 font-bold' },
+    ...(isSuperAdmin ? [{ id: 'superadmin', label: 'Super Admin', icon: ShieldAlert, className: 'text-red-600 font-black bg-red-50' }] : []),
   ];
 
   return (
@@ -734,7 +734,7 @@ export default function App() {
         </AnimatePresence>
 
         {/* Main Content */}
-        <main className="flex-1 min-w-0 p-4">
+        <main className="flex-1 min-w-0 p-4 pb-32 sm:pb-28">
           <ErrorBoundary>
             {user && profile?.role === 'admin' && <CSAssistant />}
 
@@ -775,10 +775,10 @@ export default function App() {
 
       {/* Ergonomic Floating Bottom Command Dock for Drivers */}
       {user && profile?.role === 'admin' && (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-gray-950/90 backdrop-blur-md p-2 rounded-full shadow-2xl border-2 border-yellow-400/40">
+        <div className="fixed bottom-3 inset-x-3 max-w-lg mx-auto sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 z-40 flex items-center justify-between gap-2 bg-gray-950/95 backdrop-blur-md p-2 rounded-2xl sm:rounded-full shadow-2xl border-2 border-yellow-400/40">
           {/* AI CSM Assistant Pill Button */}
           <button 
-            className="px-3.5 py-2.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-full shadow flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer text-xs"
+            className="px-3.5 py-2.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-xl sm:rounded-full shadow flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer text-xs shrink-0"
             onClick={() => setIsAICSMOpen(true)}
             title="Dúvidas & Dicas do Tio da Van"
           >
@@ -789,12 +789,12 @@ export default function App() {
 
           {/* Main Attendance Checklist Button */}
           <button 
-            className="px-4 py-2.5 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-gray-950 font-black rounded-full shadow-lg flex items-center gap-2 transition-all active:scale-95 cursor-pointer text-xs"
+            className="flex-1 sm:flex-initial px-4 py-2.5 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-gray-950 font-black rounded-xl sm:rounded-full shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer text-xs"
             onClick={() => setIsCheckinOpen(true)}
             title="Abrir Lista de Chamada e Embarque da Van"
           >
             <ClipboardCheck size={20} className="shrink-0 text-gray-950" />
-            <span className="font-black uppercase tracking-wider text-gray-950">Chamada do Embarque</span>
+            <span className="font-black uppercase tracking-wider text-gray-950 truncate">Chamada do Embarque</span>
           </button>
         </div>
       )}
