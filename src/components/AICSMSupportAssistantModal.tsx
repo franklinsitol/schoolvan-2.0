@@ -17,12 +17,15 @@ import {
   Bus,
   AlertTriangle,
   CheckCircle2,
-  PhoneCall
+  PhoneCall,
+  Bell
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../hooks/useAuth';
 import { useFirestore } from '../hooks/useFirestore';
-import { Student, Vehicle, Finance } from '../types';
+import { Student, Vehicle, Finance, Lead } from '../types';
+import { playBusHornSound, speakTioIAPrompt } from '../lib/sound';
+import { getReadNotifications, markNotificationAsRead } from '../lib/tioNotifications';
 import toast from 'react-hot-toast';
 
 interface Message {
@@ -49,6 +52,21 @@ export function AICSMSupportAssistantModal({
   const { data: students } = useFirestore<Student>(profile?.id ? `drivers/${profile.id}/students` : '');
   const { data: vehicles } = useFirestore<Vehicle>(profile?.id ? `drivers/${profile.id}/vehicles` : '');
   const { data: finances } = useFirestore<Finance>(profile?.id ? `drivers/${profile.id}/finances` : '');
+  const { data: leads } = useFirestore<Lead>(profile?.id ? `drivers/${profile.id}/leads` : '');
+
+  const [readNotifs, setReadNotifs] = useState<string[]>(getReadNotifications());
+
+  useEffect(() => {
+    const handleUpdate = () => setReadNotifs(getReadNotifications());
+    window.addEventListener('tioia_notifications_updated', handleUpdate);
+    return () => window.removeEventListener('tioia_notifications_updated', handleUpdate);
+  }, []);
+
+  const handleMarkAsRead = (notifId: string) => {
+    markNotificationAsRead(notifId);
+    setReadNotifs(getReadNotifications());
+    toast.success('Aviso marcado como lido!');
+  };
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -83,8 +101,34 @@ export function AICSMSupportAssistantModal({
   useEffect(() => {
     if (isOpen) {
       scrollToBottom();
+
+      // Check for real-time alerts to dynamically update Tio IA welcome prompt
+      const todayStr = new Date().toISOString().split('T')[0];
+      const activeStudents = students.filter(s => s.status !== 'Excluido');
+      const absentStudents = activeStudents.filter(s => 
+        s.ausenteHoje || 
+        s.boardingStatus === 'NÃO VAI' || 
+        (s.absenceDates && s.absenceDates.includes(todayStr))
+      );
+
+      let alertsText = '';
+      if (absentStudents.length > 0) {
+        alertsText += `\n\n🚍 **AVISO DE AUSÊNCIA HOJE**: Os responsáveis de **${absentStudents.map(s => s.name).join(', ')}** avisaram que ele(s) **NÃO VÃO** para a escola hoje! Sua rota já está liberada.`;
+      }
+      if (profile?.invoiceStatus === 'Em Atraso') {
+        alertsText += `\n\n💳 **AVISO DE MENSALIDADE**: Tio, sua licença da plataforma venceu. Lembre-se de copiar a chave Pix para manter seus avisos ativos aos pais.`;
+      }
+
+      setMessages([
+        {
+          id: '1',
+          sender: 'ai',
+          text: `Olá ${profile?.name ? `Tio(a) ${profile.name}` : 'Tio da Van'}! Sou o **Tio IA**, seu copiloto inteligente do SchoolVan. 🚌🤖${alertsText}\n\nEstou com o microfone ativado e acesso em tempo real à sua lista de alunos, faturas, vagas e presença de hoje!\n\n**O que você quer saber?** Pode me perguntar por voz ou texto:`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
     }
-  }, [messages, isOpen]);
+  }, [isOpen]);
 
   // Cleanup speech synthesis and recognition on modal unmount
   useEffect(() => {
@@ -427,6 +471,130 @@ Instruções para respostas:
 
         {/* Message List */}
         <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-gray-50 dark:bg-gray-950/40">
+          {/* Real-time Active Notification Cards Banner */}
+          {(absentStudents.length > 0 || profile?.invoiceStatus === 'Em Atraso' || (leads && leads.length > 0)) && (
+            <div className="bg-yellow-400/10 border-2 border-yellow-400/40 p-3.5 rounded-2xl space-y-2.5">
+              <div className="flex items-center justify-between text-xs font-black text-gray-900 dark:text-yellow-300 uppercase tracking-wider">
+                <span className="flex items-center gap-1.5">
+                  <Bell size={14} className="text-yellow-500 animate-bounce" />
+                  Central de Avisos do Tio IA
+                </span>
+                <span className="text-[10px] bg-yellow-400 text-gray-950 px-2 py-0.5 rounded-full">
+                  Em Tempo Real
+                </span>
+              </div>
+
+              {/* 1. Absence Notif Card */}
+              {absentStudents.length > 0 && (() => {
+                const notifId = `absence-${todayStr}-${absentStudents.map(s => s.id).join('-')}`;
+                const isRead = readNotifs.includes(notifId);
+                if (isRead) return null;
+                const text = absentStudents.length === 1
+                  ? `O pai de ${absentStudents[0].name} avisou que ele(a) NÃO VAI para a escola hoje!`
+                  : `${absentStudents.length} alunos não vão para a escola hoje: ${absentStudents.map(s => s.name).join(', ')}`;
+
+                return (
+                  <div key={notifId} className="bg-amber-500/20 dark:bg-amber-950/40 border border-amber-500/40 p-3 rounded-xl text-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-black text-amber-800 dark:text-amber-300 uppercase text-[10px] flex items-center gap-1">
+                        <Bus size={12} /> Falta Confirmada Hoje
+                      </span>
+                    </div>
+                    <p className="font-bold text-gray-900 dark:text-white leading-snug">
+                      {text}
+                    </p>
+                    <div className="flex items-center justify-between pt-1 gap-2">
+                      <button
+                        onClick={() => {
+                          playBusHornSound();
+                          speakTioIAPrompt(`Aviso do Tio IA: ${text}`);
+                        }}
+                        className="px-2.5 py-1 bg-yellow-400 text-gray-950 font-black rounded-lg text-[10px] flex items-center gap-1 hover:bg-yellow-300 transition-all cursor-pointer"
+                      >
+                        <Volume2 size={12} /> Ouvir em Voz Alta
+                      </button>
+
+                      <button
+                        onClick={() => handleMarkAsRead(notifId)}
+                        className="px-2.5 py-1 bg-emerald-500 text-white font-black rounded-lg text-[10px] flex items-center gap-1 hover:bg-emerald-600 transition-all cursor-pointer shadow"
+                      >
+                        <CheckCircle2 size={12} /> Marcar como Lido
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* 2. Overdue Invoice Card */}
+              {profile?.invoiceStatus === 'Em Atraso' && (() => {
+                const notifId = `billing-late-${todayStr}`;
+                const isRead = readNotifs.includes(notifId);
+                if (isRead) return null;
+                const text = 'Sua licença do aplicativo venceu. Copie a chave Pix para regularizar e manter seus avisos ativos aos pais.';
+
+                return (
+                  <div key={notifId} className="bg-red-500/20 dark:bg-red-950/40 border border-red-500/40 p-3 rounded-xl text-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-black text-red-700 dark:text-red-300 uppercase text-[10px] flex items-center gap-1">
+                        <AlertTriangle size={12} /> Cobrança de Licença
+                      </span>
+                    </div>
+                    <p className="font-bold text-gray-900 dark:text-white leading-snug">
+                      {text}
+                    </p>
+                    <div className="flex items-center justify-between pt-1 gap-2">
+                      <button
+                        onClick={() => {
+                          playBusHornSound();
+                          speakTioIAPrompt(`Aviso de cobrança do Tio IA: ${text}`);
+                        }}
+                        className="px-2.5 py-1 bg-yellow-400 text-gray-950 font-black rounded-lg text-[10px] flex items-center gap-1 hover:bg-yellow-300 transition-all cursor-pointer"
+                      >
+                        <Volume2 size={12} /> Ouvir Voz
+                      </button>
+
+                      <button
+                        onClick={() => handleMarkAsRead(notifId)}
+                        className="px-2.5 py-1 bg-emerald-500 text-white font-black rounded-lg text-[10px] flex items-center gap-1 hover:bg-emerald-600 transition-all cursor-pointer shadow"
+                      >
+                        <CheckCircle2 size={12} /> Marcar como Lido
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* 3. Leads Card */}
+              {leads && leads.length > 0 && (() => {
+                const notifId = `leads-${leads.length}`;
+                const isRead = readNotifs.includes(notifId);
+                if (isRead) return null;
+                const text = `Você recebeu ${leads.length} pedido(s) de orçamentos de pais interessados na sua van!`;
+
+                return (
+                  <div key={notifId} className="bg-emerald-500/20 dark:bg-emerald-950/40 border border-emerald-500/40 p-3 rounded-xl text-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-black text-emerald-700 dark:text-emerald-300 uppercase text-[10px] flex items-center gap-1">
+                        <Users size={12} /> Pedidos de Vagas
+                      </span>
+                    </div>
+                    <p className="font-bold text-gray-900 dark:text-white leading-snug">
+                      {text}
+                    </p>
+                    <div className="flex items-center justify-between pt-1 gap-2">
+                      <button
+                        onClick={() => handleMarkAsRead(notifId)}
+                        className="px-2.5 py-1 bg-emerald-500 text-white font-black rounded-lg text-[10px] flex items-center gap-1 hover:bg-emerald-600 transition-all cursor-pointer shadow"
+                      >
+                        <CheckCircle2 size={12} /> Marcar como Lido
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
           {messages.map((msg) => (
             <div 
               key={msg.id}

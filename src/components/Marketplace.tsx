@@ -93,7 +93,7 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
     <div className="max-w-7xl mx-auto px-4 py-6 md:py-12 space-y-16">
       
       {/* 🚀 AUDIENCE SELECTOR HEADER BANNER */}
-      <div className="flex justify-center mb-6">
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-6">
         <div className="bg-gray-900 p-1.5 rounded-full border border-gray-800 shadow-xl flex items-center gap-1">
           <button
             onClick={() => setAudienceMode('driver')}
@@ -121,6 +121,16 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
             <span>SOU PAI / MÃE (PROCURO VAN)</span>
           </button>
         </div>
+
+        <a
+          href="https://wa.me/5511947078453?text=Ol%C3%A1%20SchoolVan%21%20Gostaria%20de%20informa%C3%A7%C3%B5es%20e%20suporte."
+          target="_blank"
+          rel="noopener noreferrer"
+          className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full font-black text-xs flex items-center gap-1.5 shadow-lg transition-all active:scale-95 cursor-pointer shrink-0"
+        >
+          <MessageSquare size={16} />
+          <span>FALAR NO ZAP: (11) 94707-8453</span>
+        </a>
       </div>
 
       {/* 🚀 SALES HERO SECTION */}
@@ -158,13 +168,15 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
                   <ArrowRight size={18} />
                 </button>
 
-                <button
-                  onClick={handleGoToSearch}
-                  className="w-full sm:w-auto px-6 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl text-sm transition-all border border-white/20 flex items-center justify-center gap-2 cursor-pointer"
+                <a
+                  href="https://wa.me/5511947078453?text=Ol%C3%A1%20SchoolVan%21%20Gostaria%20de%20tirar%20d%C3%BAvidas%20sobre%20o%20sistema."
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full sm:w-auto px-6 py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-2xl text-sm transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <Search size={18} className="text-yellow-400" />
-                  <span>BUSCAR VANS CADASTRADAS</span>
-                </button>
+                  <MessageSquare size={18} />
+                  <span>WHATSAPP: (11) 94707-8453</span>
+                </a>
               </div>
 
               {/* Trust Badges */}

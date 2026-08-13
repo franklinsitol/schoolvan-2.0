@@ -56,7 +56,9 @@ import { OnboardingWizard } from './components/OnboardingWizard';
 import { UpgradeTriggerModal } from './components/UpgradeTriggerModal';
 import { SubscriptionModal } from './components/SubscriptionModal';
 import { AICSMSupportAssistantModal } from './components/AICSMSupportAssistantModal';
-import { Sparkles, Bot, Zap, Compass } from 'lucide-react';
+import { TioIAFloatingDockWidget } from './components/TioIAFloatingDockWidget';
+import { Lead } from './types';
+import { Sparkles, Bot, Zap, Compass, Phone, MessageSquare } from 'lucide-react';
 
 // Views
 const ParentView = () => {
@@ -492,6 +494,7 @@ export default function App() {
   const activeProfile = impersonatedDriver || profile;
 
   const { data: students } = useFirestore<Student>(activeProfile?.id ? `drivers/${activeProfile.id}/students` : '');
+  const { data: leads } = useFirestore<Lead>(activeProfile?.id ? `drivers/${activeProfile.id}/leads` : '');
 
   useEffect(() => {
     if (window.location.pathname.includes('/cora')) {
@@ -654,6 +657,17 @@ export default function App() {
                     <Zap size={15} className="text-yellow-400" />
                     <span className="hidden sm:inline">Assinatura Pix</span>
                   </button>
+
+                  <a
+                    href="https://wa.me/5511947078453?text=Ol%C3%A1%20SchoolVan%21%20Preciso%20de%20ajuda."
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl text-xs flex items-center gap-1.5 shadow transition-all cursor-pointer"
+                    title="Suporte SchoolVan no WhatsApp: (11) 94707-8453"
+                  >
+                    <Phone size={14} />
+                    <span className="hidden lg:inline">Zap SchoolVan</span>
+                  </a>
                 </>
               )}
 
@@ -754,7 +768,15 @@ export default function App() {
         {/* Main Content */}
         <main className="flex-1 min-w-0 p-4 pb-32 sm:pb-28">
           <ErrorBoundary>
-            {user && profile?.role === 'admin' && <CSAssistant />}
+            {user && profile?.role === 'admin' && (
+              <CSAssistant 
+                onOpenTioIA={() => setIsAICSMOpen(true)}
+                onOpenUpgradeModal={(reason) => {
+                  setUpgradeReason(reason);
+                  setIsUpgradeModalOpen(true);
+                }}
+              />
+            )}
 
             <AnimatePresence mode="wait">
               <motion.div
@@ -812,30 +834,15 @@ export default function App() {
 
       <PWAPrompt />
 
-      {/* Ergonomic Floating Bottom Command Dock for Drivers */}
+      {/* Ergonomic Floating Bottom Command Dock & Tio IA Notification Bubble */}
       {user && profile?.role === 'admin' && (
-        <div className="fixed bottom-3 inset-x-3 max-w-lg mx-auto sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 z-40 flex items-center justify-between gap-2 bg-gray-950/95 backdrop-blur-md p-2 rounded-2xl sm:rounded-full shadow-2xl border-2 border-yellow-400/40">
-          {/* AI CSM Assistant Pill Button */}
-          <button 
-            className="px-3.5 py-2.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-xl sm:rounded-full shadow flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer text-xs shrink-0"
-            onClick={() => setIsAICSMOpen(true)}
-            title="Dúvidas & Dicas do Tio da Van"
-          >
-            <Bot size={18} className="shrink-0 text-gray-950" />
-            <span className="font-extrabold uppercase tracking-tight">Tio IA</span>
-            <span className="px-1.5 py-0.5 bg-gray-950 text-yellow-400 text-[9px] font-black rounded-full ml-0.5 uppercase hidden sm:inline">24h</span>
-          </button>
-
-          {/* Main Attendance Checklist Button */}
-          <button 
-            className="flex-1 sm:flex-initial px-4 py-2.5 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-gray-950 font-black rounded-xl sm:rounded-full shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer text-xs"
-            onClick={() => setIsCheckinOpen(true)}
-            title="Abrir Lista de Chamada e Embarque da Van"
-          >
-            <ClipboardCheck size={20} className="shrink-0 text-gray-950" />
-            <span className="font-black uppercase tracking-wider text-gray-950 truncate">Chamada do Embarque</span>
-          </button>
-        </div>
+        <TioIAFloatingDockWidget 
+          profile={activeProfile}
+          students={students}
+          leads={leads}
+          onOpenTioIA={() => setIsAICSMOpen(true)}
+          onOpenCheckin={() => setIsCheckinOpen(true)}
+        />
       )}
 
       <CheckinModal 

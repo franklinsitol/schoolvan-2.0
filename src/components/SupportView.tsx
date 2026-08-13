@@ -263,12 +263,23 @@ export function SupportView() {
         <h2 className="text-4xl font-black text-gray-900 mb-2">Central de Sucesso & Atendimento</h2>
         <p className="text-gray-500 text-base mb-4">Atendimento automatizado, negociações financeiras e suporte em tempo real.</p>
         
-        <button
-          onClick={() => setShowPwaModal(true)}
-          className="inline-flex items-center gap-2 bg-gray-900 text-yellow-400 border border-yellow-400/40 px-4 py-2 rounded-full font-extrabold text-xs uppercase tracking-wider hover:bg-gray-800 transition-all cursor-pointer shadow-md hover:scale-105"
-        >
-          <Layers size={16} /> Ver Documentação da Arquitetura PWA Shell + Iframe
-        </button>
+        <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
+          <a
+            href="https://wa.me/5511947078453?text=Ol%C3%A1%20Suporte%20SchoolVan%21%20Preciso%20de%20ajuda."
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-full font-black text-xs uppercase tracking-wider shadow-lg transition-all hover:scale-105 cursor-pointer"
+          >
+            <MessageSquare size={16} /> Atendimento Direto no WhatsApp: (11) 94707-8453
+          </a>
+
+          <button
+            onClick={() => setShowPwaModal(true)}
+            className="inline-flex items-center gap-2 bg-gray-900 text-yellow-400 border border-yellow-400/40 px-4 py-2.5 rounded-full font-extrabold text-xs uppercase tracking-wider hover:bg-gray-800 transition-all cursor-pointer shadow-md hover:scale-105"
+          >
+            <Layers size={16} /> Documentação PWA Shell
+          </button>
+        </div>
       </div>
 
       <PWAShellDocsModal isOpen={showPwaModal} onClose={() => setShowPwaModal(false)} />
