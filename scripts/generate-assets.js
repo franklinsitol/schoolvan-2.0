@@ -5,9 +5,9 @@ import path from 'path';
 async function generateAssets() {
   console.log('[Build Asset Generator] Starting asset generation...');
 
-  const iconSrc = 'src/assets/images/schoolvan_app_icon_1786571574417.jpg';
-  const deskSrc = 'src/assets/images/schoolvan_desktop_screenshot_1786571587735.jpg';
-  const mobSrc = 'src/assets/images/schoolvan_mobile_screenshot_1786571598463.jpg';
+  const iconSrc = 'src/assets/images/schoolvan_app_icon_1786580259195.jpg';
+  const deskSrc = 'src/assets/images/schoolvan_desktop_screenshot_1786580276088.jpg';
+  const mobSrc = 'src/assets/images/schoolvan_mobile_screenshot_1786580288879.jpg';
 
   if (!fs.existsSync(iconSrc)) {
     console.error('[Build Asset Generator] Source icon image not found at ' + iconSrc);
