@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Bot, ClipboardCheck, X, Volume2, CheckCircle2, MessageSquare } from 'lucide-react';
-import { Student, Lead, Driver } from '../types';
+import { Student, Lead, Driver, TeamMember } from '../types';
 import { isStudentAbsentOnDate } from '../lib/absence';
 import { playBusHornSound, speakTioIAPrompt } from '../lib/sound';
 import { getReadNotifications, markNotificationAsRead } from '../lib/tioNotifications';
 
 interface TioIAFloatingDockWidgetProps {
-  profile: Driver | null;
+  profile: Driver | TeamMember | null;
   students: Student[];
   leads: Lead[];
   onOpenTioIA: () => void;
@@ -34,8 +34,8 @@ export function TioIAFloatingDockWidget({
   const todayStr = new Date().toISOString().split('T')[0];
   const absentStudents = students.filter(s => isStudentAbsentOnDate(s, todayStr));
   const activeStudentCount = students.filter(s => s.status !== 'Excluido').length;
-  const isLate = profile.invoiceStatus === 'Em Atraso';
-  const hasActivePromise = profile.paymentPromiseUntil && new Date(profile.paymentPromiseUntil) > new Date();
+  const isLate = profile && 'invoiceStatus' in profile ? profile.invoiceStatus === 'Em Atraso' : false;
+  const hasActivePromise = profile && 'paymentPromiseUntil' in profile && profile.paymentPromiseUntil ? new Date(profile.paymentPromiseUntil) > new Date() : false;
 
   // Construct active notification items
   const notifItems: Array<{

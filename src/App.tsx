@@ -49,7 +49,6 @@ import { CheckinModal } from './components/CheckinModal';
 import { StudentModal } from './components/StudentModal';
 import { VehicleModal } from './components/VehicleModal';
 import { SuperAdminView } from './components/SuperAdminView';
-import { CSAssistant } from './components/CSAssistant';
 import { LeadsView } from './components/LeadsView';
 import { PWAPrompt } from './components/PWAPrompt';
 import { OnboardingWizard } from './components/OnboardingWizard';
@@ -768,16 +767,6 @@ export default function App() {
         {/* Main Content */}
         <main className="flex-1 min-w-0 p-4 pb-32 sm:pb-28">
           <ErrorBoundary>
-            {user && profile?.role === 'admin' && (
-              <CSAssistant 
-                onOpenTioIA={() => setIsAICSMOpen(true)}
-                onOpenUpgradeModal={(reason) => {
-                  setUpgradeReason(reason);
-                  setIsUpgradeModalOpen(true);
-                }}
-              />
-            )}
-
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentView}
