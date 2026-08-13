@@ -1,0 +1,94 @@
+import React from 'react';
+
+interface SchoolVanLogoProps {
+  size?: number;
+  className?: string;
+  badge?: boolean;
+}
+
+export function SchoolVanLogo({ size = 28, className = '', badge = false }: SchoolVanLogoProps) {
+  const vanSvg = (
+    <svg 
+      width={size} 
+      height={size} 
+      viewBox="0 0 64 64" 
+      fill="none" 
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      {/* Background Badge (Optional) */}
+      {badge && (
+        <rect x="2" y="2" width="60" height="60" rx="16" fill="#0F172A" />
+      )}
+
+      {/* Van Shadow */}
+      <ellipse cx="32" cy="54" rx="24" ry="4" fill="#000000" fillOpacity="0.2" />
+
+      {/* Main Van Yellow Body */}
+      <path 
+        d="M8 22C8 18.6863 10.6863 16 14 16H42C45.3137 16 48.2415 17.8923 49.5695 20.9328L54.6766 32.6308C55.5262 34.5779 56 36.6806 56 38.8078V48C56 49.6569 54.6569 51 53 51H51C51 46.5817 47.4183 43 43 43C38.5817 43 35 46.5817 35 51H29C29 46.5817 25.4183 43 21 43C16.5817 43 13 46.5817 13 51H11C9.34315 51 8 49.6569 8 48V22Z" 
+        fill="#FACC15" 
+      />
+
+      {/* Front Nose & Bumper Curve Accent */}
+      <path 
+        d="M50 34L54.6766 32.6308C55.5262 34.5779 56 36.6806 56 38.8078V48H52V38C52 36 51 34.5 50 34Z" 
+        fill="#EAB308" 
+      />
+
+      {/* Windshield & Windows (Dark Slate Tint) */}
+      <path 
+        d="M40 20H13V31H42.5L40 20Z" 
+        fill="#0F172A" 
+      />
+      
+      {/* Window Glass Reflections (White subtle stripes) */}
+      <path d="M16 22H24V29H16V22Z" fill="#38BDF8" fillOpacity="0.8" />
+      <path d="M26 22H34V29H26V22Z" fill="#38BDF8" fillOpacity="0.8" />
+      <path d="M36 22L38.2 29H36V22Z" fill="#38BDF8" fillOpacity="0.8" />
+
+      {/* Iconic Black Side Stripe (ESCOLAR) */}
+      <rect x="8" y="34" width="48" height="6" fill="#1E293B" />
+      
+      {/* ESCOLAR Text on Stripe */}
+      <text 
+        x="30" 
+        y="38.5" 
+        fill="#FACC15" 
+        fontSize="3.8" 
+        fontWeight="900" 
+        fontFamily="sans-serif" 
+        letterSpacing="0.8" 
+        textAnchor="middle"
+      >
+        ESCOLAR
+      </text>
+
+      {/* Front Headlight (Bright White/Yellow Glow) */}
+      <rect x="52" y="42" width="4" height="4" rx="1.5" fill="#FEF08A" />
+      <circle cx="54" cy="44" r="1" fill="#FFFFFF" />
+
+      {/* Back Taillight (Red) */}
+      <rect x="8" y="42" width="2" height="4" rx="1" fill="#EF4444" />
+
+      {/* Front & Rear Bumpers */}
+      <rect x="53" y="47" width="4" height="3" rx="1" fill="#475569" />
+      <rect x="7" y="47" width="3" height="3" rx="1" fill="#475569" />
+
+      {/* Wheels (Outer Rubber Tire) */}
+      <circle cx="21" cy="50" r="5" fill="#1E293B" />
+      <circle cx="43" cy="50" r="5" fill="#1E293B" />
+
+      {/* Wheels (Inner Steel Hubcaps) */}
+      <circle cx="21" cy="50" r="2.5" fill="#94A3B8" />
+      <circle cx="43" cy="50" r="2.5" fill="#94A3B8" />
+      <circle cx="21" cy="50" r="1" fill="#F8FAFC" />
+      <circle cx="43" cy="50" r="1" fill="#F8FAFC" />
+
+      {/* Side Mirror */}
+      <rect x="42" y="27" width="2.5" height="4" rx="1" fill="#1E293B" />
+    </svg>
+  );
+
+  return vanSvg;
+}

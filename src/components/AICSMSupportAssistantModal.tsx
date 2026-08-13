@@ -42,7 +42,7 @@ export function AICSMSupportAssistantModal({
     {
       id: '1',
       sender: 'ai',
-      text: `Olá ${profile?.name || 'Motorista'}! Sou o **Assistente de Sucesso do SchoolVan (IA)**. 🚌\n\nComo posso te ajudar hoje com suas rotas, cobranças Pix, dúvidas sobre o PWA ou dicas para captar mais alunos?`,
+      text: `Olá ${profile?.name ? `Tio(a) ${profile.name}` : 'Tio da Van'}! Sou o **Tio IA**, seu assistente de sucesso do SchoolVan. 🚌\n\nComo posso te ajudar hoje a organizar suas rotas, enviar cobranças Pix no Zap, tirar dúvidas do PWA dos pais ou lotar sua van?`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
@@ -154,10 +154,10 @@ export function AICSMSupportAssistantModal({
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <h3 className="font-black text-sm">CSM Assistente IA</h3>
+                <h3 className="font-black text-sm">Tio IA • Dicas da Van</h3>
                 <span className="w-2 h-2 bg-emerald-400 rounded-full animate-ping" />
               </div>
-              <p className="text-[11px] text-gray-400">Suporte Inteligente 24/7 • SchoolVan</p>
+              <p className="text-[11px] text-gray-400">Assistente 24h • SchoolVan</p>
             </div>
           </div>
 

@@ -1,9 +1,10 @@
 import React from 'react';
-import { X, CheckCircle2, Home, Bus, School, UserX } from 'lucide-react';
+import { X, CheckCircle2, Home, Bus, School, UserX, Sparkles } from 'lucide-react';
+import { SchoolVanLogo } from './SchoolVanLogo';
 import { motion, AnimatePresence } from 'motion/react';
 import { Student, BoardingStatus } from '../types';
 import { cn } from '../lib/utils';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { isStudentAbsentOnDate } from '../lib/absence';
 import toast from 'react-hot-toast';
@@ -29,69 +30,111 @@ export function CheckinModal({ isOpen, onClose, students, driverId }: CheckinMod
 
     const newStatus = nextStatus[student.boardingStatus || 'Casa'];
 
+    const statusLabels: Record<BoardingStatus, string> = {
+      'Casa': '🏠 Aguardando em Casa',
+      'Van': '🚌 Embarcou na Van',
+      'Escola': '🏫 Entregue na Escola',
+      'A CAMINHO': '🚌 A Caminho',
+      'NÃO VAI': '🚫 Não vai hoje'
+    };
+
     try {
       await updateDoc(doc(db, `drivers/${driverId}/students`, student.id), {
         boardingStatus: newStatus,
         lastCheck: new Date().toISOString()
       });
-      toast.success(`${student.name}: ${newStatus}`);
+      toast.success(`${student.name}: ${statusLabels[newStatus]}`);
     } catch (error) {
-      toast.error('Erro ao atualizar status');
+      toast.error('Erro ao atualizar status do passageiro');
     }
   };
 
+  const activeStudents = students.filter(s => s.status === 'Ativo' && !isStudentAbsentOnDate(s));
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
       <motion.div 
-        initial={{ scale: 0.9, opacity: 0 }}
+        initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="bg-white w-full max-w-md rounded-[40px] shadow-2xl overflow-hidden"
+        exit={{ scale: 0.95, opacity: 0 }}
+        className="bg-white dark:bg-gray-900 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden border border-gray-100 dark:border-gray-800"
       >
-        <div className="p-6 bg-gray-900 text-white flex items-center justify-between">
-          <h3 className="text-xl font-bold flex items-center gap-2">
-            <CheckCircle2 className="text-yellow-400" /> Check-in Rápido
-          </h3>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-            <X size={24} />
+        <div className="p-6 bg-gray-950 text-white flex items-center justify-between border-b border-gray-800">
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-yellow-400 text-gray-950 rounded-xl flex items-center justify-center font-bold">
+                <SchoolVanLogo size={22} />
+              </div>
+              <h3 className="text-lg font-black text-white">
+                Chamada do Embarque 🚌
+              </h3>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">
+              Toque no aluno para avançar onde ele está na rota agora.
+            </p>
+          </div>
+          <button 
+            onClick={onClose} 
+            className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+          >
+            <X size={22} />
           </button>
         </div>
 
-        <div className="max-h-[70vh] overflow-y-auto p-2">
-          {students.filter(s => s.status === 'Ativo' && !isStudentAbsentOnDate(s)).map((student) => {
+        <div className="max-h-[65vh] overflow-y-auto p-4 space-y-2.5 bg-gray-50 dark:bg-gray-950/40">
+          {activeStudents.map((student) => {
             const status = student.boardingStatus || 'Casa';
-            const colors: any = {
-              'Casa': 'border-red-500 bg-red-50/30',
-              'Van': 'border-green-500 bg-green-50/30',
-              'Escola': 'border-blue-500 bg-blue-50/30',
-              'A CAMINHO': 'border-yellow-500 bg-yellow-50/30',
-              'NÃO VAI': 'border-gray-500 bg-gray-50/30'
+            const colors: Record<string, string> = {
+              'Casa': 'border-amber-400 bg-amber-50/50 text-amber-900 dark:bg-amber-950/20 dark:text-amber-300',
+              'Van': 'border-emerald-500 bg-emerald-50/60 text-emerald-900 dark:bg-emerald-950/20 dark:text-emerald-300',
+              'Escola': 'border-blue-500 bg-blue-50/60 text-blue-900 dark:bg-blue-950/20 dark:text-blue-300',
+              'A CAMINHO': 'border-yellow-500 bg-yellow-50/60 text-yellow-900',
+              'NÃO VAI': 'border-gray-400 bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
             };
-            const icons: any = {
-              'Casa': Home,
-              'Van': Bus,
-              'Escola': School,
-              'A CAMINHO': Bus,
-              'NÃO VAI': UserX
+
+            const statusTitles: Record<string, string> = {
+              'Casa': '🏠 Aguardando em Casa',
+              'Van': '🚌 Embarcou na Van (Em Trânsito)',
+              'Escola': '🏫 Entregue na Escola / Destino',
+              'A CAMINHO': '🚌 A Caminho da Van',
+              'NÃO VAI': '🚫 Faltou Hoje'
             };
-            const Icon = icons[status];
+
+            const Icon = status === 'Casa' ? Home : status === 'Van' ? Bus : status === 'Escola' ? School : UserX;
 
             return (
               <button
                 key={student.id}
                 onClick={() => handleStatusChange(student)}
                 className={cn(
-                  "w-full flex items-center justify-between p-4 mb-2 rounded-3xl border-l-[6px] transition-all active:scale-95",
+                  "w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all active:scale-[0.98] shadow-sm cursor-pointer",
                   colors[status]
                 )}
               >
                 <div className="text-left">
-                  <div className="font-bold text-gray-900">{student.name}</div>
-                  <div className="text-xs text-gray-500 font-medium uppercase tracking-wider">{status}</div>
+                  <div className="font-extrabold text-sm">{student.name}</div>
+                  <div className="text-[11px] font-bold opacity-80 mt-0.5 flex items-center gap-1">
+                    <span>Escola: {student.schoolName || 'Geral'}</span>
+                    <span>•</span>
+                    <span>Assento {student.seat || 'S/N'}</span>
+                  </div>
+                  <div className="text-[10px] font-black uppercase tracking-wider mt-1.5 inline-block px-2 py-0.5 rounded-md bg-white/70 dark:bg-black/30">
+                    {statusTitles[status]}
+                  </div>
                 </div>
-                <Icon className="text-gray-400" size={28} />
+
+                <div className="w-10 h-10 rounded-xl bg-white dark:bg-gray-800 shadow flex items-center justify-center shrink-0">
+                  <Icon size={22} className="text-gray-900 dark:text-white" />
+                </div>
               </button>
             );
           })}
+
+          {activeStudents.length === 0 && (
+            <div className="p-8 text-center text-gray-400 font-bold text-xs">
+              Nenhum aluno ativo para o dia de hoje.
+            </div>
+          )}
         </div>
       </motion.div>
     </div>

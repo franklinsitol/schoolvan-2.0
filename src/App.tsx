@@ -33,6 +33,7 @@ import { isStudentAbsentOnDate, getTodayStr, formatDateBR } from './lib/absence'
 import { auth, db } from './lib/firebase';
 import { signOut } from 'firebase/auth';
 import { where, doc, updateDoc } from 'firebase/firestore';
+import { SchoolVanLogo } from './components/SchoolVanLogo';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import toast from 'react-hot-toast';
 import { AuthModal } from './components/AuthModal';
@@ -518,11 +519,13 @@ export default function App() {
   if (loading) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-white z-50">
-        <div className="w-12 h-12 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mb-4" />
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Bus className="text-yellow-400" /> SchoolVan
+        <div className="w-16 h-16 bg-yellow-400/20 rounded-2xl flex items-center justify-center mb-3 animate-pulse">
+          <SchoolVanLogo size={42} />
+        </div>
+        <h1 className="text-2xl font-black text-gray-900 flex items-center gap-2">
+          SchoolVan
         </h1>
-        <p className="text-gray-500 mt-2">Carregando...</p>
+        <p className="text-gray-500 text-xs font-bold mt-1">Carregando transporte escolar...</p>
       </div>
     );
   }
@@ -531,20 +534,20 @@ export default function App() {
   const isParent = profile?.role === 'parent';
 
   const navItems = isParent ? [
-    { id: 'parent', label: 'Área do Aluno', icon: Users },
-    { id: 'support', label: 'Ajuda & Suporte', icon: LifeBuoy, className: 'text-yellow-600 font-bold' }
+    { id: 'parent', label: 'Área dos Alunos & Pais', icon: Users },
+    { id: 'support', label: 'Ajuda do Tio & Suporte VIP', icon: LifeBuoy, className: 'text-yellow-600 font-bold' }
   ] : [
-    { id: 'dash', label: 'Início', icon: Bus },
-    { id: 'leads', label: 'Solicitações de Vaga', icon: ClipboardCheck, className: 'text-yellow-700 font-black bg-yellow-50/80 hover:bg-yellow-100' },
-    { id: 'students', label: 'Alunos', icon: Users },
-    { id: 'routes', label: 'Rotas', icon: MapPinned },
-    { id: 'vehicles', label: 'Frota', icon: Bus },
-    { id: 'team', label: 'Minha Equipe', icon: ShieldCheck },
-    { id: 'finance', label: 'Financeiro', icon: Wallet },
-    { id: 'parent', label: 'Área do Responsável', icon: Users, className: 'text-indigo-600 font-bold bg-indigo-50/50 hover:bg-indigo-100' },
-    { id: 'profile', label: 'Perfil', icon: Settings },
-    { id: 'support', label: 'Ajuda & Suporte', icon: LifeBuoy, className: 'text-yellow-600 font-bold' },
-    ...(isSuperAdmin ? [{ id: 'superadmin', label: 'Super Admin', icon: ShieldAlert, className: 'text-red-600 font-black bg-red-50' }] : []),
+    { id: 'dash', label: 'Painel do Tio (Resumo)', icon: Bus },
+    { id: 'leads', label: 'Pedidos de Vagas (Pais)', icon: ClipboardCheck, className: 'text-yellow-700 font-black bg-yellow-50/80 hover:bg-yellow-100' },
+    { id: 'students', label: 'Meus Passageiros (Alunos)', icon: Users },
+    { id: 'routes', label: 'Ordem de Parada & GPS', icon: MapPinned },
+    { id: 'vehicles', label: 'Minhas Vans & Frota', icon: Bus },
+    { id: 'team', label: 'Tios & Monitores', icon: ShieldCheck },
+    { id: 'finance', label: 'Mensalidades & Zap do Pix', icon: Wallet },
+    { id: 'parent', label: 'Visão dos Pais (Demonstração)', icon: Users, className: 'text-indigo-600 font-bold bg-indigo-50/50 hover:bg-indigo-100' },
+    { id: 'profile', label: 'Perfil & Chave Pix do Tio', icon: Settings },
+    { id: 'support', label: 'Central de Ajuda do Tio', icon: LifeBuoy, className: 'text-yellow-600 font-bold' },
+    ...(isSuperAdmin ? [{ id: 'superadmin', label: 'Central de Controle', icon: ShieldAlert, className: 'text-red-600 font-black bg-red-50' }] : []),
   ];
 
   return (
@@ -586,11 +589,11 @@ export default function App() {
             </button>
           )}
           <div 
-            className="flex items-center gap-1.5 sm:gap-2 cursor-pointer shrink-0"
+            className="flex items-center gap-2 cursor-pointer shrink-0"
             onClick={() => setCurrentView(user ? 'dash' : 'market')}
           >
-            <Bus className="text-yellow-400 shrink-0" size={26} />
-            <span className="text-lg sm:text-xl font-extrabold tracking-tight">SchoolVan</span>
+            <SchoolVanLogo size={30} />
+            <span className="text-lg sm:text-xl font-black tracking-tight text-gray-950">SchoolVan</span>
           </div>
         </div>
 
@@ -770,29 +773,30 @@ export default function App() {
 
       <PWAPrompt />
 
-      {/* Floating Buttons for Drivers: AI CSM Assistant & Checklist FAB */}
+      {/* Ergonomic Floating Bottom Command Dock for Drivers */}
       {user && profile?.role === 'admin' && (
-        <>
-          {/* Floating AI CSM Assistant (Bottom Left) */}
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-gray-950/90 backdrop-blur-md p-2 rounded-full shadow-2xl border-2 border-yellow-400/40">
+          {/* AI CSM Assistant Pill Button */}
           <button 
-            className="fixed bottom-6 left-6 px-4 py-3 bg-yellow-400 text-gray-950 font-black rounded-full shadow-2xl flex items-center gap-2 z-40 hover:bg-yellow-300 hover:scale-105 transition-all cursor-pointer active:scale-95 border-2 border-gray-950/20"
+            className="px-3.5 py-2.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-full shadow flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer text-xs"
             onClick={() => setIsAICSMOpen(true)}
-            title="Abrir Assistente de Sucesso de IA"
+            title="Dúvidas & Dicas do Tio da Van"
           >
-            <Bot size={22} className="shrink-0 text-gray-950" />
-            <span className="text-xs font-black uppercase tracking-wider text-gray-950 hidden sm:inline">Assistente IA</span>
+            <Bot size={18} className="shrink-0 text-gray-950" />
+            <span className="font-extrabold uppercase tracking-tight">Tio IA</span>
+            <span className="px-1.5 py-0.5 bg-gray-950 text-yellow-400 text-[9px] font-black rounded-full ml-0.5 uppercase hidden sm:inline">24h</span>
           </button>
 
-          {/* Checklist FAB (Bottom Right) */}
+          {/* Main Attendance Checklist Button */}
           <button 
-            className="fixed bottom-6 right-6 px-5 py-3.5 bg-gray-900 text-yellow-400 font-extrabold rounded-full shadow-2xl flex items-center gap-2.5 z-40 hover:bg-gray-800 hover:scale-105 transition-all cursor-pointer active:scale-95 border-2 border-yellow-400/50"
+            className="px-4 py-2.5 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-gray-950 font-black rounded-full shadow-lg flex items-center gap-2 transition-all active:scale-95 cursor-pointer text-xs"
             onClick={() => setIsCheckinOpen(true)}
-            title="Abrir Chamada / Checklist dos Alunos"
+            title="Abrir Lista de Chamada e Embarque da Van"
           >
-            <ClipboardCheck size={24} className="shrink-0 text-yellow-400" />
-            <span className="text-xs font-black uppercase tracking-wider text-yellow-400">Checklist</span>
+            <ClipboardCheck size={20} className="shrink-0 text-gray-950" />
+            <span className="font-black uppercase tracking-wider text-gray-950">Chamada do Embarque</span>
           </button>
-        </>
+        </div>
       )}
 
       <CheckinModal 

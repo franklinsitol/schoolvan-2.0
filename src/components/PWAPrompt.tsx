@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Share, PlusSquare, X, Bus } from 'lucide-react';
+import { Download, Share, PlusSquare, X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { SchoolVanLogo } from './SchoolVanLogo';
 
 export function PWAPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -152,17 +153,7 @@ export function PWAPrompt() {
           </span>
 
           <div className="w-7 h-7 rounded-lg overflow-hidden bg-slate-950/20 p-0.5 shadow-inner shrink-0 flex items-center justify-center">
-            {!imgError ? (
-              <img 
-                src="/icon-192.png" 
-                alt="SchoolVan" 
-                className="w-full h-full object-cover rounded-md" 
-                referrerPolicy="no-referrer"
-                onError={() => setImgError(true)}
-              />
-            ) : (
-              <Bus size={18} className="text-slate-950 stroke-[2.5]" />
-            )}
+            <SchoolVanLogo size={22} />
           </div>
 
           <span className="text-xs sm:text-sm font-extrabold tracking-wide uppercase">

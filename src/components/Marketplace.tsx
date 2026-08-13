@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
+import { SchoolVanLogo } from './SchoolVanLogo';
 import { 
   Search, 
   MapPin, 
@@ -35,6 +36,7 @@ import { RequestVacancyModal } from './RequestVacancyModal';
 
 export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
   const { data: vehicles } = useCollectionGroup<Vehicle>('vehicles');
+  const [audienceMode, setAudienceMode] = useState<'driver' | 'parent'>('driver');
   const [activeTab, setActiveTab] = useState<'landing' | 'search' | 'calc'>('landing');
   const [cityFilter, setCityFilter] = useState('');
   const [neighborhoodFilter, setNeighborhoodFilter] = useState('');
@@ -46,6 +48,7 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
   const searchSectionRef = useRef<HTMLDivElement>(null);
 
   const handleGoToSearch = () => {
+    setAudienceMode('parent');
     setActiveTab('search');
     setTimeout(() => {
       searchSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -89,65 +92,152 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 md:py-12 space-y-16">
       
+      {/* 🚀 AUDIENCE SELECTOR HEADER BANNER */}
+      <div className="flex justify-center mb-6">
+        <div className="bg-gray-900 p-1.5 rounded-full border border-gray-800 shadow-xl flex items-center gap-1">
+          <button
+            onClick={() => setAudienceMode('driver')}
+            className={cn(
+              "px-5 py-2.5 rounded-full text-xs font-black transition-all cursor-pointer flex items-center gap-2",
+              audienceMode === 'driver' 
+                ? "bg-yellow-400 text-gray-950 shadow-md scale-105" 
+                : "text-gray-400 hover:text-white"
+            )}
+          >
+            <SchoolVanLogo size={18} />
+            <span>SOU MOTORISTA / TIO DA VAN</span>
+          </button>
+
+          <button
+            onClick={() => setAudienceMode('parent')}
+            className={cn(
+              "px-5 py-2.5 rounded-full text-xs font-black transition-all cursor-pointer flex items-center gap-2",
+              audienceMode === 'parent' 
+                ? "bg-yellow-400 text-gray-950 shadow-md scale-105" 
+                : "text-gray-400 hover:text-white"
+            )}
+          >
+            <Users size={16} />
+            <span>SOU PAI / MÃE (PROCURO VAN)</span>
+          </button>
+        </div>
+      </div>
+
       {/* 🚀 SALES HERO SECTION */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-gray-950 via-gray-900 to-black text-white rounded-[40px] md:rounded-[56px] p-6 md:p-16 border border-yellow-400/20 shadow-2xl">
+      <section className="relative overflow-hidden bg-gradient-to-br from-gray-950 via-gray-900 to-black text-white rounded-[40px] md:rounded-[56px] p-6 md:p-14 border border-yellow-400/20 shadow-2xl">
         {/* Subtle Background Glow */}
         <div className="absolute -top-24 -right-24 w-96 h-96 bg-yellow-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
           
-          {/* Hero Copy */}
-          <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-yellow-400/10 border border-yellow-400/30 text-yellow-400 text-xs font-black uppercase tracking-wider">
-              <Zap size={15} className="fill-current text-yellow-400" />
-              <span>A Solução Definitiva para Transporte Escolar</span>
-            </div>
-
-            <h1 className="text-3xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight">
-              Gerencie suas Vans, receba via <span className="text-yellow-400 underline decoration-yellow-400/40 decoration-4">Pix sem atrasos</span> e encante os pais.
-            </h1>
-
-            <p className="text-gray-300 text-base md:text-lg leading-relaxed max-w-2xl mx-auto lg:mx-0">
-              Substitua pranchetas de papel por um <strong className="text-white">App PWA Nativo</strong>. Faça chamada em tempo real, envie comprovantes no WhatsApp, trace rotas no mapa e ofereça paz de espírito aos responsáveis.
-            </p>
-
-            {/* CTAs */}
-            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 pt-2">
-              <button
-                onClick={onOpenAuth}
-                className="w-full sm:w-auto px-6 py-3.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-2xl text-sm shadow-xl hover:shadow-yellow-400/20 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Bus size={18} />
-                <span>SOU MOTORISTA - CRIAR CONTA</span>
-                <ArrowRight size={18} />
-              </button>
-
-              <button
-                onClick={handleGoToSearch}
-                className="w-full sm:w-auto px-6 py-3.5 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl text-sm transition-all border border-white/20 flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Search size={18} className="text-yellow-400" />
-                <span>PROCURO VAN PARA MEU FILHO</span>
-              </button>
-            </div>
-
-            {/* Trust Badges */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-6 border-t border-white/10 text-xs font-bold text-gray-300">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
-                <span>Grátis até 25 alunos</span>
+          {/* Hero Copy - DRIVER MODE */}
+          {audienceMode === 'driver' && (
+            <div className="lg:col-span-7 space-y-6 text-center lg:text-left animate-fade-in">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-yellow-400/10 border border-yellow-400/30 text-yellow-400 text-xs font-black uppercase tracking-wider">
+                <Zap size={15} className="fill-current text-yellow-400" />
+                <span>Aplicativo do Tio da Van • 100% Grátis para Começar</span>
               </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
-                <span>Instalação PWA Sem Lojas</span>
+
+              <h1 className="text-3xl md:text-5xl lg:text-5xl font-black leading-tight tracking-tight">
+                Cobre no <span className="text-yellow-400 underline decoration-yellow-400/40 decoration-4">Zap com Pix</span>, faça chamada em 1 toque e lote sua Van.
+              </h1>
+
+              <p className="text-gray-300 text-sm md:text-base leading-relaxed max-w-2xl mx-auto lg:mx-0">
+                Larga o caderno de papel! O SchoolVan organiza seus passageiros, envia avisos de mensalidade no WhatsApp dos pais com sua chave Pix e ajusta sua rota no GPS quando alguém avisa que vai faltar.
+              </p>
+
+              {/* CTAs */}
+              <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 pt-2">
+                <button
+                  onClick={onOpenAuth}
+                  className="w-full sm:w-auto px-7 py-4 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-2xl text-sm shadow-xl hover:shadow-yellow-400/20 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Bus size={18} />
+                  <span>CRIAR MINHA CONTA GRÁTIS</span>
+                  <ArrowRight size={18} />
+                </button>
+
+                <button
+                  onClick={handleGoToSearch}
+                  className="w-full sm:w-auto px-6 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl text-sm transition-all border border-white/20 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Search size={18} className="text-yellow-400" />
+                  <span>BUSCAR VANS CADASTRADAS</span>
+                </button>
               </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
-                <span>Notificações em Tempo Real</span>
+
+              {/* Trust Badges */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-6 border-t border-white/10 text-xs font-bold text-gray-300">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
+                  <span>Grátis até 25 alunos</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
+                  <span>Sem baixar app nas lojas</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
+                  <span>Notificação no Zap dos Pais</span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
+
+          {/* Hero Copy - PARENT MODE */}
+          {audienceMode === 'parent' && (
+            <div className="lg:col-span-7 space-y-6 text-center lg:text-left animate-fade-in">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 border border-blue-400/30 text-blue-300 text-xs font-black uppercase tracking-wider">
+                <ShieldCheck size={15} className="text-blue-400" />
+                <span>Portal dos Pais • Transporte Escolar de Confiança</span>
+              </div>
+
+              <h1 className="text-3xl md:text-5xl lg:text-5xl font-black leading-tight tracking-tight">
+                Encontre uma <span className="text-yellow-400 underline decoration-yellow-400/40 decoration-4">Van Escolar Segura</span> perto da escola do seu filho.
+              </h1>
+
+              <p className="text-gray-300 text-sm md:text-base leading-relaxed max-w-2xl mx-auto lg:mx-0">
+                Pesquise por cidade e bairro, veja vans credenciadas com vagas abertas e acompanhe o embarque do seu filho direto no celular, com avisos em tempo real.
+              </p>
+
+              {/* CTAs */}
+              <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 pt-2">
+                <button
+                  onClick={handleGoToSearch}
+                  className="w-full sm:w-auto px-7 py-4 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-2xl text-sm shadow-xl hover:shadow-yellow-400/20 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Search size={18} />
+                  <span>PROCURAR VANS NA MINHA CIDADE</span>
+                  <ArrowRight size={18} />
+                </button>
+
+                <button
+                  onClick={onOpenAuth}
+                  className="w-full sm:w-auto px-6 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl text-sm transition-all border border-white/20 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Users size={18} className="text-yellow-400" />
+                  <span>SOU MOTORISTA DE VAN</span>
+                </button>
+              </div>
+
+              {/* Trust Badges */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-6 border-t border-white/10 text-xs font-bold text-gray-300">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
+                  <span>Vans Credenciadas</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
+                  <span>Status em Tempo Real</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
+                  <span>Aviso de Falta em 1 Toque</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Hero Interactive Card / Phone Mockup Badge */}
           <div className="lg:col-span-5 flex justify-center">
@@ -155,7 +245,7 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
               <div className="flex items-center justify-between border-b border-white/10 pb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-yellow-400 text-gray-900 rounded-xl flex items-center justify-center font-black">
-                    <Bus size={22} />
+                    <SchoolVanLogo size={26} />
                   </div>
                   <div>
                     <h4 className="font-extrabold text-sm text-white">Van do Tio Carlos</h4>
@@ -170,26 +260,26 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
               {/* Sample Live Student Boarding Mock */}
               <div className="space-y-3 bg-black/40 p-4 rounded-2xl border border-white/5">
                 <div className="text-xs font-bold text-gray-400 uppercase tracking-wider flex justify-between">
-                  <span>Aluno</span>
-                  <span>Status</span>
+                  <span>Passageiro</span>
+                  <span>Status na Van</span>
                 </div>
                 <div className="flex justify-between items-center bg-white/5 p-2.5 rounded-xl text-xs">
-                  <span className="font-bold text-white">Guilherme Silva</span>
+                  <span className="font-bold text-white">Guilherme (7 anos)</span>
                   <span className="bg-yellow-400 text-gray-900 font-black px-2 py-0.5 rounded-md text-[10px]">NA VAN</span>
                 </div>
                 <div className="flex justify-between items-center bg-white/5 p-2.5 rounded-xl text-xs">
-                  <span className="font-bold text-white">Mariana Santos</span>
+                  <span className="font-bold text-white">Mariana (9 anos)</span>
                   <span className="bg-blue-500 text-white font-bold px-2 py-0.5 rounded-md text-[10px]">NA ESCOLA</span>
                 </div>
                 <div className="flex justify-between items-center bg-white/5 p-2.5 rounded-xl text-xs opacity-60">
-                  <span className="font-bold text-white">Lucas Oliveira</span>
-                  <span className="bg-gray-700 text-gray-300 font-bold px-2 py-0.5 rounded-md text-[10px]">AUSENTE</span>
+                  <span className="font-bold text-white">Lucas (8 anos)</span>
+                  <span className="bg-gray-700 text-gray-300 font-bold px-2 py-0.5 rounded-md text-[10px]">FALTOU HOJE</span>
                 </div>
               </div>
 
               <div className="bg-yellow-400/10 border border-yellow-400/30 p-3 rounded-2xl flex items-center gap-3 text-xs text-yellow-300">
                 <Bell size={18} className="shrink-0" />
-                <span>Notificação enviada ao WhatsApp do responsável automaticamente!</span>
+                <span>Notificação enviada ao WhatsApp dos Pais automaticamente!</span>
               </div>
             </div>
           </div>
@@ -716,38 +806,41 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
         </div>
       )}
 
-      {/* 🔍 MARKETPLACE SEARCH TAB */}
+      {/* 🔍 MARKETPLACE SEARCH TAB FOR PARENTS */}
       {activeTab === 'search' && (
         <div ref={searchSectionRef} className="space-y-8 scroll-mt-20">
           <div className="text-center max-w-2xl mx-auto space-y-2">
-            <h2 className="text-3xl font-extrabold text-gray-900">Buscar Vans Escolares Credenciadas</h2>
-            <p className="text-gray-500 text-sm">Encontre motoristas cadastrados na sua cidade com vagas abertas.</p>
+            <span className="bg-blue-100 text-blue-900 text-xs font-black px-3.5 py-1 rounded-full uppercase tracking-wider">
+              👨‍👩‍👧 Espaço dos Pais & Mães
+            </span>
+            <h2 className="text-3xl font-extrabold text-gray-900">Encontre a Van Ideal para seu Filho</h2>
+            <p className="text-gray-500 text-sm">Selecione sua cidade ou bairro para ver os Tios e Tias de Van credenciados com vagas abertas.</p>
 
             <div className="mt-6 flex flex-col md:flex-row justify-center gap-4 max-w-2xl mx-auto">
               <div className="relative flex-1">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 text-yellow-600" size={20} />
                 <select 
                   value={cityFilter}
                   onChange={(e) => setCityFilter(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-yellow-400 outline-none text-sm cursor-pointer"
+                  className="w-full pl-10 pr-4 py-3 bg-white border-2 border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 outline-none text-sm font-bold cursor-pointer"
                 >
-                  <option value="">Todas as Cidades</option>
+                  <option value="">🏙️ Todas as Cidades</option>
                   {cities.map(city => (
-                    <option key={city} value={city}>{city}</option>
+                    <option key={city} value={city}>📍 {city}</option>
                   ))}
                 </select>
               </div>
 
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-yellow-600" size={20} />
                 <select 
                   value={neighborhoodFilter}
                   onChange={(e) => setNeighborhoodFilter(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-yellow-400 outline-none text-sm cursor-pointer"
+                  className="w-full pl-10 pr-4 py-3 bg-white border-2 border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 outline-none text-sm font-bold cursor-pointer"
                 >
-                  <option value="">Todos os Bairros</option>
+                  <option value="">🏫 Todos os Bairros / Escolas</option>
                   {neighborhoods.map(n => (
-                    <option key={n} value={n}>{n}</option>
+                    <option key={n} value={n}>🏡 {n}</option>
                   ))}
                 </select>
               </div>
@@ -758,38 +851,54 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
             {filteredVehicles.map((vehicle) => (
               <div 
                 key={vehicle.id}
-                className="group bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100"
+                className="group bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 flex flex-col justify-between"
               >
-                <div className="h-48 bg-yellow-50 flex items-center justify-center relative overflow-hidden">
-                  <Bus className="text-yellow-400 group-hover:scale-110 transition-transform duration-500" size={80} />
-                  <div className="absolute top-4 right-4 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg">
-                    <Star size={12} fill="currentColor" /> Vagas Abertas
+                <div>
+                  <div className="h-44 bg-gradient-to-br from-yellow-100 via-amber-50 to-yellow-50 flex items-center justify-center relative overflow-hidden">
+                    <div className="group-hover:scale-110 transition-transform duration-500 filter drop-shadow-md">
+                      <SchoolVanLogo size={88} />
+                    </div>
+                    <div className="absolute top-4 right-4 bg-emerald-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg">
+                      <Star size={12} fill="currentColor" /> Vagas Abertas
+                    </div>
+                  </div>
+
+                  <div className="p-6 space-y-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="text-xl font-black text-gray-900">{vehicle.uncleName || 'Tio da Van'}</h3>
+                        <p className="text-xs text-yellow-700 font-bold mt-0.5">{vehicle.name || 'Van Escolar'}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs text-gray-400 font-bold block">A partir de</span>
+                        <span className="text-lg font-black text-emerald-600">R$ {vehicle.value || '150'}/mês</span>
+                      </div>
+                    </div>
+
+                    <p className="text-gray-600 text-xs leading-relaxed line-clamp-2">
+                      {vehicle.about || 'Transporte escolar credenciado, pontual, com acompanhamento dos alunos em tempo real para os pais.'}
+                    </p>
+
+                    <div className="space-y-2 pt-2 border-t border-gray-100 text-xs font-bold text-gray-700">
+                      <div className="flex items-center gap-2">
+                        <MapPin size={16} className="text-yellow-500 shrink-0" />
+                        <span>{vehicle.city || 'Cidade'} • {vehicle.neighborhood || 'Bairros atendidos'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck size={16} className="text-emerald-500 shrink-0" />
+                        <span>Notificação de Embarque no WhatsApp dos Pais</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-xl font-bold text-gray-900">{vehicle.uncleName || 'Tio da Van'}</h3>
-                    <span className="text-yellow-600 font-bold">R$ {vehicle.value || '150'}</span>
-                  </div>
-                  <p className="text-gray-500 text-sm mb-4 line-clamp-2">{vehicle.about || 'Transporte escolar seguro, pontual e informatizado.'}</p>
-
-                  <div className="space-y-2 mb-6">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <MapPin size={16} className="text-yellow-500" />
-                      <span>{vehicle.city || 'Cidade'} • {vehicle.neighborhood || 'Bairro'}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Bus size={16} className="text-yellow-500" />
-                      <span>{vehicle.name} • {vehicle.capacity} Lugares</span>
-                    </div>
-                  </div>
-
+                <div className="p-6 pt-0">
                   <button 
                     onClick={() => setSelectedVehicleForLead(vehicle)}
-                    className="w-full py-3 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-black rounded-2xl transition-colors shadow-md active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+                    className="w-full py-3.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-2xl transition-all shadow-md active:scale-95 cursor-pointer flex items-center justify-center gap-2 text-xs uppercase tracking-wider"
                   >
-                    SOLICITAR VAGA
+                    <MessageSquare size={16} />
+                    <span>PEDIR VAGA / ORÇAMENTO NO ZAP</span>
                   </button>
                 </div>
               </div>
@@ -797,12 +906,12 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
           </div>
 
           {filteredVehicles.length === 0 && (
-            <div className="text-center py-16 bg-white rounded-3xl border border-gray-100">
-              <div className="bg-gray-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Search className="text-gray-400" size={28} />
+            <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 space-y-3">
+              <div className="bg-yellow-100 text-yellow-900 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
+                <Search className="text-yellow-600" size={28} />
               </div>
-              <h3 className="text-lg font-bold text-gray-900">Nenhuma van encontrada com esse filtro</h3>
-              <p className="text-gray-500 text-xs mt-1">Selecione outra cidade ou bairro para visualizar as vans disponíveis.</p>
+              <h3 className="text-lg font-bold text-gray-900">Nenhuma van encontrada nessa busca</h3>
+              <p className="text-gray-500 text-xs max-w-md mx-auto">Tente selecionar "Todas as Cidades" ou entre em contato para solicitar indicação de motorista na sua região.</p>
             </div>
           )}
         </div>

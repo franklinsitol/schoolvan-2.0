@@ -72,24 +72,24 @@ export function Dashboard({ onNavigateToLeads }: { onNavigateToLeads?: () => voi
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <KpiCard 
-          label="Ticket Médio" 
+          label="Mensalidade Média" 
           value={`R$ ${kpis.avgTicket.toFixed(2)}`} 
           icon={TrendingUp}
           color="yellow"
         />
         <KpiCard 
-          label="Faturamento Total" 
+          label="Arrecadação do Mês" 
           value={`R$ ${kpis.totalRevenue.toFixed(2)}`} 
           icon={Wallet}
           color="green"
-          subValue={`Líquido Est.: R$ ${(kpis.totalRevenue * 0.9).toFixed(2)}`}
+          subValue={`Estimado com ${activeStudents.length} Passageiros`}
         />
         <KpiCard 
-          label="Potencial Máximo" 
+          label="Potencial (Van Cheia)" 
           value={`R$ ${(kpis.totalCapacity * kpis.avgTicket).toFixed(2)}`} 
           icon={ArrowUpRight}
           color="blue"
-          subValue={`${kpis.totalCapacity} Lugares Totais`}
+          subValue={`${kpis.totalCapacity} Assentos na Frota`}
         />
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-4">
           <div className="w-20 h-20">
