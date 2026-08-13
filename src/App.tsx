@@ -51,6 +51,10 @@ import { SuperAdminView } from './components/SuperAdminView';
 import { CSAssistant } from './components/CSAssistant';
 import { LeadsView } from './components/LeadsView';
 import { PWAPrompt } from './components/PWAPrompt';
+import { OnboardingWizard } from './components/OnboardingWizard';
+import { UpgradeTriggerModal } from './components/UpgradeTriggerModal';
+import { AICSMSupportAssistantModal } from './components/AICSMSupportAssistantModal';
+import { Sparkles, Bot, Zap, Compass } from 'lucide-react';
 
 // Views
 const ParentView = () => {
@@ -464,12 +468,27 @@ export default function App() {
   const [currentView, setCurrentView] = useState<View>('market');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCheckinOpen, setIsCheckinOpen] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [upgradeReason, setUpgradeReason] = useState('limit_students');
+  const [isAICSMOpen, setIsAICSMOpen] = useState(false);
   const [authModal, setAuthModal] = useState<{ open: boolean; type: 'driver' | 'parent' }>({ open: false, type: 'driver' });
   const [impersonatedDriver, setImpersonatedDriver] = useState<Driver | null>(null);
 
   const activeProfile = impersonatedDriver || profile;
 
   const { data: students } = useFirestore<Student>(activeProfile?.id ? `drivers/${activeProfile.id}/students` : '');
+
+  // Auto-open onboarding for new driver if profile needs setup
+  useEffect(() => {
+    if (user && profile?.role === 'admin' && (!profile.pixKey || !profile.phone || students.length === 0)) {
+      const hasSeenTour = localStorage.getItem(`onboarding_seen_${user.uid}`);
+      if (!hasSeenTour) {
+        setIsOnboardingOpen(true);
+        localStorage.setItem(`onboarding_seen_${user.uid}`, 'true');
+      }
+    }
+  }, [user, profile, students.length]);
 
   useEffect(() => {
     if (user && currentView === 'market') {
@@ -592,11 +611,36 @@ export default function App() {
               </button>
             </>
           ) : (
-            <div className="flex items-center gap-2 sm:gap-4">
-              <span className="hidden md:block font-bold text-sm">{profile?.name || user.displayName || user.email}</span>
+            <div className="flex items-center gap-2 sm:gap-3">
+              {profile?.role === 'admin' && (
+                <>
+                  <button
+                    onClick={() => setIsOnboardingOpen(true)}
+                    className="px-3 py-1.5 bg-yellow-100 dark:bg-yellow-950 text-gray-950 dark:text-yellow-400 hover:bg-yellow-200 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer border border-yellow-400/40"
+                    title="Abrir Guia de Configuração e Onboarding"
+                  >
+                    <Compass size={15} className="text-yellow-600 dark:text-yellow-400" />
+                    <span className="hidden sm:inline">Guia CSM</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setUpgradeReason('limit_students');
+                      setIsUpgradeModalOpen(true);
+                    }}
+                    className="px-3 py-1.5 bg-gray-950 text-yellow-400 hover:bg-gray-800 font-black rounded-xl text-xs flex items-center gap-1.5 shadow-md transition-all cursor-pointer border border-yellow-400/30"
+                  >
+                    <Zap size={15} className="text-yellow-400" />
+                    <span className="hidden sm:inline">Upgrade Pro</span>
+                  </button>
+                </>
+              )}
+
+              <span className="hidden md:block font-bold text-sm text-gray-800">{profile?.name || user.displayName || user.email}</span>
               <button 
                 onClick={handleLogout}
                 className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors cursor-pointer"
+                title="Sair da Conta"
               >
                 <LogOut size={20} />
               </button>
@@ -726,16 +770,29 @@ export default function App() {
 
       <PWAPrompt />
 
-      {/* FAB (Mobile Check-in / Checklist) */}
+      {/* Floating Buttons for Drivers: AI CSM Assistant & Checklist FAB */}
       {user && profile?.role === 'admin' && (
-        <button 
-          className="fixed bottom-6 right-6 px-5 py-3.5 bg-gray-900 text-yellow-400 font-extrabold rounded-full shadow-2xl flex items-center gap-2.5 z-40 hover:bg-gray-800 hover:scale-105 transition-all cursor-pointer active:scale-95 border-2 border-yellow-400/50"
-          onClick={() => setIsCheckinOpen(true)}
-          title="Abrir Chamada / Checklist dos Alunos"
-        >
-          <ClipboardCheck size={24} className="shrink-0 text-yellow-400" />
-          <span className="text-xs font-black uppercase tracking-wider text-yellow-400">Checklist</span>
-        </button>
+        <>
+          {/* Floating AI CSM Assistant (Bottom Left) */}
+          <button 
+            className="fixed bottom-6 left-6 px-4 py-3 bg-yellow-400 text-gray-950 font-black rounded-full shadow-2xl flex items-center gap-2 z-40 hover:bg-yellow-300 hover:scale-105 transition-all cursor-pointer active:scale-95 border-2 border-gray-950/20"
+            onClick={() => setIsAICSMOpen(true)}
+            title="Abrir Assistente de Sucesso de IA"
+          >
+            <Bot size={22} className="shrink-0 text-gray-950" />
+            <span className="text-xs font-black uppercase tracking-wider text-gray-950 hidden sm:inline">Assistente IA</span>
+          </button>
+
+          {/* Checklist FAB (Bottom Right) */}
+          <button 
+            className="fixed bottom-6 right-6 px-5 py-3.5 bg-gray-900 text-yellow-400 font-extrabold rounded-full shadow-2xl flex items-center gap-2.5 z-40 hover:bg-gray-800 hover:scale-105 transition-all cursor-pointer active:scale-95 border-2 border-yellow-400/50"
+            onClick={() => setIsCheckinOpen(true)}
+            title="Abrir Chamada / Checklist dos Alunos"
+          >
+            <ClipboardCheck size={24} className="shrink-0 text-yellow-400" />
+            <span className="text-xs font-black uppercase tracking-wider text-yellow-400">Checklist</span>
+          </button>
+        </>
       )}
 
       <CheckinModal 
@@ -743,6 +800,31 @@ export default function App() {
         onClose={() => setIsCheckinOpen(false)} 
         students={students} 
         driverId={activeProfile?.id || ''} 
+      />
+
+      <OnboardingWizard 
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+        onOpenStudentModal={() => setCurrentView('students')}
+        onOpenVehicleModal={() => setCurrentView('vehicles')}
+        onNavigateTab={(tab) => setCurrentView(tab as View)}
+      />
+
+      <UpgradeTriggerModal 
+        isOpen={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
+        reason={upgradeReason}
+        studentCount={students.length}
+      />
+
+      <AICSMSupportAssistantModal 
+        isOpen={isAICSMOpen}
+        onClose={() => setIsAICSMOpen(false)}
+        onOpenUpgradeModal={() => {
+          setIsAICSMOpen(false);
+          setUpgradeReason('limit_students');
+          setIsUpgradeModalOpen(true);
+        }}
       />
     </div>
   );

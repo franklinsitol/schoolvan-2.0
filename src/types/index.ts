@@ -56,6 +56,8 @@ export interface Vehicle {
   id: string;
   driverId: string;
   name: string;
+  model?: string;
+  plate?: string;
   capacity: number;
   about?: string;
   iconType?: string;
