@@ -4,11 +4,14 @@ import {
   createUserWithEmailAndPassword, 
   signInWithPopup,
   updateProfile,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../lib/firebase';
-import { X, Mail, Lock, User, Phone, MapPin, KeyRound } from 'lucide-react';
+import { X, Mail, Lock, User, Phone, MapPin, CheckSquare, Square } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface AuthModalProps {
@@ -24,6 +27,7 @@ export function AuthModal({ isOpen, onClose, type }: AuthModalProps) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
 
@@ -64,6 +68,9 @@ export function AuthModal({ isOpen, onClose, type }: AuthModalProps) {
     }
 
     try {
+      const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence;
+      await setPersistence(auth, persistence);
+
       if (isLogin) {
         await signInWithEmailAndPassword(auth, cleanEmail, password);
         toast.success('Bem-vindo de volta!');
@@ -137,6 +144,8 @@ export function AuthModal({ isOpen, onClose, type }: AuthModalProps) {
 
   const handleGoogleLogin = async () => {
     try {
+      const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence;
+      await setPersistence(auth, persistence);
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
       
@@ -273,14 +282,35 @@ export function AuthModal({ isOpen, onClose, type }: AuthModalProps) {
             </div>
 
             {isLogin && (
-              <div className="text-right pt-0.5">
-                <button
-                  type="button"
-                  onClick={handlePasswordReset}
-                  className="text-xs font-bold text-yellow-600 hover:text-yellow-700 underline cursor-pointer"
-                >
-                  Esqueceu a senha? Redefinir por e-mail
-                </button>
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setRememberMe(!rememberMe)}
+                    className="flex items-center gap-2 text-xs font-extrabold text-gray-700 hover:text-gray-900 transition-colors cursor-pointer select-none"
+                  >
+                    {rememberMe ? (
+                      <CheckSquare size={18} className="text-yellow-500 fill-yellow-400/20" />
+                    ) : (
+                      <Square size={18} className="text-gray-400" />
+                    )}
+                    <span>Permanecer conectado</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handlePasswordReset}
+                    className="text-xs font-bold text-yellow-600 hover:text-yellow-700 underline cursor-pointer"
+                  >
+                    Esqueceu a senha?
+                  </button>
+                </div>
+
+                {rememberMe && (
+                  <p className="text-[10px] text-gray-400 font-medium pl-6">
+                    Mapeia sua sessão no celular/computador para não deslogar ao fechar o navegador.
+                  </p>
+                )}
               </div>
             )}
 
