@@ -54,6 +54,7 @@ import { LeadsView } from './components/LeadsView';
 import { PWAPrompt } from './components/PWAPrompt';
 import { OnboardingWizard } from './components/OnboardingWizard';
 import { UpgradeTriggerModal } from './components/UpgradeTriggerModal';
+import { SubscriptionModal } from './components/SubscriptionModal';
 import { AICSMSupportAssistantModal } from './components/AICSMSupportAssistantModal';
 import { Sparkles, Bot, Zap, Compass } from 'lucide-react';
 
@@ -471,6 +472,8 @@ export default function App() {
   const [isCheckinOpen, setIsCheckinOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
+  const [subscriptionPlan, setSubscriptionPlan] = useState<'Pro' | 'Frota'>('Pro');
   const [upgradeReason, setUpgradeReason] = useState('limit_students');
   const [isAICSMOpen, setIsAICSMOpen] = useState(false);
   const [authModal, setAuthModal] = useState<{ open: boolean; type: 'driver' | 'parent' }>({ open: false, type: 'driver' });
@@ -479,6 +482,12 @@ export default function App() {
   const activeProfile = impersonatedDriver || profile;
 
   const { data: students } = useFirestore<Student>(activeProfile?.id ? `drivers/${activeProfile.id}/students` : '');
+
+  useEffect(() => {
+    if (window.location.pathname.includes('/cora')) {
+      toast.success('Página de Redirecionamento da API Cora identificada!', { duration: 5000 });
+    }
+  }, []);
 
   // Auto-open onboarding for new driver if profile needs setup
   useEffect(() => {
@@ -628,13 +637,12 @@ export default function App() {
 
                   <button
                     onClick={() => {
-                      setUpgradeReason('limit_students');
-                      setIsUpgradeModalOpen(true);
+                      setIsSubscriptionModalOpen(true);
                     }}
                     className="px-3 py-1.5 bg-gray-950 text-yellow-400 hover:bg-gray-800 font-black rounded-xl text-xs flex items-center gap-1.5 shadow-md transition-all cursor-pointer border border-yellow-400/30"
                   >
                     <Zap size={15} className="text-yellow-400" />
-                    <span className="hidden sm:inline">Upgrade Pro</span>
+                    <span className="hidden sm:inline">Assinatura Pix</span>
                   </button>
                 </>
               )}
@@ -754,7 +762,7 @@ export default function App() {
                 {currentView === 'vehicles' && <VehiclesView />}
                 {currentView === 'team' && <TeamView />}
                 {currentView === 'finance' && <FinanceView />}
-                {currentView === 'profile' && <ProfileView />}
+                {currentView === 'profile' && <ProfileView onOpenSubscriptionModal={() => setIsSubscriptionModalOpen(true)} />}
                 {currentView === 'support' && <SupportView />}
                 {currentView === 'parent' && <ParentView />}
                 {currentView === 'superadmin' && (
@@ -819,6 +827,16 @@ export default function App() {
         onClose={() => setIsUpgradeModalOpen(false)}
         reason={upgradeReason}
         studentCount={students.length}
+        onOpenPixCheckout={(plan) => {
+          setSubscriptionPlan(plan);
+          setIsSubscriptionModalOpen(true);
+        }}
+      />
+
+      <SubscriptionModal
+        isOpen={isSubscriptionModalOpen}
+        onClose={() => setIsSubscriptionModalOpen(false)}
+        defaultPlan={subscriptionPlan}
       />
 
       <AICSMSupportAssistantModal 

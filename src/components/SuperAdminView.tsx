@@ -317,6 +317,9 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
   const activeCount = drivers.filter(d => d.status === 'Ativo').length;
   const blockedCount = drivers.filter(d => d.status === 'Bloqueado').length;
 
+  const pendingPixDrivers = drivers.filter(d => d.invoiceStatus === 'Aguardando Pagamento');
+  const pendingPixCount = pendingPixDrivers.length;
+
   return (
     <div className="p-4 md:p-8 space-y-8 max-w-7xl mx-auto">
       {/* Top Banner / Header */}
@@ -423,6 +426,31 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
       {/* TAB 1: DRIVERS MANAGEMENT */}
       {activeTab === 'drivers' && (
         <div className="space-y-6">
+          {/* Pending Pix Alert Banner */}
+          {pendingPixCount > 0 && (
+            <div className="bg-amber-50 border-2 border-amber-300 p-5 rounded-3xl shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-amber-400 text-gray-950 rounded-2xl flex items-center justify-center font-black shrink-0 shadow">
+                  🔔
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-amber-950">
+                    {pendingPixCount} {pendingPixCount === 1 ? 'Motorista notificou' : 'Motoristas notificaram'} pagamento de Pix SchoolVan!
+                  </h3>
+                  <p className="text-xs text-amber-800 font-medium">
+                    Verifique o extrato da sua conta bancária Cora e clique em <strong>Aprovar Pix</strong> para colocar a fatura em dia.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => { resetFilters(); setInvoiceFilter('Pendente'); }}
+                className="px-4 py-2 bg-amber-400 hover:bg-amber-300 text-gray-950 font-black rounded-xl text-xs shadow transition-all cursor-pointer shrink-0"
+              >
+                Filtrar Notificados ({pendingPixCount})
+              </button>
+            </div>
+          )}
+
           {/* Smart Filters Toolbar */}
           <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm space-y-4">
             <div className="flex flex-col md:flex-row gap-3 items-center justify-between">

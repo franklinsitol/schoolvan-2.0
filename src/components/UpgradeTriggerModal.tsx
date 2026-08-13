@@ -25,13 +25,15 @@ interface UpgradeTriggerModalProps {
   onClose: () => void;
   reason?: string; // e.g., 'limit_students' | 'multi_vehicle' | 'team_monitors' | 'ai_route'
   studentCount?: number;
+  onOpenPixCheckout?: (plan: 'Pro' | 'Frota') => void;
 }
 
 export function UpgradeTriggerModal({ 
   isOpen, 
   onClose, 
   reason = 'limit_students',
-  studentCount = 25
+  studentCount = 25,
+  onOpenPixCheckout
 }: UpgradeTriggerModalProps) {
   const { profile } = useAuth();
   const [selectedPlan, setSelectedPlan] = useState<'pro' | 'enterprise'>('pro');
@@ -200,21 +202,38 @@ export function UpgradeTriggerModal({
             </div>
           </div>
 
-          {/* Action Button */}
+          {/* Action Buttons */}
           <div className="space-y-3 pt-2">
+            <button
+              onClick={() => {
+                if (onOpenPixCheckout) {
+                  onClose();
+                  onOpenPixCheckout(selectedPlan === 'pro' ? 'Pro' : 'Frota');
+                } else {
+                  handleWhatsAppUpgrade(
+                    selectedPlan === 'pro' ? 'Pro' : 'Frota Pro',
+                    selectedPlan === 'pro' ? 'R$ 79/mês' : 'R$ 149/mês'
+                  );
+                }
+              }}
+              className="w-full py-4 bg-gray-950 text-yellow-400 font-black rounded-2xl text-base shadow-xl hover:bg-gray-800 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 border border-yellow-400/20"
+            >
+              <Zap size={20} className="text-yellow-400" />
+              Assinar Plano {selectedPlan === 'pro' ? 'Pro (R$ 79/mês)' : 'Frota Pro (R$ 149/mês)'} <ArrowRight size={20} />
+            </button>
+
             <button
               onClick={() => handleWhatsAppUpgrade(
                 selectedPlan === 'pro' ? 'Pro' : 'Frota Pro',
                 selectedPlan === 'pro' ? 'R$ 79' : 'R$ 149'
               )}
-              className="w-full py-4 bg-gray-950 text-yellow-400 font-bold rounded-2xl text-base shadow-xl hover:bg-gray-800 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-2.5 text-xs text-gray-600 dark:text-gray-400 font-bold hover:text-gray-900 dark:hover:text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <Zap size={20} />
-              Ativar Plano {selectedPlan === 'pro' ? 'Pro (R$ 79/mês)' : 'Frota Pro (R$ 149/mês)'} Agora <ArrowRight size={20} />
+              Prefere tirar dúvidas pelo WhatsApp antes? Clique aqui
             </button>
 
             <p className="text-[11px] text-center text-gray-400">
-              🔒 Liberação imediata em menos de 2 minutos via Pix. Sem fidelidade, cancele quando quiser.
+              🔒 Liberação imediata após confirmação Pix SchoolVan. Sem fidelidade, cancele quando quiser.
             </p>
           </div>
         </div>

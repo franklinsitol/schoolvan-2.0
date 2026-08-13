@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
-import { Settings, Key, ShieldCheck, Mail, Phone, MapPin, CreditCard, FileText, Save } from 'lucide-react';
+import { Settings, Key, ShieldCheck, Mail, Phone, MapPin, CreditCard, FileText, Save, Zap, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { cn } from '../lib/utils';
 import { db } from '../lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 
-export function ProfileView() {
+interface ProfileViewProps {
+  onOpenSubscriptionModal?: () => void;
+}
+
+export function ProfileView({ onOpenSubscriptionModal }: ProfileViewProps = {}) {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -43,6 +47,35 @@ export function ProfileView() {
           <h2 className="text-2xl font-black text-gray-900 mb-6 flex items-center gap-2">
             <Settings className="text-yellow-500" /> Dados de Acesso e Perfil
           </h2>
+
+          {/* Subscription Status Card */}
+          <div className="bg-gradient-to-r from-gray-950 via-gray-900 to-black text-white p-5 rounded-2xl mb-6 shadow-xl border border-yellow-400/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 bg-yellow-400 text-gray-950 text-[10px] font-black uppercase rounded-full">
+                  SaaS SchoolVan
+                </span>
+                <span className="text-xs text-emerald-400 font-bold flex items-center gap-1">
+                  <CheckCircle2 size={12} /> {profile?.invoiceStatus || 'Em Dia'}
+                </span>
+              </div>
+              <h3 className="text-lg font-black text-white mt-1">
+                Plano {profile?.plan || 'Gratuito'}
+              </h3>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Renovação da licença direta com o SchoolVan.
+              </p>
+            </div>
+
+            {onOpenSubscriptionModal && (
+              <button
+                onClick={onOpenSubscriptionModal}
+                className="px-4 py-2.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow active:scale-95 shrink-0"
+              >
+                <Zap size={14} /> Renovar / Alterar Plano
+              </button>
+            )}
+          </div>
 
           {profile?.termsAccepted && (
             <div className="mb-6">
