@@ -365,7 +365,7 @@ const ParentView = () => {
     </div>
   );
 };
-const Students = () => {
+const Students = ({ onOpenUpgradeModal }: { onOpenUpgradeModal?: (reason: string) => void }) => {
   const { profile } = useAuth();
   const { data: students, loading } = useFirestore<Student>(`drivers/${profile?.id}/students`);
   const { data: vehicles } = useFirestore<Vehicle>(`drivers/${profile?.id}/vehicles`);
@@ -374,12 +374,22 @@ const Students = () => {
 
   if (loading) return <div className="p-8 text-center">Carregando...</div>;
 
+  const userPlan = profile?.plan || 'Gratuito';
+
   const handleEdit = (student: Student) => {
     setSelectedStudent(student);
     setIsModalOpen(true);
   };
 
   const handleAdd = () => {
+    if (userPlan === 'Gratuito' && students.length >= 25) {
+      if (onOpenUpgradeModal) {
+        onOpenUpgradeModal('limit_students');
+      } else {
+        alert('Você atingiu o limite de 25 alunos do Plano Gratuito! Faça upgrade para o Plano Pro para cadastrar alunos ilimitados.');
+      }
+      return;
+    }
     setSelectedStudent(null);
     setIsModalOpen(true);
   };
@@ -551,7 +561,7 @@ export default function App() {
     { id: 'students', label: 'Passageiros', icon: Users },
     { id: 'routes', label: 'Rotas & GPS', icon: MapPinned },
     { id: 'vehicles', label: 'Minha Frota', icon: Bus },
-    { id: 'team', label: 'Monitores', icon: ShieldCheck },
+    { id: 'team', label: 'Colaboradores', icon: ShieldCheck },
     { id: 'finance', label: 'Mensalidades & Pix', icon: Wallet },
     { id: 'parent', label: 'Visão dos Pais', icon: Users, className: 'text-indigo-600 font-bold bg-indigo-50/50 hover:bg-indigo-100' },
     { id: 'profile', label: 'Meu Perfil & Pix', icon: Settings },
@@ -757,10 +767,31 @@ export default function App() {
                 {currentView === 'market' && <Marketplace onOpenAuth={() => setAuthModal({ open: true, type: 'driver' })} />}
                 {currentView === 'dash' && <Dashboard onNavigateToLeads={() => setCurrentView('leads')} />}
                 {currentView === 'leads' && <LeadsView />}
-                {currentView === 'students' && <Students />}
+                {currentView === 'students' && (
+                  <Students 
+                    onOpenUpgradeModal={(reason) => { 
+                      setUpgradeReason(reason); 
+                      setIsUpgradeModalOpen(true); 
+                    }} 
+                  />
+                )}
                 {currentView === 'routes' && <RoutesView />}
-                {currentView === 'vehicles' && <VehiclesView />}
-                {currentView === 'team' && <TeamView />}
+                {currentView === 'vehicles' && (
+                  <VehiclesView 
+                    onOpenUpgradeModal={(reason) => { 
+                      setUpgradeReason(reason); 
+                      setIsUpgradeModalOpen(true); 
+                    }} 
+                  />
+                )}
+                {currentView === 'team' && (
+                  <TeamView 
+                    onOpenUpgradeModal={(reason) => { 
+                      setUpgradeReason(reason); 
+                      setIsUpgradeModalOpen(true); 
+                    }} 
+                  />
+                )}
                 {currentView === 'finance' && <FinanceView />}
                 {currentView === 'profile' && <ProfileView onOpenSubscriptionModal={() => setIsSubscriptionModalOpen(true)} />}
                 {currentView === 'support' && <SupportView />}

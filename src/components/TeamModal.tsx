@@ -23,6 +23,7 @@ export function TeamModal({ isOpen, onClose, driverId, vehicles, member }: TeamM
       vehicleId: vehicles[0]?.id || '',
       canEdit: false,
       role: 'colab',
+      memberType: 'Monitor',
     }
   );
 
@@ -105,6 +106,34 @@ export function TeamModal({ isOpen, onClose, driverId, vehicles, member }: TeamM
                   value={formData.phone}
                   onChange={e => setFormData({ ...formData, phone: e.target.value })}
                 />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-gray-500 ml-1">Função / Tipo de Colaborador</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, memberType: 'Monitor' })}
+                  className={`py-3 px-4 rounded-2xl font-bold text-xs border transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                    (formData.memberType || 'Monitor') === 'Monitor'
+                      ? 'bg-blue-500 text-white border-blue-600 shadow-sm'
+                      : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                  }`}
+                >
+                  <User size={16} /> Monitor(a) de Van
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, memberType: 'Motorista' })}
+                  className={`py-3 px-4 rounded-2xl font-bold text-xs border transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                    formData.memberType === 'Motorista'
+                      ? 'bg-yellow-400 text-gray-950 border-yellow-500 shadow-sm'
+                      : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                  }`}
+                >
+                  <Bus size={16} /> Motorista / Substituto
+                </button>
               </div>
             </div>
 

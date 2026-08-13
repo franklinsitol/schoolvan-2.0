@@ -6,7 +6,11 @@ import { TeamMember, Vehicle } from '../types';
 import { cn } from '../lib/utils';
 import { TeamModal } from './TeamModal';
 
-export function TeamView() {
+interface TeamViewProps {
+  onOpenUpgradeModal?: (reason: string) => void;
+}
+
+export function TeamView({ onOpenUpgradeModal }: TeamViewProps) {
   const { profile } = useAuth();
   const { data: team, loading } = useFirestore<TeamMember>(`drivers/${profile?.id}/team`);
   const { data: vehicles } = useFirestore<Vehicle>(`drivers/${profile?.id}/vehicles`);
@@ -15,12 +19,23 @@ export function TeamView() {
 
   if (loading) return <div className="p-8 text-center">Carregando...</div>;
 
+  const userPlan = profile?.plan || 'Gratuito';
+
   const handleEdit = (member: TeamMember) => {
     setSelectedMember(member);
     setIsModalOpen(true);
   };
 
   const handleAdd = () => {
+    // Check plan restriction: Gratuito has no monitors/collaborators allowed
+    if (userPlan === 'Gratuito') {
+      if (onOpenUpgradeModal) {
+        onOpenUpgradeModal('team_monitors');
+      } else {
+        alert('O Plano Gratuito não permite o cadastro de colaboradores. Faça upgrade para o Plano Pro!');
+      }
+      return;
+    }
     setSelectedMember(null);
     setIsModalOpen(true);
   };
@@ -50,8 +65,16 @@ export function TeamView() {
           return (
             <div key={member.id} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex justify-between items-center">
               <div className="space-y-2">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-lg font-bold text-gray-900">{member.name}</h3>
+                  <span className={cn(
+                    "px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider",
+                    member.memberType === 'Motorista' 
+                      ? "bg-amber-100 text-amber-800 border border-amber-200" 
+                      : "bg-blue-100 text-blue-800 border border-blue-200"
+                  )}>
+                    {member.memberType || 'Monitor'}
+                  </span>
                   <span className={cn(
                     "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider",
                     member.canEdit ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"

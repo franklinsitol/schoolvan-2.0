@@ -232,6 +232,16 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
     }
   };
 
+  const handleSetCustomMonthlyFee = async (driver: Driver, fee: number | undefined) => {
+    try {
+      await setDoc(doc(db, 'drivers', driver.id), { customMonthlyFee: fee !== undefined && !isNaN(fee) ? fee : null }, { merge: true });
+      toast.success(`Mensalidade de ${driver.name || 'Motorista'} ${fee !== undefined ? `definida para R$ ${fee}` : 'restaurada ao padrão'}!`);
+    } catch (e) {
+      console.error(e);
+      toast.error("Erro ao alterar mensalidade");
+    }
+  };
+
   const handleGrantPromise = async (driver: Driver) => {
     const now = new Date();
     now.setDate(now.getDate() + (config.graceDaysAllowed || 3));
@@ -542,6 +552,7 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
                   <tr className="bg-gray-50/80 border-b border-gray-100 text-xs font-bold text-gray-400 uppercase tracking-wider">
                     <th className="px-5 py-3.5">Motorista / E-mail</th>
                     <th className="px-5 py-3.5">Cargo / Plano</th>
+                    <th className="px-5 py-3.5">Mensalidade (R$)</th>
                     <th className="px-5 py-3.5">Fatura (1 Clique)</th>
                     <th className="px-5 py-3.5">Status</th>
                     <th className="px-5 py-3.5 text-right">Ações em 1 Linha</th>
@@ -601,6 +612,27 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
                                 Desc. {driver.discountPercent}% ({driver.discountType === 'temporary' ? '3m' : 'Perm'})
                               </div>
                             )}
+                          </div>
+                        </td>
+
+                        {/* Mensalidade Personalizada */}
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-1" title="Defina um valor personalizado de mensalidade para este cliente">
+                            <span className="text-xs font-bold text-gray-400">R$</span>
+                            <input
+                              type="number"
+                              placeholder={currentPlan === 'Gratuito' ? '0' : currentPlan === 'Pro' ? '79' : '149'}
+                              key={`fee-${driver.id}-${driver.customMonthlyFee}`}
+                              defaultValue={driver.customMonthlyFee !== undefined && driver.customMonthlyFee !== null ? driver.customMonthlyFee : ''}
+                              onBlur={(e) => {
+                                const val = e.target.value.trim();
+                                const num = val === '' ? undefined : Number(val);
+                                if (num !== driver.customMonthlyFee) {
+                                  handleSetCustomMonthlyFee(driver, num);
+                                }
+                              }}
+                              className="w-20 px-2 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold text-gray-800 outline-none focus:ring-2 focus:ring-yellow-400"
+                            />
                           </div>
                         </td>
 

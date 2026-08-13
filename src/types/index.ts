@@ -16,6 +16,7 @@ export interface Driver {
   plan?: PlanTier;
   status: AccountStatus;
   pricePerStudent?: number;
+  customMonthlyFee?: number;
   invoiceStatus?: InvoiceStatus;
   hiddenInMarketplace?: boolean;
   termsAccepted?: string;
@@ -43,6 +44,7 @@ export interface TeamMember {
   vehicleId?: string;
   canEdit?: boolean;
   role: Role;
+  memberType?: 'Motorista' | 'Monitor';
   plan?: PlanTier;
   invoiceStatus?: InvoiceStatus;
   paymentPromiseUntil?: string;

@@ -5,7 +5,11 @@ import { useFirestore } from '../hooks/useFirestore';
 import { Vehicle } from '../types';
 import { VehicleModal } from './VehicleModal';
 
-export function VehiclesView() {
+interface VehiclesViewProps {
+  onOpenUpgradeModal?: (reason: string) => void;
+}
+
+export function VehiclesView({ onOpenUpgradeModal }: VehiclesViewProps) {
   const { profile } = useAuth();
   const { data: vehicles, loading } = useFirestore<Vehicle>(`drivers/${profile?.id}/vehicles`);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -13,12 +17,32 @@ export function VehiclesView() {
 
   if (loading) return <div className="p-8 text-center">Carregando...</div>;
 
+  const userPlan = profile?.plan || 'Gratuito';
+
   const handleEdit = (vehicle: Vehicle) => {
     setSelectedVehicle(vehicle);
     setIsModalOpen(true);
   };
 
   const handleAdd = () => {
+    if (userPlan === 'Gratuito' && vehicles.length >= 1) {
+      if (onOpenUpgradeModal) {
+        onOpenUpgradeModal('multi_vehicle');
+      } else {
+        alert('O Plano Gratuito permite apenas 1 van cadastrada. Faça upgrade!');
+      }
+      return;
+    }
+
+    if (userPlan === 'Pro' && vehicles.length >= 1) {
+      if (onOpenUpgradeModal) {
+        onOpenUpgradeModal('multi_vehicle_pro');
+      } else {
+        alert('O Plano Pro inclui 1 van. Faça upgrade para o Plano Frota para cadastrar mais vans!');
+      }
+      return;
+    }
+
     setSelectedVehicle(null);
     setIsModalOpen(true);
   };

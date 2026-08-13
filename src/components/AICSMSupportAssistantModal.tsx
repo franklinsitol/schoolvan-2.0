@@ -20,7 +20,6 @@ import {
   PhoneCall
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { GoogleGenAI } from '@google/genai';
 import { useAuth } from '../hooks/useAuth';
 import { useFirestore } from '../hooks/useFirestore';
 import { Student, Vehicle, Finance } from '../types';
@@ -238,8 +237,6 @@ export function AICSMSupportAssistantModal({
 
     try {
       let aiReply = '';
-      const apiKey = process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
-
       // Build Rich Operational Context String for Gemini
       const schoolsSummary = Object.entries(studentsBySchool)
         .map(([school, list]) => `  - ${school} (${list.length} alunos): ${list.map(s => s.name).join(', ')}`)
@@ -262,9 +259,7 @@ ${schoolsSummary || '  Nenhum aluno cadastrado ainda'}
 --- FIM DA BASE DE DADOS ---
       `;
 
-      if (apiKey) {
-        const ai = new GoogleGenAI({ apiKey });
-        const systemPrompt = `Você é o Tio IA, o copiloto oficial do aplicativo SchoolVan para motoristas e tios da van escolar.
+      const systemPrompt = `Você é o Tio IA, o copiloto oficial do aplicativo SchoolVan para motoristas e tios da van escolar.
 Você responde de forma extremamente simpática, rápida, clara e direta.
 Você tem acesso completo ao banco de dados do motorista atualizado em tempo real.
 Utilize a Base de Dados abaixo para responder com precisão cirúrgica a perguntas sobre alunos por escola, cobranças, vagas disponíveis na van e faltas de hoje:
@@ -278,13 +273,27 @@ Instruções para respostas:
 4. Se perguntar sobre cobrança/mensalidade, diga como gerar o Pix Copia e Cola e mensagem de WhatsApp no menu Financeiro.
 5. Seja objetivo, use bullet points e linguagem amigável do dia a dia do transporte escolar.`;
 
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: `${systemPrompt}\n\nPergunta do Motorista: ${query}`,
+      let usedServerGenAI = false;
+
+      try {
+        const res = await fetch('/api/ai-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ systemPrompt, query })
         });
 
-        aiReply = response.text || 'Desculpe, tive uma oscilação na resposta. Pode repetir?';
-      } else {
+        if (res.ok) {
+          const data = await res.json();
+          if (data.text) {
+            aiReply = data.text;
+            usedServerGenAI = true;
+          }
+        }
+      } catch (err) {
+        console.warn("API Server /api/ai-chat call failed, using intelligent local engine:", err);
+      }
+
+      if (!usedServerGenAI) {
         // High Intelligence Local Query Parser (Fallback / Offline Capabilities)
         const qLower = query.toLowerCase();
 

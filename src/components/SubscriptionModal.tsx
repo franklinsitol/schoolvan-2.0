@@ -37,8 +37,10 @@ export function SubscriptionModal({ isOpen, onClose, defaultPlan = 'Pro' }: Subs
   const [step, setStep] = useState<'select' | 'pix' | 'notified'>('select');
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  const customFee = profile && 'customMonthlyFee' in profile ? profile.customMonthlyFee : undefined;
+
   const planPrices = {
-    Pro: 79,
+    Pro: customFee !== undefined && customFee !== null ? customFee : 79,
     Frota: 149
   };
 
@@ -177,13 +179,13 @@ export function SubscriptionModal({ isOpen, onClose, defaultPlan = 'Pro' }: Subs
                   )}
                   <h3 className="text-base font-black text-gray-900 dark:text-white">Plano Pro</h3>
                   <div className="mt-1 flex items-baseline gap-1">
-                    <span className="text-2xl font-black text-gray-900 dark:text-white">R$ 79</span>
+                    <span className="text-2xl font-black text-gray-900 dark:text-white">R$ {planPrices.Pro}</span>
                     <span className="text-xs text-gray-500 font-bold">/mês</span>
                   </div>
                   <ul className="mt-3 space-y-1.5 text-xs text-gray-600 dark:text-gray-300 font-medium">
                     <li>✓ Alunos Ilimitados</li>
-                    <li>✓ Notificações Zap & PWA</li>
-                    <li>✓ Suporte VIP Prioritário</li>
+                    <li>✓ 1 Van Cadastrada</li>
+                    <li>✓ Monitores & Colaboradores Liberados</li>
                   </ul>
                 </div>
 
@@ -207,9 +209,9 @@ export function SubscriptionModal({ isOpen, onClose, defaultPlan = 'Pro' }: Subs
                     <span className="text-xs text-gray-500 font-bold">/mês</span>
                   </div>
                   <ul className="mt-3 space-y-1.5 text-xs text-gray-600 dark:text-gray-300 font-medium">
-                    <li>✓ Até 5 Vans e Monitores</li>
-                    <li>✓ Otimização de Rotas por GPS</li>
-                    <li>✓ Tudo do Plano Pro</li>
+                    <li>✓ Alunos Ilimitados</li>
+                    <li>✓ 3 Vans Inclusas (+R$ 79/van adicional)</li>
+                    <li>✓ Monitores & Colaboradores Ilimitados</li>
                   </ul>
                 </div>
               </div>

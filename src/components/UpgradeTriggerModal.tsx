@@ -41,15 +41,19 @@ export function UpgradeTriggerModal({
   if (!isOpen || !profile) return null;
 
   const estimatedMonthlyRevenue = Math.max(studentCount, 25) * 320; // Avg R$ 320 per student
-  const proCost = 79;
+  const customFee = 'customMonthlyFee' in profile ? profile.customMonthlyFee : undefined;
+  const proCost = customFee !== undefined && customFee !== null ? customFee : 79;
+  const frotaCost = 149;
   const proRevenueRatio = ((proCost / estimatedMonthlyRevenue) * 100).toFixed(1);
 
   const getReasonTitle = () => {
     switch (reason) {
       case 'multi_vehicle':
-        return 'Sua frota precisa de mais de 1 Veículo!';
+        return 'Sua frota precisa de mais de 1 Van!';
+      case 'multi_vehicle_pro':
+        return 'Upgrade para o Plano Frota (Até 3 Vans)!';
       case 'team_monitors':
-        return 'Gerencie Monitores e Colaboradores no Plano Pro!';
+        return 'Gerencie Monitores e Motoristas Colaboradores!';
       case 'ai_route':
         return 'Otimização de Rota por GPS em 1 Clique!';
       default:
@@ -60,13 +64,15 @@ export function UpgradeTriggerModal({
   const getReasonDescription = () => {
     switch (reason) {
       case 'multi_vehicle':
-        return 'O Plano Gratuito permite apenas 1 van cadastrada. Faça upgrade para o Plano Pro para cadastrar vans ilimitadas com cálculo de lotação separado.';
+        return 'O Plano Gratuito inclui apenas 1 van cadastrada. Faça upgrade para o Plano Pro ou Frota para expandir sua operação escolar!';
+      case 'multi_vehicle_pro':
+        return 'O Plano Pro inclui 1 van. Faça o upgrade para o Plano Frota para gerenciar até 3 vans inclusas e adicionar vans extras por apenas R$ 79/van!';
       case 'team_monitors':
-        return 'Atribua acessos restritos para seus monitores fazerem a chamada e check-in pelo celular na van.';
+        return 'Cadastre monitores e motoristas colaboradores com acessos personalizados para controle de embarque e chamada no celular.';
       case 'ai_route':
         return 'Reorganize dezenas de endereços por ordem lógica de horário e distância para economizar até 20% de combustível.';
       default:
-        return `Sua frota está crescendo rápido! Para liberar alunos ilimitados, notificações Web Push PWA e relatórios financeiros completos, faça o upgrade para o Plano Pro.`;
+        return `Sua frota está crescendo! Para cadastrar alunos ilimitados, notificações e relatórios completos, faça o upgrade para o Plano Pro.`;
     }
   };
 
@@ -142,7 +148,7 @@ export function UpgradeTriggerModal({
               </div>
               <h3 className="text-lg font-black text-gray-900 dark:text-white">Plano Pro</h3>
               <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-3xl font-black text-gray-900 dark:text-white">R$ 79</span>
+                <span className="text-3xl font-black text-gray-900 dark:text-white">R$ {proCost}</span>
                 <span className="text-xs text-gray-500 font-bold">/mês</span>
               </div>
 
@@ -153,15 +159,15 @@ export function UpgradeTriggerModal({
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+                  1 Van Escolar
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+                  Colaboradores (Monitores/Motoristas) Liberados
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
                   Avisos Push & WhatsApp Nativo
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
-                  Múltiplas Vans & Monitores
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
-                  Suporte Prioritário VIP
                 </li>
               </ul>
             </div>
@@ -184,19 +190,19 @@ export function UpgradeTriggerModal({
               <ul className="mt-4 space-y-2 text-xs font-semibold text-gray-700 dark:text-gray-300">
                 <li className="flex items-center gap-2">
                   <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
-                  Tudo do Plano Pro
+                  Alunos Ilimitados
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
-                  Até 5 Vans e Motoristas
+                  3 Vans Inclusas (+R$ 79/van extra)
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+                  Colaboradores Ilimitados
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
                   Otimizador Inteligente de GPS
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
-                  Gestor de Sucesso Dedicado
                 </li>
               </ul>
             </div>
