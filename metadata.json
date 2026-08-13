@@ -1,5 +1,8 @@
 {
-  "name": "SchoolVan Platinum",
-  "description": "Plataforma completa para gestão de transporte escolar com monitoramento em tempo real para pais.",
-  "requestFramePermissions": []
+  "name": "SchoolVan 🚌 • O App que Lota sua Van e Elimina o Atraso no Pix",
+  "description": "O SaaS nº1 do Brasil para o Tio da Van. Cobre no Zap com Pix, faça a chamada no mapa e mantenha sua van sempre cheia.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
