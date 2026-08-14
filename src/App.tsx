@@ -29,6 +29,7 @@ import { cn } from './lib/utils';
 import { useFirestore, useCollectionGroup } from './hooks/useFirestore';
 import { Student, Vehicle, Driver } from './types';
 import { isStudentAbsentOnDate, getTodayStr, formatDateBR } from './lib/absence';
+import { playBusHornSound, speakTioIAPrompt } from './lib/sound';
 
 import { auth, db } from './lib/firebase';
 import { signOut } from 'firebase/auth';
@@ -384,10 +385,12 @@ const Students = ({ onOpenUpgradeModal }: { onOpenUpgradeModal?: (reason: string
 
   const handleAdd = () => {
     if (userPlan === 'Gratuito' && students.length >= 25) {
+      playBusHornSound();
+      speakTioIAPrompt("Tio, você atingiu o limite de 25 alunos no Plano Gratuito! Faça o upgrade para o Plano Pro para cadastrar alunos ilimitados.");
       if (onOpenUpgradeModal) {
         onOpenUpgradeModal('limit_students');
       } else {
-        alert('Você atingiu o limite de 25 alunos do Plano Gratuito! Faça upgrade para o Plano Pro para cadastrar alunos ilimitados.');
+        toast.error('Você atingiu o limite de 25 alunos do Plano Gratuito! Faça upgrade para o Plano Pro para cadastrar alunos ilimitados.');
       }
       return;
     }
@@ -847,6 +850,19 @@ export default function App() {
         onOpenStudentModal={() => setCurrentView('students')}
         onOpenVehicleModal={() => setCurrentView('vehicles')}
         onNavigateTab={(tab) => setCurrentView(tab as View)}
+        onOpenTioIA={() => {
+          setIsOnboardingOpen(false);
+          setIsAICSMOpen(true);
+        }}
+        onOpenCheckin={() => {
+          setIsOnboardingOpen(false);
+          setIsCheckinOpen(true);
+        }}
+        onOpenUpgradeModal={(reason) => {
+          setIsOnboardingOpen(false);
+          setUpgradeReason(reason);
+          setIsUpgradeModalOpen(true);
+        }}
       />
 
       <UpgradeTriggerModal 

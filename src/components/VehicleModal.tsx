@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Bus, Users, MapPin, Info, User, DollarSign, Home } from 'lucide-react';
+import { X, Save, Bus, Users, MapPin, Info, User, DollarSign, Home, AlertCircle, Sparkles } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { Vehicle } from '../types';
+import { useAuth } from '../hooks/useAuth';
+import { useFirestore } from '../hooks/useFirestore';
+import { playBusHornSound, speakTioIAPrompt } from '../lib/sound';
 import toast from 'react-hot-toast';
 
 interface VehicleModalProps {
@@ -10,11 +13,14 @@ interface VehicleModalProps {
   onClose: () => void;
   driverId: string;
   vehicle?: Vehicle | null;
+  onOpenUpgradeModal?: (reason: string) => void;
 }
 
 const BR_STATES = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"];
 
-export function VehicleModal({ isOpen, onClose, driverId, vehicle }: VehicleModalProps) {
+export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgradeModal }: VehicleModalProps) {
+  const { profile } = useAuth();
+  const { data: existingVehicles } = useFirestore<Vehicle>(driverId ? `drivers/${driverId}/vehicles` : '');
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<Partial<Vehicle>>({
     name: '',
@@ -28,6 +34,8 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle }: VehicleModa
     iconType: 'fa-shuttle-van',
     about: '',
   });
+
+  const userPlan = profile?.plan || 'Gratuito';
 
   useEffect(() => {
     if (vehicle) {
@@ -63,6 +71,33 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle }: VehicleModa
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check vehicle limits on creation
+    const isNewVehicle = !vehicle?.id;
+    if (isNewVehicle) {
+      if (userPlan === 'Gratuito' && existingVehicles.length >= 1) {
+        playBusHornSound();
+        speakTioIAPrompt("Tio, no Plano Gratuito você pode ter apenas 1 van cadastrada. Para adicionar mais vans à sua frota, faça o upgrade para o Plano Frota!");
+        toast.error('O Plano Gratuito permite apenas 1 van. Faça o upgrade para o Plano Frota!');
+        onClose();
+        if (onOpenUpgradeModal) {
+          onOpenUpgradeModal('multi_vehicle');
+        }
+        return;
+      }
+
+      if (userPlan === 'Pro' && existingVehicles.length >= 1) {
+        playBusHornSound();
+        speakTioIAPrompt("Tio, o Plano Pro inclui 1 van. Para gerenciar várias vans, faça o upgrade para o Plano Frota!");
+        toast.error('O Plano Pro inclui 1 van. Faça o upgrade para o Plano Frota para cadastrar mais vans!');
+        onClose();
+        if (onOpenUpgradeModal) {
+          onOpenUpgradeModal('multi_vehicle_pro');
+        }
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
