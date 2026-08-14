@@ -3,6 +3,9 @@ import { X, Save, User, Mail, Phone, MapPin, School, Clock, Armchair, BookOpen, 
 import { db } from '../lib/firebase';
 import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { Student, Vehicle } from '../types';
+import { useAuth } from '../hooks/useAuth';
+import { useFirestore } from '../hooks/useFirestore';
+import { checkCanAddStudent } from '../lib/plans';
 import toast from 'react-hot-toast';
 
 interface StudentModalProps {
@@ -11,9 +14,12 @@ interface StudentModalProps {
   driverId: string;
   vehicles: Vehicle[];
   student?: Student | null;
+  onOpenUpgradeModal?: (reason: string) => void;
 }
 
-export function StudentModal({ isOpen, onClose, driverId, vehicles, student }: StudentModalProps) {
+export function StudentModal({ isOpen, onClose, driverId, vehicles, student, onOpenUpgradeModal }: StudentModalProps) {
+  const { profile } = useAuth();
+  const { data: existingStudents } = useFirestore<Student>(driverId ? `drivers/${driverId}/students` : '');
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<Partial<Student>>({
     name: '',
@@ -107,11 +113,28 @@ export function StudentModal({ isOpen, onClose, driverId, vehicles, student }: S
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check student limit on creation
+    if (!student?.id) {
+      const allowed = checkCanAddStudent(profile, existingStudents.length, onOpenUpgradeModal);
+      if (!allowed) {
+        onClose();
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
+      const parsedValue = Number(formData.value);
+      const finalValue = isNaN(parsedValue) || parsedValue < 0 ? 0 : parsedValue;
+      const parsedPaymentDay = Number(formData.paymentDay);
+      const finalPaymentDay = isNaN(parsedPaymentDay) || parsedPaymentDay < 1 ? 10 : Math.min(31, parsedPaymentDay);
+
       const studentData = {
         ...formData,
+        value: finalValue,
+        paymentDay: finalPaymentDay,
         parentPhone: formData.parentPhone || formData.tel1 || '',
         tel1: formData.parentPhone || formData.tel1 || '',
         driverId,
@@ -431,9 +454,12 @@ export function StudentModal({ isOpen, onClose, driverId, vehicles, student }: S
                     type="number"
                     step="0.01"
                     className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm font-medium"
-                    placeholder="0.00"
-                    value={formData.value || 0}
-                    onChange={e => setFormData({ ...formData, value: Number(e.target.value) })}
+                    placeholder="350.00"
+                    value={formData.value !== undefined && formData.value !== null ? formData.value : ''}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setFormData({ ...formData, value: val === '' ? ('' as any) : Number(val) });
+                    }}
                   />
                 </div>
               </div>
@@ -448,8 +474,11 @@ export function StudentModal({ isOpen, onClose, driverId, vehicles, student }: S
                     max="31"
                     className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm font-medium"
                     placeholder="10"
-                    value={formData.paymentDay || 10}
-                    onChange={e => setFormData({ ...formData, paymentDay: Number(e.target.value) })}
+                    value={formData.paymentDay !== undefined && formData.paymentDay !== null ? formData.paymentDay : ''}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setFormData({ ...formData, paymentDay: val === '' ? ('' as any) : Number(val) });
+                    }}
                   />
                 </div>
               </div>

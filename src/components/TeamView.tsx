@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useFirestore } from '../hooks/useFirestore';
 import { TeamMember, Vehicle } from '../types';
 import { cn } from '../lib/utils';
+import { checkCanAddTeamMember, isFreePlan } from '../lib/plans';
 import { TeamModal } from './TeamModal';
 
 interface TeamViewProps {
@@ -19,23 +20,15 @@ export function TeamView({ onOpenUpgradeModal }: TeamViewProps) {
 
   if (loading) return <div className="p-8 text-center">Carregando...</div>;
 
-  const userPlan = profile?.plan || 'Gratuito';
-
   const handleEdit = (member: TeamMember) => {
     setSelectedMember(member);
     setIsModalOpen(true);
   };
 
   const handleAdd = () => {
-    // Check plan restriction: Gratuito has no monitors/collaborators allowed
-    if (userPlan === 'Gratuito') {
-      if (onOpenUpgradeModal) {
-        onOpenUpgradeModal('team_monitors');
-      } else {
-        alert('O Plano Gratuito não permite o cadastro de colaboradores. Faça upgrade para o Plano Pro!');
-      }
-      return;
-    }
+    const allowed = checkCanAddTeamMember(profile, onOpenUpgradeModal);
+    if (!allowed) return;
+
     setSelectedMember(null);
     setIsModalOpen(true);
   };
@@ -123,6 +116,7 @@ export function TeamView({ onOpenUpgradeModal }: TeamViewProps) {
         driverId={profile?.id || ''}
         vehicles={vehicles}
         member={selectedMember}
+        onOpenUpgradeModal={onOpenUpgradeModal}
       />
     </div>
   );

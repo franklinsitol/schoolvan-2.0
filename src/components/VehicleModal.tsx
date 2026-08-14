@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Bus, Users, MapPin, Info, User, DollarSign, Home, AlertCircle, Sparkles } from 'lucide-react';
+import { X, Save, Bus, Users, MapPin, Info, User, DollarSign, Home, AlertCircle, Sparkles, Trash2 } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { Vehicle } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { useFirestore } from '../hooks/useFirestore';
-import { playBusHornSound, speakTioIAPrompt } from '../lib/sound';
+import { playBusHornSound } from '../lib/sound';
+import { checkCanAddVehicle, getPlanTier, isFrotaPlan, isFreePlan, isProPlan } from '../lib/plans';
 import toast from 'react-hot-toast';
 
 interface VehicleModalProps {
@@ -14,15 +15,27 @@ interface VehicleModalProps {
   driverId: string;
   vehicle?: Vehicle | null;
   onOpenUpgradeModal?: (reason: string) => void;
+  onDeleteRequest?: (vehicle: Vehicle) => void;
 }
 
 const BR_STATES = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"];
 
-export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgradeModal }: VehicleModalProps) {
+export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgradeModal, onDeleteRequest }: VehicleModalProps) {
   const { profile } = useAuth();
   const { data: existingVehicles } = useFirestore<Vehicle>(driverId ? `drivers/${driverId}/vehicles` : '');
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState<Partial<Vehicle>>({
+  const [formData, setFormData] = useState<{
+    name: string;
+    capacity: number | string;
+    uncleName: string;
+    city: string;
+    state: string;
+    neighborhood: string;
+    garageAddress: string;
+    value: number | string;
+    iconType: string;
+    about: string;
+  }>({
     name: '',
     capacity: 15,
     uncleName: '',
@@ -30,24 +43,28 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
     state: 'SP',
     neighborhood: '',
     garageAddress: '',
-    value: 0,
+    value: '',
     iconType: 'fa-shuttle-van',
     about: '',
   });
 
-  const userPlan = profile?.plan || 'Gratuito';
+  const rawPlan = profile?.plan || 'Gratuito';
+  const planLower = rawPlan.toLowerCase();
+  const isFrotaPlan = planLower.includes('frota') || planLower.includes('empresa') || planLower.includes('ilimitado');
+  const isProPlan = !isFrotaPlan && planLower.includes('pro');
+  const isFreePlan = !isFrotaPlan && !isProPlan;
 
   useEffect(() => {
     if (vehicle) {
       setFormData({
         name: vehicle.name || '',
-        capacity: vehicle.capacity || 15,
+        capacity: vehicle.capacity !== undefined ? vehicle.capacity : 15,
         uncleName: vehicle.uncleName || '',
         city: vehicle.city || '',
         state: vehicle.state || 'SP',
         neighborhood: vehicle.neighborhood || '',
         garageAddress: vehicle.garageAddress || '',
-        value: vehicle.value || 0,
+        value: vehicle.value !== undefined && vehicle.value !== null ? vehicle.value : '',
         iconType: vehicle.iconType || 'fa-shuttle-van',
         about: vehicle.about || '',
       });
@@ -60,7 +77,7 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
         state: 'SP',
         neighborhood: '',
         garageAddress: '',
-        value: 0,
+        value: '',
         iconType: 'fa-shuttle-van',
         about: '',
       });
@@ -75,25 +92,9 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
     // Check vehicle limits on creation
     const isNewVehicle = !vehicle?.id;
     if (isNewVehicle) {
-      if (userPlan === 'Gratuito' && existingVehicles.length >= 1) {
-        playBusHornSound();
-        speakTioIAPrompt("Tio, no Plano Gratuito você pode ter apenas 1 van cadastrada. Para adicionar mais vans à sua frota, faça o upgrade para o Plano Frota!");
-        toast.error('O Plano Gratuito permite apenas 1 van. Faça o upgrade para o Plano Frota!');
+      const allowed = checkCanAddVehicle(profile, existingVehicles.length, onOpenUpgradeModal);
+      if (!allowed) {
         onClose();
-        if (onOpenUpgradeModal) {
-          onOpenUpgradeModal('multi_vehicle');
-        }
-        return;
-      }
-
-      if (userPlan === 'Pro' && existingVehicles.length >= 1) {
-        playBusHornSound();
-        speakTioIAPrompt("Tio, o Plano Pro inclui 1 van. Para gerenciar várias vans, faça o upgrade para o Plano Frota!");
-        toast.error('O Plano Pro inclui 1 van. Faça o upgrade para o Plano Frota para cadastrar mais vans!');
-        onClose();
-        if (onOpenUpgradeModal) {
-          onOpenUpgradeModal('multi_vehicle_pro');
-        }
         return;
       }
     }
@@ -101,8 +102,15 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
     setLoading(true);
 
     try {
+      const parsedCapacity = Number(formData.capacity);
+      const finalCapacity = isNaN(parsedCapacity) || parsedCapacity < 1 ? 15 : parsedCapacity;
+      const parsedValue = Number(formData.value);
+      const finalValue = isNaN(parsedValue) || parsedValue < 0 ? 0 : parsedValue;
+
       const vehicleData = {
         ...formData,
+        capacity: finalCapacity,
+        value: finalValue,
         driverId,
         updatedAt: new Date().toISOString(),
       };
@@ -128,20 +136,20 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white w-full max-w-xl rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white w-full max-w-xl rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-gray-200">
         <div className="p-6 bg-gradient-to-r from-yellow-400 to-amber-400 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-black/10 flex items-center justify-center text-gray-900 font-bold">
               <Bus size={24} />
             </div>
             <div>
-              <h2 className="text-xl font-black text-gray-900">
+              <h2 className="text-xl font-black text-gray-950">
                 {vehicle ? 'Editar Dados da Van' : 'Cadastrar Nova Van'}
               </h2>
-              <p className="text-xs font-semibold text-gray-800 opacity-80">Gerencie capacidade, garagem e área de atuação</p>
+              <p className="text-xs font-bold text-gray-900 opacity-90">Gerencie capacidade, garagem e área de atuação</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-black/10 rounded-full transition-colors text-gray-900 cursor-pointer">
+          <button onClick={onClose} className="p-2 hover:bg-black/10 rounded-full transition-colors text-gray-950 cursor-pointer">
             <X size={24} />
           </button>
         </div>
@@ -149,10 +157,10 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
         <form onSubmit={handleSubmit} className="p-6 md:p-8 overflow-y-auto space-y-5">
           <div className="space-y-4">
             <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-600 ml-1">Nome Interno da Van *</label>
+              <label className="text-xs font-bold text-gray-700 ml-1">Nome Interno da Van *</label>
               <input
                 required
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm font-medium"
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm font-medium text-gray-900"
                 placeholder="Ex: Van 01 - Rota Sul"
                 value={formData.name || ''}
                 onChange={e => setFormData({ ...formData, name: e.target.value })}
@@ -161,41 +169,48 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-600 ml-1">Capacidade (Lugares) *</label>
+                <label className="text-xs font-bold text-gray-700 ml-1">Capacidade (Lugares) *</label>
                 <div className="relative">
                   <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                   <input
                     required
                     type="number"
                     min="1"
-                    className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm font-medium"
-                    value={formData.capacity || 15}
-                    onChange={e => setFormData({ ...formData, capacity: Number(e.target.value) })}
+                    className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm font-medium text-gray-900"
+                    placeholder="15"
+                    value={formData.capacity}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setFormData({ ...formData, capacity: val === '' ? '' : Number(val) });
+                    }}
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-600 ml-1">Valor Mensal Base (R$)</label>
+                <label className="text-xs font-bold text-gray-700 ml-1">Valor Mensal Base (R$)</label>
                 <div className="relative">
                   <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                   <input
                     type="number"
                     step="0.01"
-                    className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm font-medium"
+                    className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm font-medium text-gray-900"
                     placeholder="350.00"
-                    value={formData.value || 0}
-                    onChange={e => setFormData({ ...formData, value: Number(e.target.value) })}
+                    value={formData.value}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setFormData({ ...formData, value: val === '' ? '' : Number(val) });
+                    }}
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-600 ml-1">Nome do Tio(a) Público</label>
+                <label className="text-xs font-bold text-gray-700 ml-1">Nome do Tio(a) Público</label>
                 <div className="relative">
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                   <input
-                    className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm font-medium"
+                    className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm font-medium text-gray-900"
                     placeholder="Ex: Tio Franklin"
                     value={formData.uncleName || ''}
                     onChange={e => setFormData({ ...formData, uncleName: e.target.value })}
@@ -206,9 +221,9 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-600 ml-1">Estado (UF)</label>
+                <label className="text-xs font-bold text-gray-700 ml-1">Estado (UF)</label>
                 <select
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm font-medium"
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm font-medium text-gray-900"
                   value={formData.state || 'SP'}
                   onChange={e => setFormData({ ...formData, state: e.target.value })}
                 >
@@ -219,9 +234,9 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
               </div>
 
               <div className="md:col-span-2 space-y-1">
-                <label className="text-xs font-bold text-gray-600 ml-1">Cidades de Atuação</label>
+                <label className="text-xs font-bold text-gray-700 ml-1">Cidades de Atuação</label>
                 <input
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm font-medium"
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm font-medium text-gray-900"
                   placeholder="Ex: Santos, São Vicente"
                   value={formData.city || ''}
                   onChange={e => setFormData({ ...formData, city: e.target.value })}
@@ -230,9 +245,9 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-600 ml-1">Bairros de Atuação (Separados por vírgula)</label>
+              <label className="text-xs font-bold text-gray-700 ml-1">Bairros de Atuação (Separados por vírgula)</label>
               <input
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm font-medium"
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm font-medium text-gray-900"
                 placeholder="Ex: Centro, Gonzaga, Boqueirão, Embaré"
                 value={formData.neighborhood || ''}
                 onChange={e => setFormData({ ...formData, neighborhood: e.target.value })}
@@ -240,11 +255,11 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-600 ml-1">Endereço da Garagem (Partida/Fim da Rota GPS)</label>
+              <label className="text-xs font-bold text-gray-700 ml-1">Endereço da Garagem (Partida/Fim da Rota GPS)</label>
               <div className="relative">
                 <Home className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                 <input
-                  className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm font-medium"
+                  className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm font-medium text-gray-900"
                   placeholder="Ex: Rua Floriano Peixoto, 100 - Gonzaga"
                   value={formData.garageAddress || ''}
                   onChange={e => setFormData({ ...formData, garageAddress: e.target.value })}
@@ -253,9 +268,9 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-600 ml-1">Ícone / Estilo do Veículo</label>
+              <label className="text-xs font-bold text-gray-700 ml-1">Ícone / Estilo do Veículo</label>
               <select
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm font-medium"
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm font-medium text-gray-900"
                 value={formData.iconType || 'fa-shuttle-van'}
                 onChange={e => setFormData({ ...formData, iconType: e.target.value })}
               >
@@ -268,10 +283,10 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-600 ml-1">Sobre a Van / Diferenciais (Exibido no Marketplace)</label>
+              <label className="text-xs font-bold text-gray-700 ml-1">Sobre a Van / Diferenciais (Exibido no Marketplace)</label>
               <textarea
                 rows={2}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm font-medium resize-none"
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm font-medium resize-none text-gray-900"
                 placeholder="Ex: Ar-condicionado, Wi-Fi, monitora a bordo, câmera de segurança..."
                 value={formData.about || ''}
                 onChange={e => setFormData({ ...formData, about: e.target.value })}
@@ -279,21 +294,35 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
             </div>
           </div>
 
-          <button
-            disabled={loading}
-            className="w-full py-4 bg-gray-900 text-yellow-400 font-black rounded-3xl shadow-xl hover:bg-gray-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer active:scale-98"
-          >
-            {loading ? (
-              <div className="w-6 h-6 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <>
-                <Save size={20} /> {vehicle ? 'SALVAR ALTERAÇÕES DA VAN' : 'CADASTRAR VEÍCULO'}
-              </>
+          <div className="space-y-3 pt-2">
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-4 bg-gray-950 text-yellow-400 font-black rounded-2xl shadow-xl hover:bg-gray-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer active:scale-98"
+            >
+              {loading ? (
+                <div className="w-6 h-6 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <Save size={20} /> {vehicle ? 'SALVAR ALTERAÇÕES DA VAN' : 'CADASTRAR VEÍCULO'}
+                </>
+              )}
+            </button>
+
+            {vehicle && onDeleteRequest && (
+              <button
+                type="button"
+                onClick={() => onDeleteRequest(vehicle)}
+                className="w-full py-3 bg-red-50 hover:bg-red-100 text-red-700 font-bold rounded-2xl transition-colors flex items-center justify-center gap-2 text-xs cursor-pointer"
+              >
+                <Trash2 size={16} /> Excluir esta Van da Frota
+              </button>
             )}
-          </button>
+          </div>
         </form>
       </div>
     </div>
   );
 }
+
 

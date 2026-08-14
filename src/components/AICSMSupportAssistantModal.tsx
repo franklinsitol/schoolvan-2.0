@@ -35,6 +35,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useFirestore } from '../hooks/useFirestore';
 import { Student, Vehicle, Finance, Lead } from '../types';
 import { playBusHornSound, speakTiaPrompt, speakTioIAPrompt } from '../lib/sound';
+import { checkCanAddStudent, checkCanAddVehicle } from '../lib/plans';
 import { getReadNotifications, markNotificationAsRead } from '../lib/tioNotifications';
 import { db } from '../lib/firebase';
 import { doc, updateDoc, collection, addDoc } from 'firebase/firestore';
@@ -86,14 +87,24 @@ export function AICSMSupportAssistantModal({
     pixKey: profile?.pixKey || '',
   });
 
-  const [vehicleForm, setVehicleForm] = useState({
+  const [vehicleForm, setVehicleForm] = useState<{
+    name: string;
+    model: string;
+    plate: string;
+    capacity: number | string;
+  }>({
     name: vehicles[0]?.name || 'Van Principal 01',
     model: vehicles[0]?.model || 'Mercedes Sprinter',
     plate: vehicles[0]?.plate || '',
-    capacity: vehicles[0]?.capacity || 15,
+    capacity: vehicles[0]?.capacity !== undefined ? vehicles[0].capacity : 15,
   });
 
-  const [quickStudentForm, setQuickStudentForm] = useState({
+  const [quickStudentForm, setQuickStudentForm] = useState<{
+    name: string;
+    schoolName: string;
+    parentPhone: string;
+    value: number | string;
+  }>({
     name: '',
     schoolName: '',
     parentPhone: '',
@@ -116,7 +127,7 @@ export function AICSMSupportAssistantModal({
         name: vehicles[0].name || 'Van Principal 01',
         model: vehicles[0].model || 'Mercedes Sprinter',
         plate: vehicles[0].plate || '',
-        capacity: vehicles[0].capacity || 15,
+        capacity: vehicles[0].capacity !== undefined ? vehicles[0].capacity : 15,
       });
     }
   }, [vehicles]);
@@ -303,30 +314,31 @@ export function AICSMSupportAssistantModal({
   const handleSaveVehicleStep = async () => {
     if (!profile?.id) return;
     
-    // Check Free Plan Limits
-    if (userPlan === 'Gratuito' && vehicles.length >= 1 && !vehicles[0]?.id) {
-      playBusHornSound();
-      speakTioIAPrompt("Tio, no Plano Gratuito você pode ter apenas 1 van. Para adicionar mais vans, faça o upgrade para o Plano Frota!");
-      toast.error('O Plano Gratuito permite apenas 1 van.');
-      onOpenUpgradeModal('multi_vehicle');
-      return;
+    // Check Vehicle Limits if creating a new vehicle when already having vehicle(s)
+    const isAddingNewVehicle = vehicles.length > 0 && !vehicles[0]?.id;
+    if (isAddingNewVehicle) {
+      const allowed = checkCanAddVehicle(profile, vehicles.length, onOpenUpgradeModal);
+      if (!allowed) return;
     }
 
     setSavingStep(true);
     try {
+      const parsedCapacity = Number(vehicleForm.capacity);
+      const finalCapacity = isNaN(parsedCapacity) || parsedCapacity < 1 ? 15 : parsedCapacity;
+
       if (vehicles.length > 0 && vehicles[0]?.id) {
         await updateDoc(doc(db, 'drivers', profile.id, 'vehicles', vehicles[0].id), {
           name: vehicleForm.name || 'Van Principal',
           model: vehicleForm.model,
           plate: vehicleForm.plate,
-          capacity: Number(vehicleForm.capacity),
+          capacity: finalCapacity,
         });
       } else {
         await addDoc(collection(db, 'drivers', profile.id, 'vehicles'), {
           name: vehicleForm.name || 'Van Principal',
           model: vehicleForm.model,
           plate: vehicleForm.plate,
-          capacity: Number(vehicleForm.capacity),
+          capacity: finalCapacity,
           status: 'Ativo',
           createdAt: new Date().toISOString()
         });
@@ -346,6 +358,9 @@ export function AICSMSupportAssistantModal({
   const handleQuickAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile?.id || !quickStudentForm.name.trim()) return;
+
+    const allowed = checkCanAddStudent(profile, students.length, onOpenUpgradeModal);
+    if (!allowed) return;
 
     setSavingStep(true);
     try {
@@ -960,8 +975,12 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
                       </label>
                       <input 
                         type="number"
+                        placeholder="15"
                         value={vehicleForm.capacity}
-                        onChange={(e) => setVehicleForm(p => ({ ...p, capacity: Number(e.target.value) }))}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setVehicleForm(p => ({ ...p, capacity: val === '' ? '' : Number(val) }));
+                        }}
                         min={1}
                         max={60}
                         className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs sm:text-sm font-bold focus:ring-2 focus:ring-yellow-400 focus:outline-none"
@@ -1043,7 +1062,10 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
                       type="number"
                       placeholder="Valor Mensalidade (R$)"
                       value={quickStudentForm.value}
-                      onChange={(e) => setQuickStudentForm(p => ({ ...p, value: Number(e.target.value) }))}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setQuickStudentForm(p => ({ ...p, value: val === '' ? '' : Number(val) }));
+                      }}
                       className="px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-bold focus:ring-2 focus:ring-yellow-400 focus:outline-none"
                     />
                   </div>

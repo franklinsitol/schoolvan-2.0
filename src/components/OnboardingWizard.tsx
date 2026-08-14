@@ -67,11 +67,16 @@ export function OnboardingWizard({
     pixKey: profile?.pixKey || '',
   });
 
-  const [vehicleForm, setVehicleForm] = useState({
+  const [vehicleForm, setVehicleForm] = useState<{
+    name: string;
+    model: string;
+    plate: string;
+    capacity: number | string;
+  }>({
     name: vehicles[0]?.name || 'Van Principal 01',
     model: vehicles[0]?.model || 'Mercedes Sprinter',
     plate: vehicles[0]?.plate || '',
-    capacity: vehicles[0]?.capacity || 15,
+    capacity: vehicles[0]?.capacity !== undefined ? vehicles[0].capacity : 15,
   });
 
   useEffect(() => {
@@ -90,7 +95,7 @@ export function OnboardingWizard({
         name: vehicles[0].name || 'Van Principal 01',
         model: vehicles[0].model || 'Mercedes Sprinter',
         plate: vehicles[0].plate || '',
-        capacity: vehicles[0].capacity || 15,
+        capacity: vehicles[0].capacity !== undefined ? vehicles[0].capacity : 15,
       });
     }
   }, [vehicles]);
@@ -203,19 +208,22 @@ export function OnboardingWizard({
   const handleSaveVehicleStep = async () => {
     setSavingStep(true);
     try {
+      const parsedCapacity = Number(vehicleForm.capacity);
+      const finalCapacity = isNaN(parsedCapacity) || parsedCapacity < 1 ? 15 : parsedCapacity;
+
       if (vehicles.length > 0) {
         await updateDoc(doc(db, 'drivers', profile.id, 'vehicles', vehicles[0].id), {
           name: vehicleForm.name || 'Van Principal',
           model: vehicleForm.model,
           plate: vehicleForm.plate,
-          capacity: Number(vehicleForm.capacity),
+          capacity: finalCapacity,
         });
       } else {
         await addDoc(collection(db, 'drivers', profile.id, 'vehicles'), {
           name: vehicleForm.name || 'Van Principal',
           model: vehicleForm.model,
           plate: vehicleForm.plate,
-          capacity: Number(vehicleForm.capacity),
+          capacity: finalCapacity,
           status: 'Ativo',
           createdAt: new Date().toISOString()
         });
@@ -237,7 +245,7 @@ export function OnboardingWizard({
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-white dark:bg-gray-900 w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden border border-gray-100 dark:border-gray-800 my-auto relative flex flex-col max-h-[92vh]"
+        className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden border border-gray-200 my-auto relative flex flex-col max-h-[92vh]"
       >
         {/* Header Banner with T.IA Persona */}
         <div className="bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 p-6 sm:p-7 text-gray-950 relative shrink-0">
@@ -259,7 +267,7 @@ export function OnboardingWizard({
             </span>
           </div>
 
-          <h2 className="text-2xl sm:text-3xl font-black tracking-tight flex items-center gap-2">
+          <h2 className="text-2xl sm:text-3xl font-black tracking-tight flex items-center gap-2 text-gray-950">
             Onboarding Guiado com a T.IA 🚌🤖
           </h2>
           <p className="text-xs sm:text-sm font-medium text-gray-900 mt-1 max-w-xl">
@@ -268,7 +276,7 @@ export function OnboardingWizard({
 
           {/* Progress Bar */}
           <div className="mt-4 space-y-1.5">
-            <div className="flex items-center justify-between text-xs font-black">
+            <div className="flex items-center justify-between text-xs font-black text-gray-950">
               <span>Progresso da Configuração</span>
               <span>{progressPercent}% Concluído</span>
             </div>
@@ -284,7 +292,7 @@ export function OnboardingWizard({
         </div>
 
         {/* Step Indicator Tabs */}
-        <div className="grid grid-cols-5 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950/60 p-2 gap-1 overflow-x-auto shrink-0">
+        <div className="grid grid-cols-5 border-b border-gray-200 bg-gray-50 p-2 gap-1 overflow-x-auto shrink-0">
           {steps.map((step) => {
             const StepIcon = step.icon;
             const isActive = activeStep === step.id;
@@ -298,10 +306,10 @@ export function OnboardingWizard({
                 }}
                 className={`flex flex-col items-center justify-center py-2 px-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   isActive 
-                    ? 'bg-white dark:bg-gray-800 text-yellow-600 dark:text-yellow-400 shadow-md border border-yellow-400/30' 
+                    ? 'bg-white text-yellow-700 shadow-md border border-yellow-400/40' 
                     : step.isDone
-                    ? 'text-emerald-600 dark:text-emerald-400 hover:bg-white/50'
-                    : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50'
+                    ? 'text-emerald-600 hover:bg-white/50'
+                    : 'text-gray-400 hover:bg-gray-100'
                 }`}
               >
                 <div className="flex items-center gap-1">
@@ -321,16 +329,16 @@ export function OnboardingWizard({
         {/* Scrollable Main Content */}
         <div className="p-5 sm:p-7 space-y-5 overflow-y-auto flex-1">
           {/* Tio IA Speech Card */}
-          <div className="bg-yellow-50 dark:bg-yellow-950/30 border-2 border-yellow-300 dark:border-yellow-800/60 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 relative shadow-sm">
+          <div className="bg-yellow-50 border-2 border-yellow-300 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 relative shadow-sm">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 bg-yellow-400 text-gray-950 rounded-xl flex items-center justify-center shrink-0 font-black shadow-inner">
                 <Bot size={22} />
               </div>
               <div>
-                <span className="text-[10px] font-black text-yellow-800 dark:text-yellow-400 uppercase tracking-wider block">
-                  Fala do Tio IA • Dica do Passo {activeStep}
+                <span className="text-[10px] font-black text-yellow-900 uppercase tracking-wider block">
+                  Fala da T.IA • Dica do Passo {activeStep}
                 </span>
-                <p className="text-xs text-gray-800 dark:text-gray-200 font-semibold leading-relaxed mt-0.5">
+                <p className="text-xs text-gray-900 font-semibold leading-relaxed mt-0.5">
                   "{stepExplanations[activeStep as keyof typeof stepExplanations]}"
                 </p>
               </div>
@@ -343,10 +351,10 @@ export function OnboardingWizard({
                   ? 'bg-amber-500 text-white animate-pulse' 
                   : 'bg-yellow-400 hover:bg-yellow-300 text-gray-950'
               }`}
-              title="Ouvir explicação do Tio IA em voz alta"
+              title="Ouvir explicação da T.IA em voz alta"
             >
               {isSpeaking ? <VolumeX size={15} /> : <Volume2 size={15} />}
-              {isSpeaking ? 'Pausar Voz' : 'Ouvir Tio IA'}
+              {isSpeaking ? 'Pausar Voz' : 'Ouvir T.IA'}
             </button>
           </div>
 
@@ -362,22 +370,22 @@ export function OnboardingWizard({
               {activeStep === 1 && (
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 rounded-xl flex items-center justify-center shrink-0 font-black text-lg">
+                    <div className="w-10 h-10 bg-yellow-100 text-yellow-700 rounded-xl flex items-center justify-center shrink-0 font-black text-lg">
                       1
                     </div>
                     <div>
-                      <h3 className="text-lg font-black text-gray-900 dark:text-white">
+                      <h3 className="text-lg font-black text-gray-950">
                         Passo 1: Chave Pix & Contato do Tio
                       </h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                      <p className="text-xs text-gray-600 font-medium">
                         O SchoolVan usa sua chave Pix para gerar as mensagens de cobrança automáticas e QR Codes com 1 clique.
                       </p>
                     </div>
                   </div>
 
-                  <div className="bg-gray-50 dark:bg-gray-800/50 p-4 sm:p-5 rounded-2xl space-y-3.5 border border-gray-100 dark:border-gray-800">
+                  <div className="bg-gray-50 p-4 sm:p-5 rounded-2xl space-y-3.5 border border-gray-200">
                     <div>
-                      <label className="block text-[11px] font-black uppercase tracking-wider text-gray-600 dark:text-gray-300 mb-1">
+                      <label className="block text-[11px] font-black uppercase tracking-wider text-gray-700 mb-1">
                         Seu Nome Completo ou Nome da Van
                       </label>
                       <input 
@@ -385,13 +393,13 @@ export function OnboardingWizard({
                         value={profileForm.name}
                         onChange={(e) => setProfileForm(p => ({ ...p, name: e.target.value }))}
                         placeholder="Ex: Tio Carlos - Van Escolar Estrela"
-                        className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                        className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-yellow-400 focus:outline-none text-gray-900"
                       />
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[11px] font-black uppercase tracking-wider text-gray-600 dark:text-gray-300 mb-1">
+                        <label className="block text-[11px] font-black uppercase tracking-wider text-gray-700 mb-1">
                           WhatsApp de Atendimento
                         </label>
                         <input 
@@ -399,12 +407,12 @@ export function OnboardingWizard({
                           value={profileForm.phone}
                           onChange={(e) => setProfileForm(p => ({ ...p, phone: e.target.value }))}
                           placeholder="(11) 99999-9999"
-                          className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                          className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-yellow-400 focus:outline-none text-gray-900"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-black uppercase tracking-wider text-gray-600 dark:text-gray-300 mb-1">
+                        <label className="block text-[11px] font-black uppercase tracking-wider text-gray-700 mb-1">
                           Sua Chave Pix Principal
                         </label>
                         <input 
@@ -412,14 +420,14 @@ export function OnboardingWizard({
                           value={profileForm.pixKey}
                           onChange={(e) => setProfileForm(p => ({ ...p, pixKey: e.target.value }))}
                           placeholder="CPF, CNPJ, Celular, E-mail ou Chave Aleatória"
-                          className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                          className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-yellow-400 focus:outline-none text-gray-900"
                         />
                       </div>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between pt-2">
-                    <span className="text-xs text-gray-400 font-semibold">
+                    <span className="text-xs text-gray-500 font-semibold">
                       {step1Done ? '✅ Dados configurados!' : '⚠️ Preencha Nome e Pix'}
                     </span>
                     <button
@@ -438,28 +446,28 @@ export function OnboardingWizard({
               {activeStep === 2 && (
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 rounded-xl flex items-center justify-center shrink-0 font-black text-lg">
+                    <div className="w-10 h-10 bg-yellow-100 text-yellow-700 rounded-xl flex items-center justify-center shrink-0 font-black text-lg">
                       2
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="text-lg font-black text-gray-900 dark:text-white">
+                        <h3 className="text-lg font-black text-gray-950">
                           Passo 2: Sua Van Escolar
                         </h3>
-                        <span className="px-2.5 py-0.5 bg-yellow-400/20 text-yellow-800 dark:text-yellow-300 text-[10px] font-black rounded-full uppercase">
+                        <span className="px-2.5 py-0.5 bg-yellow-400/20 text-yellow-900 text-[10px] font-black rounded-full uppercase">
                           1 Van no Plano Gratuito
                         </span>
                       </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                      <p className="text-xs text-gray-600 font-medium">
                         Informe o modelo, placa e capacidade de bancos para calcularmos a ocupação e as vagas livres.
                       </p>
                     </div>
                   </div>
 
-                  <div className="bg-gray-50 dark:bg-gray-800/50 p-4 sm:p-5 rounded-2xl space-y-3.5 border border-gray-100 dark:border-gray-800">
+                  <div className="bg-gray-50 p-4 sm:p-5 rounded-2xl space-y-3.5 border border-gray-200">
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div className="sm:col-span-2">
-                        <label className="block text-[11px] font-black uppercase tracking-wider text-gray-600 dark:text-gray-300 mb-1">
+                        <label className="block text-[11px] font-black uppercase tracking-wider text-gray-700 mb-1">
                           Nome ou Identificação da Van
                         </label>
                         <input 
@@ -467,12 +475,12 @@ export function OnboardingWizard({
                           value={vehicleForm.name}
                           onChange={(e) => setVehicleForm(p => ({ ...p, name: e.target.value }))}
                           placeholder="Ex: Van 01 - Zona Sul"
-                          className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                          className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-yellow-400 focus:outline-none text-gray-900"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-black uppercase tracking-wider text-gray-600 dark:text-gray-300 mb-1">
+                        <label className="block text-[11px] font-black uppercase tracking-wider text-gray-700 mb-1">
                           Placa do Veículo
                         </label>
                         <input 
@@ -480,14 +488,14 @@ export function OnboardingWizard({
                           value={vehicleForm.plate}
                           onChange={(e) => setVehicleForm(p => ({ ...p, plate: e.target.value.toUpperCase() }))}
                           placeholder="ABC-1234 / BRA2E19"
-                          className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-yellow-400 focus:outline-none uppercase font-mono"
+                          className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-yellow-400 focus:outline-none uppercase font-mono text-gray-900"
                         />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[11px] font-black uppercase tracking-wider text-gray-600 dark:text-gray-300 mb-1">
+                        <label className="block text-[11px] font-black uppercase tracking-wider text-gray-700 mb-1">
                           Modelo / Fabricante
                         </label>
                         <input 
@@ -495,21 +503,25 @@ export function OnboardingWizard({
                           value={vehicleForm.model}
                           onChange={(e) => setVehicleForm(p => ({ ...p, model: e.target.value }))}
                           placeholder="Ex: Mercedes Sprinter 415, Fiat Ducato..."
-                          className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                          className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-yellow-400 focus:outline-none text-gray-900"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-black uppercase tracking-wider text-gray-600 dark:text-gray-300 mb-1">
+                        <label className="block text-[11px] font-black uppercase tracking-wider text-gray-700 mb-1">
                           Capacidade de Assentos para Alunos
                         </label>
                         <input 
                           type="number"
+                          placeholder="15"
                           value={vehicleForm.capacity}
-                          onChange={(e) => setVehicleForm(p => ({ ...p, capacity: Number(e.target.value) }))}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setVehicleForm(p => ({ ...p, capacity: val === '' ? '' : Number(val) }));
+                          }}
                           min={1}
                           max={60}
-                          className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-yellow-400 focus:outline-none font-bold"
+                          className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-yellow-400 focus:outline-none font-bold text-gray-900"
                         />
                       </div>
                     </div>
@@ -518,13 +530,13 @@ export function OnboardingWizard({
                   <div className="flex items-center justify-between pt-2">
                     <button
                       onClick={() => setActiveStep(1)}
-                      className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 font-bold text-xs flex items-center gap-1 cursor-pointer"
+                      className="px-4 py-2 text-gray-600 hover:text-gray-900 font-bold text-xs flex items-center gap-1 cursor-pointer"
                     >
                       <ChevronLeft size={16} /> Voltar
                     </button>
                     <button
                       onClick={handleSaveVehicleStep}
-                      disabled={savingStep || !vehicleForm.plate}
+                      disabled={savingStep || !vehicleForm.name}
                       className="px-6 py-2.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-2xl text-xs sm:text-sm shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95"
                     >
                       <Save size={16} />
@@ -538,28 +550,28 @@ export function OnboardingWizard({
               {activeStep === 3 && (
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 rounded-xl flex items-center justify-center shrink-0 font-black text-lg">
+                    <div className="w-10 h-10 bg-yellow-100 text-yellow-700 rounded-xl flex items-center justify-center shrink-0 font-black text-lg">
                       3
                     </div>
                     <div>
-                      <h3 className="text-lg font-black text-gray-900 dark:text-white">
+                      <h3 className="text-lg font-black text-gray-950">
                         Passo 3: Adicionar os Alunos da Sua Rota
                       </h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Você já possui <strong className="text-yellow-600 dark:text-yellow-400">{students.length} alunos</strong> cadastrados na lista de presença e financeiro.
+                      <p className="text-xs text-gray-600 font-medium">
+                        Você já possui <strong className="text-yellow-700">{students.length} alunos</strong> cadastrados na lista de presença e financeiro.
                       </p>
                     </div>
                   </div>
 
-                  <div className="bg-yellow-50/70 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800/40 p-5 rounded-2xl space-y-3 text-center">
+                  <div className="bg-yellow-50/70 border border-yellow-200 p-5 rounded-2xl space-y-3 text-center">
                     <div className="w-14 h-14 bg-yellow-400 text-gray-950 rounded-2xl flex items-center justify-center mx-auto shadow-md">
                       <Users size={28} />
                     </div>
                     <div>
-                      <h4 className="text-base font-black text-gray-900 dark:text-white">
+                      <h4 className="text-base font-black text-gray-950">
                         Cadastre seus Alunos e Escolas
                       </h4>
-                      <p className="text-xs text-gray-600 dark:text-gray-300 mt-0.5 max-w-md mx-auto">
+                      <p className="text-xs text-gray-600 mt-0.5 max-w-md mx-auto">
                         Com o nome do aluno, telefone do responsável e escola de destino, você faz o embarque diário e envia lembretes no Zap dos pais.
                       </p>
                     </div>
@@ -580,7 +592,7 @@ export function OnboardingWizard({
                   <div className="flex items-center justify-between pt-2">
                     <button
                       onClick={() => setActiveStep(2)}
-                      className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 font-bold text-xs flex items-center gap-1 cursor-pointer"
+                      className="px-4 py-2 text-gray-600 hover:text-gray-900 font-bold text-xs flex items-center gap-1 cursor-pointer"
                     >
                       <ChevronLeft size={16} /> Voltar
                     </button>
@@ -598,28 +610,28 @@ export function OnboardingWizard({
               {activeStep === 4 && (
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 rounded-xl flex items-center justify-center shrink-0 font-black text-lg">
+                    <div className="w-10 h-10 bg-yellow-100 text-yellow-700 rounded-xl flex items-center justify-center shrink-0 font-black text-lg">
                       4
                     </div>
                     <div>
-                      <h3 className="text-lg font-black text-gray-900 dark:text-white">
+                      <h3 className="text-lg font-black text-gray-950">
                         Passo 4: Sequenciamento de Rotas & GPS
                       </h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                      <p className="text-xs text-gray-600 font-medium">
                         O SchoolVan traça automaticamente a melhor sequência de paradas no Google Maps para economizar combustível.
                       </p>
                     </div>
                   </div>
 
-                  <div className="bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/40 p-5 rounded-2xl space-y-3 text-center">
+                  <div className="bg-blue-50/70 border border-blue-200 p-5 rounded-2xl space-y-3 text-center">
                     <div className="w-14 h-14 bg-blue-500 text-white rounded-2xl flex items-center justify-center mx-auto shadow-md">
                       <MapPin size={28} />
                     </div>
                     <div>
-                      <h4 className="text-base font-black text-gray-900 dark:text-white">
+                      <h4 className="text-base font-black text-gray-950">
                         Organize sua Rota no Mapa
                       </h4>
-                      <p className="text-xs text-gray-600 dark:text-gray-300 mt-0.5 max-w-md mx-auto">
+                      <p className="text-xs text-gray-600 mt-0.5 max-w-md mx-auto">
                         Ordene as casas dos alunos e escolas por horário de início da aula e abra no Google Maps ou Waze direto pelo celular.
                       </p>
                     </div>
@@ -640,7 +652,7 @@ export function OnboardingWizard({
                   <div className="flex items-center justify-between pt-2">
                     <button
                       onClick={() => setActiveStep(3)}
-                      className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 font-bold text-xs flex items-center gap-1 cursor-pointer"
+                      className="px-4 py-2 text-gray-600 hover:text-gray-900 font-bold text-xs flex items-center gap-1 cursor-pointer"
                     >
                       <ChevronLeft size={16} /> Voltar
                     </button>
@@ -658,14 +670,14 @@ export function OnboardingWizard({
               {activeStep === 5 && (
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 rounded-xl flex items-center justify-center shrink-0 font-black text-lg">
+                    <div className="w-10 h-10 bg-yellow-100 text-yellow-700 rounded-xl flex items-center justify-center shrink-0 font-black text-lg">
                       5
                     </div>
                     <div>
-                      <h3 className="text-lg font-black text-gray-900 dark:text-white">
+                      <h3 className="text-lg font-black text-gray-950">
                         Passo 5: PWA Nativo & Chamada do Embarque
                       </h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                      <p className="text-xs text-gray-600 font-medium">
                         Seu SchoolVan está 100% pronto! Acesse o app no celular e use a Chamada do Embarque no rodapé a qualquer hora.
                       </p>
                     </div>
@@ -710,7 +722,7 @@ export function OnboardingWizard({
                   <div className="flex items-center justify-between pt-2">
                     <button
                       onClick={() => setActiveStep(4)}
-                      className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 font-bold text-xs flex items-center gap-1 cursor-pointer"
+                      className="px-4 py-2 text-gray-600 hover:text-gray-900 font-bold text-xs flex items-center gap-1 cursor-pointer"
                     >
                       <ChevronLeft size={16} /> Voltar
                     </button>
@@ -731,8 +743,8 @@ export function OnboardingWizard({
           </AnimatePresence>
 
           {/* Quick Support / Chat with T.IA button at bottom */}
-          <div className="pt-2 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400 font-medium">
+          <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-[11px] text-gray-500 font-medium">
               <ShieldCheck size={14} className="text-emerald-500" />
               <span>Suporte & Dúvidas 100% integrados</span>
             </div>
@@ -742,7 +754,7 @@ export function OnboardingWizard({
                 onClose();
                 if (onOpenTioIA) onOpenTioIA();
               }}
-              className="text-xs font-bold text-yellow-600 dark:text-yellow-400 hover:underline flex items-center gap-1 cursor-pointer"
+              className="text-xs font-bold text-yellow-700 hover:underline flex items-center gap-1 cursor-pointer"
             >
               <Bot size={14} /> Dúvida? Chamar T.IA
             </button>

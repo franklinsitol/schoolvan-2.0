@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, 
   Check, 
@@ -36,7 +36,17 @@ export function UpgradeTriggerModal({
   onOpenPixCheckout
 }: UpgradeTriggerModalProps) {
   const { profile } = useAuth();
-  const [selectedPlan, setSelectedPlan] = useState<'pro' | 'enterprise'>('pro');
+  const isVehicleUpgrade = reason === 'multi_vehicle' || reason === 'multi_vehicle_pro';
+  const [selectedPlan, setSelectedPlan] = useState<'pro' | 'enterprise'>(isVehicleUpgrade ? 'enterprise' : 'pro');
+
+  // Update selected plan when reason changes
+  useEffect(() => {
+    if (reason === 'multi_vehicle' || reason === 'multi_vehicle_pro') {
+      setSelectedPlan('enterprise');
+    } else {
+      setSelectedPlan('pro');
+    }
+  }, [reason]);
 
   if (!isOpen || !profile) return null;
 

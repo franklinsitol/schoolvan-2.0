@@ -3,6 +3,8 @@ import { X, Save, User, Mail, Phone, ShieldCheck, Bus } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { TeamMember, Vehicle } from '../types';
+import { useAuth } from '../hooks/useAuth';
+import { checkCanAddTeamMember } from '../lib/plans';
 import toast from 'react-hot-toast';
 
 interface TeamModalProps {
@@ -11,9 +13,11 @@ interface TeamModalProps {
   driverId: string;
   vehicles: Vehicle[];
   member?: TeamMember | null;
+  onOpenUpgradeModal?: (reason: string) => void;
 }
 
-export function TeamModal({ isOpen, onClose, driverId, vehicles, member }: TeamModalProps) {
+export function TeamModal({ isOpen, onClose, driverId, vehicles, member, onOpenUpgradeModal }: TeamModalProps) {
+  const { profile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<Partial<TeamMember>>(
     member || {
@@ -31,6 +35,16 @@ export function TeamModal({ isOpen, onClose, driverId, vehicles, member }: TeamM
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check plan restriction for new members
+    if (!member?.id) {
+      const allowed = checkCanAddTeamMember(profile, onOpenUpgradeModal);
+      if (!allowed) {
+        onClose();
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {

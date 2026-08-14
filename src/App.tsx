@@ -30,6 +30,7 @@ import { useFirestore, useCollectionGroup } from './hooks/useFirestore';
 import { Student, Vehicle, Driver } from './types';
 import { isStudentAbsentOnDate, getTodayStr, formatDateBR } from './lib/absence';
 import { playBusHornSound, speakTioIAPrompt } from './lib/sound';
+import { checkCanAddStudent } from './lib/plans';
 
 import { auth, db } from './lib/firebase';
 import { signOut } from 'firebase/auth';
@@ -384,16 +385,9 @@ const Students = ({ onOpenUpgradeModal }: { onOpenUpgradeModal?: (reason: string
   };
 
   const handleAdd = () => {
-    if (userPlan === 'Gratuito' && students.length >= 25) {
-      playBusHornSound();
-      speakTioIAPrompt("Tio, você atingiu o limite de 25 alunos no Plano Gratuito! Faça o upgrade para o Plano Pro para cadastrar alunos ilimitados.");
-      if (onOpenUpgradeModal) {
-        onOpenUpgradeModal('limit_students');
-      } else {
-        toast.error('Você atingiu o limite de 25 alunos do Plano Gratuito! Faça upgrade para o Plano Pro para cadastrar alunos ilimitados.');
-      }
-      return;
-    }
+    const allowed = checkCanAddStudent(profile, students.length, onOpenUpgradeModal);
+    if (!allowed) return;
+
     setSelectedStudent(null);
     setIsModalOpen(true);
   };
@@ -471,6 +465,7 @@ const Students = ({ onOpenUpgradeModal }: { onOpenUpgradeModal?: (reason: string
         driverId={profile?.id || ''}
         vehicles={vehicles}
         student={selectedStudent}
+        onOpenUpgradeModal={onOpenUpgradeModal}
       />
     </div>
   );
@@ -798,7 +793,14 @@ export default function App() {
               >
                 {currentView === 'market' && <Marketplace onOpenAuth={() => setAuthModal({ open: true, type: 'driver' })} />}
                 {currentView === 'dash' && <Dashboard onNavigateToLeads={() => setCurrentView('leads')} />}
-                {currentView === 'leads' && <LeadsView />}
+                {currentView === 'leads' && (
+                  <LeadsView 
+                    onOpenUpgradeModal={(reason) => { 
+                      setUpgradeReason(reason); 
+                      setIsUpgradeModalOpen(true); 
+                    }} 
+                  />
+                )}
                 {currentView === 'students' && (
                   <Students 
                     onOpenUpgradeModal={(reason) => { 

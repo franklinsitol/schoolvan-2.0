@@ -25,23 +25,29 @@ import { Lead, Vehicle, Student } from '../types';
 import { doc, updateDoc, addDoc, collection, deleteDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { cn } from '../lib/utils';
+import { checkCanAddStudent } from '../lib/plans';
 import toast from 'react-hot-toast';
 
-export function LeadsView() {
+interface LeadsViewProps {
+  onOpenUpgradeModal?: (reason: string) => void;
+}
+
+export function LeadsView({ onOpenUpgradeModal }: LeadsViewProps) {
   const { profile } = useAuth();
   const driverId = profile?.id || '';
   
   const { data: leads, loading: loadingLeads } = useFirestore<Lead>(driverId ? `drivers/${driverId}/leads` : '');
   const { data: vehicles } = useFirestore<Vehicle>(driverId ? `drivers/${driverId}/vehicles` : '');
+  const { data: students } = useFirestore<Student>(driverId ? `drivers/${driverId}/students` : '');
 
   const [activeTab, setActiveTab] = useState<'Todos' | 'Pendente' | 'Em Contato' | 'Convertido' | 'Recusado'>('Pendente');
   const [searchTerm, setSearchTerm] = useState('');
 
   // Conversion Modal State
   const [convertModalLead, setConvertModalLead] = useState<Lead | null>(null);
-  const [convertValue, setConvertValue] = useState<number>(200);
+  const [convertValue, setConvertValue] = useState<number | string>(200);
   const [convertVehicleId, setConvertVehicleId] = useState<string>('');
-  const [convertSeat, setConvertSeat] = useState<number>(1);
+  const [convertSeat, setConvertSeat] = useState<number | string>(1);
   const [convertPaymentDay, setConvertPaymentDay] = useState<number>(10);
   const [isConverting, setIsConverting] = useState(false);
 
@@ -81,6 +87,9 @@ export function LeadsView() {
   };
 
   const handleStartConversion = (lead: Lead) => {
+    const allowed = checkCanAddStudent(profile, students.length, onOpenUpgradeModal);
+    if (!allowed) return;
+
     setConvertModalLead(lead);
     setConvertValue(lead.value || 200);
     setConvertVehicleId(lead.vehicleId || (vehicles[0]?.id || ''));
@@ -91,6 +100,12 @@ export function LeadsView() {
   const handleConfirmConversion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!convertModalLead || !driverId) return;
+
+    const allowed = checkCanAddStudent(profile, students.length, onOpenUpgradeModal);
+    if (!allowed) {
+      setConvertModalLead(null);
+      return;
+    }
 
     setIsConverting(true);
 
@@ -108,9 +123,9 @@ export function LeadsView() {
         schoolName: convertModalLead.schoolName || convertModalLead.school || '',
         entryTime: convertModalLead.entryTime || '07:00',
         exitTime: convertModalLead.exitTime || '12:00',
-        value: convertValue,
+        value: Number(convertValue) || 0,
         vehicleId: convertVehicleId,
-        seat: convertSeat,
+        seat: Number(convertSeat) || 1,
         paymentDay: convertPaymentDay,
         status: 'Ativo',
         boardingStatus: 'Casa',
@@ -425,8 +440,12 @@ export function LeadsView() {
                   type="number"
                   required
                   min={0}
+                  placeholder="350.00"
                   value={convertValue}
-                  onChange={(e) => setConvertValue(Number(e.target.value))}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setConvertValue(val === '' ? '' : Number(val));
+                  }}
                   className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 focus:ring-2 focus:ring-yellow-400 outline-none"
                 />
               </div>
@@ -456,8 +475,12 @@ export function LeadsView() {
                     type="number"
                     min={1}
                     max={60}
+                    placeholder="1"
                     value={convertSeat}
-                    onChange={(e) => setConvertSeat(Number(e.target.value))}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setConvertSeat(val === '' ? '' : Number(val));
+                    }}
                     className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-yellow-400 outline-none"
                   />
                 </div>
