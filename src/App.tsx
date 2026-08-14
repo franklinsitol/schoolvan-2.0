@@ -485,6 +485,7 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCheckinOpen, setIsCheckinOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [aicsmMode, setAicsmMode] = useState<'chat' | 'onboarding'>('chat');
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
   const [subscriptionPlan, setSubscriptionPlan] = useState<'Pro' | 'Frota'>('Pro');
@@ -496,7 +497,18 @@ export default function App() {
   const activeProfile = impersonatedDriver || profile;
 
   const { data: students } = useFirestore<Student>(activeProfile?.id ? `drivers/${activeProfile.id}/students` : '');
+  const { data: vehicles } = useFirestore<Vehicle>(activeProfile?.id ? `drivers/${activeProfile.id}/vehicles` : '');
   const { data: leads } = useFirestore<Lead>(activeProfile?.id ? `drivers/${activeProfile.id}/leads` : '');
+
+  // Calculate onboarding status
+  const activeStudentsCount = students.filter(s => s.status !== 'Excluido').length;
+  const isOnboardingCompleted = Boolean(
+    activeProfile?.name && 
+    activeProfile?.phone && 
+    activeProfile?.pixKey && 
+    vehicles.length > 0 && 
+    activeStudentsCount > 0
+  );
 
   useEffect(() => {
     if (window.location.pathname.includes('/cora')) {
@@ -504,12 +516,13 @@ export default function App() {
     }
   }, []);
 
-  // Auto-open onboarding for new driver if profile needs setup
+  // Auto-open onboarding for new driver if profile needs setup directly with Tio IA
   useEffect(() => {
     if (user && profile?.role === 'admin' && (!profile.pixKey || !profile.phone || students.length === 0)) {
       const hasSeenTour = localStorage.getItem(`onboarding_seen_${user.uid}`);
       if (!hasSeenTour) {
-        setIsOnboardingOpen(true);
+        setAicsmMode('onboarding');
+        setIsAICSMOpen(true);
         localStorage.setItem(`onboarding_seen_${user.uid}`, 'true');
       }
     }
@@ -641,14 +654,19 @@ export default function App() {
             <div className="flex items-center gap-2 sm:gap-3">
               {profile?.role === 'admin' && (
                 <>
-                  <button
-                    onClick={() => setIsOnboardingOpen(true)}
-                    className="px-3 py-1.5 bg-yellow-100 dark:bg-yellow-950 text-gray-950 dark:text-yellow-400 hover:bg-yellow-200 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer border border-yellow-400/40"
-                    title="Abrir Guia de Configuração e Onboarding"
-                  >
-                    <Compass size={15} className="text-yellow-600 dark:text-yellow-400" />
-                    <span className="hidden sm:inline">Guia CSM</span>
-                  </button>
+                  {!isOnboardingCompleted && (
+                    <button
+                      onClick={() => {
+                        setAicsmMode('onboarding');
+                        setIsAICSMOpen(true);
+                      }}
+                      className="px-3 py-1.5 bg-yellow-100 dark:bg-yellow-950 text-gray-950 dark:text-yellow-400 hover:bg-yellow-200 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer border border-yellow-400/40 animate-pulse"
+                      title="Completar Onboarding com o Tio IA"
+                    >
+                      <Compass size={15} className="text-yellow-600 dark:text-yellow-400" />
+                      <span className="hidden sm:inline">Onboarding Pendente</span>
+                    </button>
+                  )}
 
                   <button
                     onClick={() => {
@@ -831,8 +849,12 @@ export default function App() {
         <TioIAFloatingDockWidget 
           profile={activeProfile}
           students={students}
+          vehicles={vehicles}
           leads={leads}
-          onOpenTioIA={() => setIsAICSMOpen(true)}
+          onOpenTioIA={(mode) => {
+            setAicsmMode(mode || 'chat');
+            setIsAICSMOpen(true);
+          }}
           onOpenCheckin={() => setIsCheckinOpen(true)}
         />
       )}
@@ -842,27 +864,6 @@ export default function App() {
         onClose={() => setIsCheckinOpen(false)} 
         students={students} 
         driverId={activeProfile?.id || ''} 
-      />
-
-      <OnboardingWizard 
-        isOpen={isOnboardingOpen}
-        onClose={() => setIsOnboardingOpen(false)}
-        onOpenStudentModal={() => setCurrentView('students')}
-        onOpenVehicleModal={() => setCurrentView('vehicles')}
-        onNavigateTab={(tab) => setCurrentView(tab as View)}
-        onOpenTioIA={() => {
-          setIsOnboardingOpen(false);
-          setIsAICSMOpen(true);
-        }}
-        onOpenCheckin={() => {
-          setIsOnboardingOpen(false);
-          setIsCheckinOpen(true);
-        }}
-        onOpenUpgradeModal={(reason) => {
-          setIsOnboardingOpen(false);
-          setUpgradeReason(reason);
-          setIsUpgradeModalOpen(true);
-        }}
       />
 
       <UpgradeTriggerModal 
@@ -884,10 +885,14 @@ export default function App() {
 
       <AICSMSupportAssistantModal 
         isOpen={isAICSMOpen}
+        initialMode={aicsmMode}
         onClose={() => setIsAICSMOpen(false)}
-        onOpenUpgradeModal={() => {
+        onOpenCheckin={() => setIsCheckinOpen(true)}
+        onOpenStudentModal={() => setCurrentView('students')}
+        onNavigateTab={(tab) => setCurrentView(tab as View)}
+        onOpenUpgradeModal={(reason) => {
           setIsAICSMOpen(false);
-          setUpgradeReason('limit_students');
+          setUpgradeReason(reason || 'limit_students');
           setIsUpgradeModalOpen(true);
         }}
       />
