@@ -128,7 +128,7 @@ export function CSAssistant({ onOpenTioIA, onOpenUpgradeModal }: CSAssistantProp
           </div>
           <div>
             <h4 className="text-sm font-black text-gray-900 dark:text-white flex items-center gap-1.5">
-              Feed de Avisos Ativos do Tio IA
+              Feed de Avisos Ativos da T.IA
               <span className="px-2 py-0.5 bg-yellow-400/20 text-yellow-800 dark:text-yellow-300 text-[10px] font-bold rounded-full uppercase">
                 Em Tempo Real
               </span>
@@ -142,7 +142,7 @@ export function CSAssistant({ onOpenTioIA, onOpenUpgradeModal }: CSAssistantProp
             className="text-xs font-bold text-gray-600 dark:text-gray-300 hover:text-yellow-600 flex items-center gap-1 cursor-pointer bg-white dark:bg-gray-800 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm"
           >
             <MessageSquare size={14} className="text-yellow-500" />
-            <span>Falar com Tio IA</span>
+            <span>Falar com T.IA</span>
           </button>
         )}
       </div>
@@ -164,7 +164,7 @@ export function CSAssistant({ onOpenTioIA, onOpenUpgradeModal }: CSAssistantProp
             </div>
             <div className="flex-1 pr-6">
               <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gray-950 text-yellow-400 text-[10px] font-black uppercase tracking-wider">
-                <Bus size={12} /> Tio IA Avisa: Falta Confirmada Hoje
+                <Bus size={12} /> T.IA Avisa: Falta Confirmada Hoje
               </div>
               <h3 className="text-base font-black mt-1 text-gray-950">
                 {absentStudentsToday.length === 1 ? (
@@ -181,10 +181,10 @@ export function CSAssistant({ onOpenTioIA, onOpenUpgradeModal }: CSAssistantProp
 
           <div className="mt-4 pt-3 border-t border-gray-950/10 flex flex-wrap items-center justify-between gap-2">
             <button
-              onClick={() => playNotifSpeech('Aviso do Tio IA', `Atenção Tio: ${absentStudentsToday.map(s => s.name).join(', ')} não vai hoje para a escola.`)}
+              onClick={() => playNotifSpeech('Aviso da T.IA', `Atenção Tio: ${absentStudentsToday.map(s => s.name).join(', ')} não vai hoje para a escola.`)}
               className="px-3.5 py-2 bg-gray-950 text-yellow-400 rounded-xl text-xs font-extrabold flex items-center gap-1.5 shadow hover:bg-gray-800 transition-all cursor-pointer"
             >
-              <Volume2 size={16} /> Ouvir no Tio IA (Buzina + Voz)
+              <Volume2 size={16} /> Ouvir na T.IA (Buzina + Voz)
             </button>
 
             {onOpenTioIA && (
@@ -192,7 +192,7 @@ export function CSAssistant({ onOpenTioIA, onOpenUpgradeModal }: CSAssistantProp
                 onClick={onOpenTioIA}
                 className="px-3.5 py-2 bg-white/40 hover:bg-white/60 text-gray-950 font-extrabold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer"
               >
-                <MessageSquare size={15} /> Ver Detalhes no Chat com Tio IA
+                <MessageSquare size={15} /> Ver Detalhes no Chat com T.IA
               </button>
             )}
           </div>
@@ -216,7 +216,7 @@ export function CSAssistant({ onOpenTioIA, onOpenUpgradeModal }: CSAssistantProp
             </div>
             <div className="flex-1 pr-6">
               <span className="bg-white/20 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                Aviso de Cobrança do Tio IA
+                Aviso de Cobrança da T.IA
               </span>
               <h3 className="text-base font-black mt-1">
                 Tio {profile.name || ''}, sua mensalidade da plataforma venceu!
@@ -263,7 +263,7 @@ export function CSAssistant({ onOpenTioIA, onOpenUpgradeModal }: CSAssistantProp
           <div className="flex items-center gap-2">
             <Clock size={16} className="text-blue-600 dark:text-blue-400 shrink-0" />
             <span>
-              Acesso temporário concedido pelo Tio IA até{' '}
+              Acesso temporário concedido pela T.IA até{' '}
               {new Date(profile.paymentPromiseUntil!).toLocaleDateString('pt-BR')}.
             </span>
           </div>
@@ -290,7 +290,7 @@ export function CSAssistant({ onOpenTioIA, onOpenUpgradeModal }: CSAssistantProp
             </div>
             <div>
               <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gray-950 text-yellow-400 text-[10px] font-black uppercase">
-                <Sparkles size={12} /> Tio IA Parabeniza Sua Frota!
+                <Sparkles size={12} /> T.IA Parabeniza Sua Frota!
               </div>
               <h4 className="text-base font-black mt-1">
                 Sua van está quase cheia! ({activeStudentCount}/{freeLimit} alunos)
@@ -333,7 +333,7 @@ export function CSAssistant({ onOpenTioIA, onOpenUpgradeModal }: CSAssistantProp
             </div>
             <div>
               <span className="bg-white/20 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                Tio IA: Novos Interessados
+                T.IA: Novos Interessados
               </span>
               <h4 className="text-base font-black mt-1">
                 Você recebeu {leads.length} pedido(s) de orçamentos de pais!

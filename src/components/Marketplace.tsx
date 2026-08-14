@@ -27,12 +27,15 @@ import {
   Shield,
   PhoneCall,
   Heart,
-  UserCheck
+  UserCheck,
+  Bot,
+  Volume2
 } from 'lucide-react';
 import { useCollectionGroup } from '../hooks/useFirestore';
 import { Vehicle } from '../types';
 import { cn } from '../lib/utils';
 import { RequestVacancyModal } from './RequestVacancyModal';
+import { playBusHornSound, speakTiaPrompt } from '../lib/sound';
 
 export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
   const { data: vehicles } = useCollectionGroup<Vehicle>('vehicles');
@@ -42,7 +45,7 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
   const [neighborhoodFilter, setNeighborhoodFilter] = useState('');
   const [studentCountCalc, setStudentCountCalc] = useState<number>(35);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [activeDemoTab, setActiveDemoTab] = useState<'driver' | 'parent' | 'finance' | 'routes'>('driver');
+  const [activeDemoTab, setActiveDemoTab] = useState<'tia' | 'driver' | 'parent' | 'finance' | 'routes'>('tia');
   const [selectedVehicleForLead, setSelectedVehicleForLead] = useState<Vehicle | null>(null);
 
   const searchSectionRef = useRef<HTMLDivElement>(null);
@@ -144,17 +147,21 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
           {/* Hero Copy - DRIVER MODE */}
           {audienceMode === 'driver' && (
             <div className="lg:col-span-7 space-y-6 text-center lg:text-left animate-fade-in">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-yellow-400/10 border border-yellow-400/30 text-yellow-400 text-xs font-black uppercase tracking-wider">
-                <Zap size={15} className="fill-current text-yellow-400" />
-                <span>Aplicativo do Tio da Van • 100% Grátis para Começar</span>
+              <div className="inline-flex flex-wrap items-center gap-2 px-4 py-2 rounded-full bg-yellow-400/10 border border-yellow-400/30 text-yellow-400 text-xs font-black uppercase tracking-wider">
+                <span className="flex items-center gap-1 bg-yellow-400 text-gray-950 px-2 py-0.5 rounded-full font-black text-[10px]">
+                  <Sparkles size={12} className="animate-spin" /> IA GENERATIVA
+                </span>
+                <span className="flex items-center gap-1">
+                  <Bot size={15} /> Copiloto T.IA Integrada • 100% Grátis para Começar
+                </span>
               </div>
 
               <h1 className="text-3xl md:text-5xl lg:text-5xl font-black leading-tight tracking-tight">
-                Cobre no <span className="text-yellow-400 underline decoration-yellow-400/40 decoration-4">Zap com Pix</span>, faça chamada em 1 toque e lote sua Van.
+                A 1ª plataforma com <span className="text-yellow-400 underline decoration-yellow-400/40 decoration-4">IA Generativa (T.IA)</span> que roda a burocracia da sua Van por voz.
               </h1>
 
               <p className="text-gray-300 text-sm md:text-base leading-relaxed max-w-2xl mx-auto lg:mx-0">
-                Larga o caderno de papel! O SchoolVan organiza seus passageiros, envia avisos de mensalidade no WhatsApp dos pais com sua chave Pix e ajusta sua rota no GPS quando alguém avisa que vai faltar.
+                Larga o caderno de papel! A <strong>T.IA</strong> é sua copiloto inteligente: cobra no WhatsApp com Pix, faz chamada falada em 1 toque, reordena sua rota no GPS quando alguém falta e responde tudo por voz com buzininha.
               </p>
 
               {/* CTAs */}
@@ -164,34 +171,40 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
                   className="w-full sm:w-auto px-7 py-4 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-2xl text-sm shadow-xl hover:shadow-yellow-400/20 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Bus size={18} />
-                  <span>CRIAR MINHA CONTA GRÁTIS</span>
+                  <span>EXPERIMENTAR A T.IA GRÁTIS</span>
                   <ArrowRight size={18} />
                 </button>
 
-                <a
-                  href="https://wa.me/5511947078453?text=Ol%C3%A1%20SchoolVan%21%20Gostaria%20de%20tirar%20d%C3%BAvidas%20sobre%20o%20sistema."
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full sm:w-auto px-6 py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-2xl text-sm transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+                <button
+                  onClick={() => {
+                    playBusHornSound();
+                    speakTiaPrompt("Fala, Tio! Eu sou a T.IA, sua copiloto inteligente. Cuido das cobranças no Zap, chamada de embarque e rotas pra você só dirigir com tranquilidade!");
+                  }}
+                  className="w-full sm:w-auto px-5 py-4 bg-yellow-400/15 hover:bg-yellow-400/25 text-yellow-300 border border-yellow-400/40 font-black rounded-2xl text-sm transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                  title="Ouvir a voz da T.IA agora"
                 >
-                  <MessageSquare size={18} />
-                  <span>WHATSAPP: (11) 94707-8453</span>
-                </a>
+                  <Volume2 size={18} className="animate-pulse text-yellow-400" />
+                  <span>OUVIR A T.IA (VOZ + BUZINA)</span>
+                </button>
               </div>
 
               {/* Trust Badges */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-6 border-t border-white/10 text-xs font-bold text-gray-300">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-6 border-t border-white/10 text-xs font-bold text-gray-300">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={16} className="text-yellow-400 shrink-0" />
+                  <span>Copiloto T.IA 24h</span>
+                </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
                   <span>Grátis até 25 alunos</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
-                  <span>Sem baixar app nas lojas</span>
+                  <span>Sem baixar app de loja</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
-                  <span>Notificação no Zap dos Pais</span>
+                  <span>Lembretes Pix no Zap</span>
                 </div>
               </div>
             </div>
@@ -253,7 +266,7 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
 
           {/* Hero Interactive Card / Phone Mockup Badge */}
           <div className="lg:col-span-5 flex justify-center">
-            <div className="w-full max-w-sm bg-gradient-to-b from-gray-900 to-gray-950 p-6 rounded-[36px] border border-white/15 shadow-2xl space-y-6 relative group">
+            <div className="w-full max-w-sm bg-gradient-to-b from-gray-900 to-gray-950 p-6 rounded-[36px] border border-white/15 shadow-2xl space-y-4 relative group">
               <div className="flex items-center justify-between border-b border-white/10 pb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-yellow-400 text-gray-900 rounded-xl flex items-center justify-center font-black">
@@ -269,29 +282,45 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
                 </span>
               </div>
 
+              {/* T.IA Copilot Bubble inside Mockup */}
+              <div className="bg-gradient-to-r from-yellow-500/15 via-amber-500/10 to-transparent border border-yellow-400/30 p-3.5 rounded-2xl flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-yellow-400 text-gray-950 flex items-center justify-center font-black shrink-0 shadow-md">
+                  <Bot size={16} />
+                </div>
+                <div className="space-y-1 text-left">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-yellow-400">T.IA Copiloto</span>
+                    <span className="text-[9px] bg-yellow-400 text-gray-950 px-1.5 py-0.2 rounded font-black">AO VIVO</span>
+                  </div>
+                  <p className="text-xs text-gray-200 leading-snug">
+                    "Tio, a mãe do Lucas avisou falta. Já recalculei a rota com economia de 12 min!"
+                  </p>
+                </div>
+              </div>
+
               {/* Sample Live Student Boarding Mock */}
-              <div className="space-y-3 bg-black/40 p-4 rounded-2xl border border-white/5">
-                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider flex justify-between">
+              <div className="space-y-2.5 bg-black/40 p-3.5 rounded-2xl border border-white/5">
+                <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider flex justify-between">
                   <span>Passageiro</span>
                   <span>Status na Van</span>
                 </div>
-                <div className="flex justify-between items-center bg-white/5 p-2.5 rounded-xl text-xs">
+                <div className="flex justify-between items-center bg-white/5 p-2 rounded-xl text-xs">
                   <span className="font-bold text-white">Guilherme (7 anos)</span>
                   <span className="bg-yellow-400 text-gray-900 font-black px-2 py-0.5 rounded-md text-[10px]">NA VAN</span>
                 </div>
-                <div className="flex justify-between items-center bg-white/5 p-2.5 rounded-xl text-xs">
+                <div className="flex justify-between items-center bg-white/5 p-2 rounded-xl text-xs">
                   <span className="font-bold text-white">Mariana (9 anos)</span>
                   <span className="bg-blue-500 text-white font-bold px-2 py-0.5 rounded-md text-[10px]">NA ESCOLA</span>
                 </div>
-                <div className="flex justify-between items-center bg-white/5 p-2.5 rounded-xl text-xs opacity-60">
+                <div className="flex justify-between items-center bg-white/5 p-2 rounded-xl text-xs opacity-60">
                   <span className="font-bold text-white">Lucas (8 anos)</span>
                   <span className="bg-gray-700 text-gray-300 font-bold px-2 py-0.5 rounded-md text-[10px]">FALTOU HOJE</span>
                 </div>
               </div>
 
-              <div className="bg-yellow-400/10 border border-yellow-400/30 p-3 rounded-2xl flex items-center gap-3 text-xs text-yellow-300">
-                <Bell size={18} className="shrink-0" />
-                <span>Notificação enviada ao WhatsApp dos Pais automaticamente!</span>
+              <div className="bg-emerald-500/10 border border-emerald-500/30 p-2.5 rounded-2xl flex items-center gap-2 text-xs text-emerald-300">
+                <CheckCircle2 size={16} className="shrink-0 text-emerald-400" />
+                <span className="text-[11px]">Notificação enviada ao WhatsApp dos Pais automaticamente!</span>
               </div>
             </div>
           </div>
@@ -359,6 +388,16 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
             {/* Demo Tabs */}
             <div className="flex justify-center gap-2 border-b border-gray-100 pb-4 overflow-x-auto">
               <button
+                onClick={() => setActiveDemoTab('tia')}
+                className={cn(
+                  "px-5 py-2.5 rounded-xl font-black text-xs md:text-sm transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5",
+                  activeDemoTab === 'tia' ? "bg-yellow-400 text-gray-900 shadow-md scale-105" : "text-gray-500 hover:bg-gray-50"
+                )}
+              >
+                <Sparkles size={16} className="text-yellow-900 fill-yellow-900" />
+                <span>✨ Copiloto T.IA (IA Generativa)</span>
+              </button>
+              <button
                 onClick={() => setActiveDemoTab('driver')}
                 className={cn(
                   "px-5 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all cursor-pointer whitespace-nowrap",
@@ -398,6 +437,96 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
 
             {/* Demo Screen Preview */}
             <div className="bg-gray-900 text-white rounded-3xl p-6 md:p-8 border border-gray-800 shadow-2xl">
+              {activeDemoTab === 'tia' && (
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
+                  <div className="md:col-span-5 space-y-4">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-400/20 border border-yellow-400/40 text-yellow-400 text-xs font-black uppercase tracking-wider">
+                      <Sparkles size={14} />
+                      <span>Exclusividade Mundial no Segmento</span>
+                    </div>
+                    <h3 className="text-2xl md:text-3xl font-black leading-tight">
+                      A T.IA pilota suas tarefas enquanto você foca na direção
+                    </h3>
+                    <p className="text-gray-300 text-xs leading-relaxed">
+                      Equipada com Inteligência Artificial generativa e síntese de voz nativa em português brasileiro, a <strong>T.IA</strong> monitora confirmações de falta dos pais, cobra mensalidades com educação, dá lembretes de documentos e interage por comandos de voz.
+                    </p>
+                    <ul className="space-y-2 text-xs text-gray-300">
+                      <li className="flex items-center gap-2"><CheckCircle2 size={14} className="text-yellow-400" /> Fala com você por áudio no viva-voz</li>
+                      <li className="flex items-center gap-2"><CheckCircle2 size={14} className="text-yellow-400" /> Atualiza rota sem você precisar digitar</li>
+                      <li className="flex items-center gap-2"><CheckCircle2 size={14} className="text-yellow-400" /> Gera textos de cobrança amigáveis no Zap</li>
+                    </ul>
+                  </div>
+
+                  <div className="md:col-span-7 bg-gray-950 p-5 md:p-6 rounded-2xl border border-yellow-400/30 space-y-4 shadow-2xl">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-yellow-400 text-gray-950 flex items-center justify-center font-black">
+                          <Bot size={20} />
+                        </div>
+                        <div>
+                          <div className="font-extrabold text-sm text-white flex items-center gap-1.5">
+                            <span>T.IA Copiloto</span>
+                            <span className="bg-yellow-400 text-gray-950 text-[9px] px-1.5 py-0.5 rounded font-black">ONLINE</span>
+                          </div>
+                          <p className="text-[11px] text-gray-400">Assistente com Inteligência Artificial</p>
+                        </div>
+                      </div>
+                      <span className="text-xs font-mono text-yellow-400">Clique para ouvir a voz:</span>
+                    </div>
+
+                    {/* Interactive Voice Chips */}
+                    <div className="space-y-2.5">
+                      <button
+                        onClick={() => {
+                          playBusHornSound();
+                          speakTiaPrompt("Aviso de falta recebido: A mãe do Lucas confirmou ausência hoje às 06:40. Já removi o ponto da Escola Dom Bosco!");
+                        }}
+                        className="w-full p-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-yellow-400/50 rounded-xl text-left transition-all flex items-center justify-between group cursor-pointer"
+                      >
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] uppercase font-black text-yellow-400">Notificação de Ausência</span>
+                          <p className="text-xs text-gray-200">"A mãe do Lucas avisou falta. Já atualizei sua rota!"</p>
+                        </div>
+                        <Volume2 size={18} className="text-yellow-400 group-hover:scale-110 shrink-0 transition-transform" />
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          playBusHornSound();
+                          speakTiaPrompt("Tio, faltam apenas três mensalidades para fechar o mês 100 porcento pago. Quer que eu envie os lembretes com sua chave Pix?");
+                        }}
+                        className="w-full p-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-yellow-400/50 rounded-xl text-left transition-all flex items-center justify-between group cursor-pointer"
+                      >
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] uppercase font-black text-emerald-400">Cobrança e Caixa</span>
+                          <p className="text-xs text-gray-200">"Faltam 3 mensalidades. Quer que eu envie lembretes no Zap?"</p>
+                        </div>
+                        <Volume2 size={18} className="text-emerald-400 group-hover:scale-110 shrink-0 transition-transform" />
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          playBusHornSound();
+                          speakTiaPrompt("Bom dia, Tio Carlos! Todos os vinte e dois alunos do turno da manhã estão confirmados. Tenha uma excelente rota!");
+                        }}
+                        className="w-full p-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-yellow-400/50 rounded-xl text-left transition-all flex items-center justify-between group cursor-pointer"
+                      >
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] uppercase font-black text-blue-400">Bom dia & Resumo</span>
+                          <p className="text-xs text-gray-200">"Bom dia, Tio! 22 alunos confirmados na rota da manhã."</p>
+                        </div>
+                        <Volume2 size={18} className="text-blue-400 group-hover:scale-110 shrink-0 transition-transform" />
+                      </button>
+                    </div>
+
+                    <div className="bg-yellow-400/10 border border-yellow-400/30 p-2.5 rounded-xl text-center">
+                      <span className="text-[11px] text-yellow-300 font-bold">
+                        🔊 Toque em qualquer exemplo acima para ouvir a voz real e o efeito sonoro bi-bi!
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
               {activeDemoTab === 'driver' && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
                   <div className="space-y-4 md:col-span-1">
@@ -530,6 +659,101 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
             </div>
           </section>
 
+          {/* SECTION: T.IA SPOTLIGHT HERO SHOWCASE */}
+          <section className="relative overflow-hidden bg-gradient-to-br from-yellow-500 via-amber-500 to-yellow-600 text-gray-950 rounded-[40px] p-8 md:p-14 shadow-2xl space-y-8 border-4 border-yellow-300">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+              <div className="lg:col-span-7 space-y-4">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gray-950 text-yellow-400 text-xs font-black uppercase tracking-wider shadow-lg">
+                  <Sparkles size={15} className="animate-spin" />
+                  <span>DIFERENCIAL ÚNICO NO MUNDO</span>
+                </div>
+
+                <h2 className="text-3xl md:text-5xl font-black leading-tight tracking-tight text-gray-950">
+                  Conheça a <span className="underline decoration-gray-950 decoration-4">T.IA</span>: A Sua Assistente Virtual & Copiloto com Inteligência Artificial.
+                </h2>
+
+                <p className="text-gray-950/90 text-sm md:text-base font-medium leading-relaxed">
+                  Por que digitar enquanto dirige? A <strong>T.IA</strong> foi criada sob medida para a rotina do transporte escolar. Ela monitora o grupo de pais, avisa faltas antes de você sair de casa, emite lembretes simpáticos de Pix, confere a lista de chamada e tira qualquer dúvida do sistema em tempo real por voz.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                  <div className="bg-gray-950/10 p-3.5 rounded-2xl border border-gray-950/15 flex items-start gap-2.5">
+                    <CheckCircle2 size={18} className="text-gray-950 shrink-0 mt-0.5" />
+                    <div className="text-xs">
+                      <strong className="block font-black text-gray-950">Interação por Voz</strong>
+                      <span className="text-gray-900 font-medium">Ouça alertas sem tirar os olhos do trânsito.</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-950/10 p-3.5 rounded-2xl border border-gray-950/15 flex items-start gap-2.5">
+                    <CheckCircle2 size={18} className="text-gray-950 shrink-0 mt-0.5" />
+                    <div className="text-xs">
+                      <strong className="block font-black text-gray-950">Redução de Inadimplência</strong>
+                      <span className="text-gray-900 font-medium">Lembretes humanizados com link de Pix no Zap.</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-3 pt-2">
+                  <button
+                    onClick={onOpenAuth}
+                    className="px-7 py-4 bg-gray-950 hover:bg-gray-900 text-yellow-400 font-black rounded-2xl text-xs uppercase tracking-wider transition-all shadow-xl active:scale-95 cursor-pointer flex items-center gap-2"
+                  >
+                    <Bus size={18} />
+                    <span>TESTAR A T.IA GRÁTIS</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      playBusHornSound();
+                      speakTiaPrompt("Buzinaço de teste! A T.IA está pronta para economizar suas horas de trabalho todo santo dia, Tio!");
+                    }}
+                    className="px-5 py-4 bg-white hover:bg-yellow-100 text-gray-950 font-black rounded-2xl text-xs uppercase tracking-wider transition-all shadow-md active:scale-95 cursor-pointer flex items-center gap-2"
+                  >
+                    <Volume2 size={18} />
+                    <span>OUVIR TESTE DE VOZ</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Visual Card */}
+              <div className="lg:col-span-5 bg-gray-950 text-white p-6 md:p-8 rounded-3xl border border-white/20 shadow-2xl space-y-4">
+                <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+                  <div className="w-12 h-12 rounded-2xl bg-yellow-400 text-gray-950 flex items-center justify-center font-black shadow-lg">
+                    <Bot size={28} />
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-base text-white">T.IA Copiloto de Bordo</h4>
+                    <p className="text-xs text-yellow-400 font-semibold">Inteligência Artificial Nativa</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  <div className="bg-white/5 p-3 rounded-xl border border-white/10 flex items-center justify-between">
+                    <span className="text-gray-300">Detecção de Ausências</span>
+                    <span className="font-black text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded">Automática</span>
+                  </div>
+                  <div className="bg-white/5 p-3 rounded-xl border border-white/10 flex items-center justify-between">
+                    <span className="text-gray-300">Lembretes de Pagamento</span>
+                    <span className="font-black text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded">1 Clique no Zap</span>
+                  </div>
+                  <div className="bg-white/5 p-3 rounded-xl border border-white/10 flex items-center justify-between">
+                    <span className="text-gray-300">Comandos por Áudio</span>
+                    <span className="font-black text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded">Hands-Free</span>
+                  </div>
+                  <div className="bg-white/5 p-3 rounded-xl border border-white/10 flex items-center justify-between">
+                    <span className="text-gray-300">Suporte ao Motorista</span>
+                    <span className="font-black text-purple-400 bg-purple-400/10 px-2 py-0.5 rounded">24 Horas / Dia</span>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-gray-400 text-center italic pt-2">
+                  "A única tecnologia pensada por e para quem vive a rotina da van escolar."
+                </p>
+              </div>
+            </div>
+          </section>
+
           {/* SECTION: KEY FEATURES GRID */}
           <section className="space-y-12">
             <div className="text-center max-w-2xl mx-auto space-y-3">
@@ -537,34 +761,47 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
               <p className="text-gray-500 text-sm">Projetado com o feedback de dezenas de tios e tias de vans escolares em todo o Brasil.</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="bg-white p-7 rounded-3xl border-2 border-yellow-400/40 shadow-sm hover:shadow-xl transition-all space-y-3">
+                <div className="w-12 h-12 bg-yellow-400 text-gray-950 rounded-2xl flex items-center justify-center font-bold shadow">
+                  <Bot size={24} />
+                </div>
+                <div className="flex items-center gap-1">
+                  <h3 className="text-lg font-black text-gray-900">Copiloto T.IA</h3>
+                  <span className="text-[9px] bg-yellow-400 text-gray-950 px-1.5 py-0.5 rounded font-black">EXCLUSIVO</span>
+                </div>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Assistente por IA generativa e voz para tirar dúvidas, cobrar mensalidades e reordenar paradas no trânsito.
+                </p>
+              </div>
+
+              <div className="bg-white p-7 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all space-y-3">
                 <div className="w-12 h-12 bg-yellow-100 text-yellow-900 rounded-2xl flex items-center justify-center font-bold">
                   <Smartphone size={24} />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900">App PWA Nativo</h3>
+                <h3 className="text-lg font-bold text-gray-900">App PWA Nativo</h3>
                 <p className="text-xs text-gray-500 leading-relaxed">
-                  Não ocupa memória do celular e funciona direto no navegador no Android ou iPhone. Basta clicar em "Adicionar à Tela Inicial".
+                  Não ocupa memória do celular e funciona direto no navegador no Android ou iPhone com 1 toque.
                 </p>
               </div>
 
-              <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all space-y-4">
+              <div className="bg-white p-7 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all space-y-3">
                 <div className="w-12 h-12 bg-green-100 text-green-800 rounded-2xl flex items-center justify-center font-bold">
                   <Wallet size={24} />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900">Pix & WhatsApp Integrados</h3>
+                <h3 className="text-lg font-bold text-gray-900">Pix & WhatsApp</h3>
                 <p className="text-xs text-gray-500 leading-relaxed">
-                  Envie lembretes de cobrança com 1 clique diretamente pelo WhatsApp dos pais. Menos constrangimento e mais pontualidade.
+                  Envie lembretes de cobrança com 1 clique diretamente pelo WhatsApp dos pais com sua chave Pix.
                 </p>
               </div>
 
-              <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all space-y-4">
+              <div className="bg-white p-7 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all space-y-3">
                 <div className="w-12 h-12 bg-blue-100 text-blue-800 rounded-2xl flex items-center justify-center font-bold">
                   <ShieldCheck size={24} />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900">Avisos de Ausência em Tempo Real</h3>
+                <h3 className="text-lg font-bold text-gray-900">Avisos de Falta</h3>
                 <p className="text-xs text-gray-500 leading-relaxed">
-                  Chega de ir até a casa do aluno e descobrir que ele faltou. Os pais marcam "Ausente" e sua rota ajusta na hora.
+                  Os pais marcam ausência no celular e a rota recalcula sem você perder tempo passando na porta.
                 </p>
               </div>
             </div>
@@ -600,6 +837,10 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
                     <li className="flex items-center gap-2">
                       <CheckCircle2 size={16} className="text-green-500 shrink-0" />
                       <span><strong>Até 25 Alunos Ativos</strong></span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 size={16} className="text-green-500 shrink-0" />
+                      <span>Copiloto T.IA (Modo Básico)</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 size={16} className="text-green-500 shrink-0" />
@@ -650,6 +891,10 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
+                      <span><strong>Copiloto T.IA Completo com Áudio</strong></span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
                       <span>Lembretes Automáticos WhatsApp</span>
                     </li>
                     <li className="flex items-center gap-2">
@@ -693,6 +938,10 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 size={16} className="text-purple-600 shrink-0" />
+                      <span>Copiloto T.IA Multi-Motorista</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 size={16} className="text-purple-600 shrink-0" />
                       <span>Acesso para Monitores de Van</span>
                     </li>
                     <li className="flex items-center gap-2">
@@ -725,6 +974,10 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
 
             <div className="max-w-3xl mx-auto space-y-4">
               {[
+                {
+                  q: "O que é a T.IA e como ela me ajuda no dia a dia da van?",
+                  a: "A T.IA é a primeira Inteligência Artificial generativa projetada especificamente para motoristas de vans escolares. Ela atua como uma copiloto virtual: lê avisos de falta dos pais, calcula a melhor rota, envia mensagens gentis de cobrança com Pix no WhatsApp e responde às suas dúvidas por voz com sintetizador nativo em português!"
+                },
                 {
                   q: "Preciso baixar o aplicativo pela Google Play Store ou App Store?",
                   a: "Não! O SchoolVan é um PWA (Progressive Web App) nativo. Você instala diretamente pelo navegador no seu celular com apenas 1 clique em 'Adicionar à Tela Inicial', sem ocupar espaço de memória."

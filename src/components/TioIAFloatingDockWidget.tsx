@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Bot, ClipboardCheck, X, Volume2, CheckCircle2, MessageSquare, Compass, Sparkles } from 'lucide-react';
 import { Student, Lead, Driver, TeamMember, Vehicle } from '../types';
 import { isStudentAbsentOnDate } from '../lib/absence';
-import { playBusHornSound, speakTioIAPrompt } from '../lib/sound';
+import { playBusHornSound, speakTiaPrompt, speakTioIAPrompt } from '../lib/sound';
 import { getReadNotifications, markNotificationAsRead } from '../lib/tioNotifications';
 
 interface TioIAFloatingDockWidgetProps {
@@ -107,8 +107,8 @@ export function TioIAFloatingDockWidget({
     if (!readIds.includes(notifId)) {
       notifItems.push({
         id: notifId,
-        title: 'Onboarding com o Tio IA 🤖',
-        message: `Fala ${profile?.name ? profile.name.split(' ')[0] : 'Tio'}! Vamos configurar seu Pix, Van e Alunos juntos no chat? Clique aqui para começar!`,
+        title: 'Boas-Vindas da T.IA 🤖💛',
+        message: `Fala, ${profile?.name ? `Tio(a) ${profile.name.split(' ')[0]}` : 'Tio(a) da Van'}! Cheguei pra ser sua copiloto e tirar a burocracia das suas costas. Clica aqui que eu te guio passo a passo!`,
         type: 'onboarding',
         targetMode: 'onboarding'
       });
@@ -126,13 +126,13 @@ export function TioIAFloatingDockWidget({
   const handleSpeech = (e: React.MouseEvent, text: string) => {
     e.stopPropagation();
     playBusHornSound();
-    speakTioIAPrompt(`Fala do Tio IA: ${text}`);
+    speakTiaPrompt(`Fala da T.IA: ${text}`);
   };
 
   return (
     <div className="fixed bottom-3 inset-x-3 max-w-lg mx-auto sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 z-40 flex flex-col items-start gap-2 pointer-events-none">
       
-      {/* 💬 FLOATING SPEECH BUBBLE (BALÃO DE CONVERSA DO TIO IA) */}
+      {/* 💬 FLOATING SPEECH BUBBLE (BALÃO DE CONVERSA DA T.IA) */}
       {topNotif && !hideBubble && (
         <div 
           onClick={() => onOpenTioIA(topNotif.targetMode || 'chat')}
@@ -142,7 +142,7 @@ export function TioIAFloatingDockWidget({
               : 'bg-gray-950 border-yellow-400 animate-bounce-short'
           }`}
         >
-          {/* Bubble tail pointing down towards Tio IA button */}
+          {/* Bubble tail pointing down towards T.IA button */}
           <div className="absolute -bottom-2 left-8 w-4 h-4 bg-gray-950 border-r-2 border-b-2 border-yellow-400 transform rotate-45" />
 
           <div className="flex items-start justify-between gap-2">
@@ -165,7 +165,7 @@ export function TioIAFloatingDockWidget({
                 </p>
                 {topNotif.type === 'onboarding' && (
                   <div className="mt-2 inline-flex items-center gap-1 text-[11px] font-black text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-lg border border-yellow-400/30">
-                    <Sparkles size={12} /> Clique para Abrir o Onboarding no Chat ➡️
+                    <Sparkles size={12} /> Clique para Abrir o Onboarding com a T.IA ➡️
                   </div>
                 )}
               </div>
@@ -210,10 +210,10 @@ export function TioIAFloatingDockWidget({
         <button 
           className="relative px-3.5 py-2.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-xl sm:rounded-full shadow flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer text-xs shrink-0"
           onClick={() => onOpenTioIA(isOnboardingPending ? 'onboarding' : 'chat')}
-          title="Abrir Chat do Tio IA"
+          title="Abrir Chat da T.IA"
         >
           <Bot size={18} className="shrink-0 text-gray-950" />
-          <span className="font-extrabold uppercase tracking-tight">Tio IA</span>
+          <span className="font-extrabold uppercase tracking-tight">T.IA</span>
           
           {/* Badge counter */}
           {unreadCount > 0 ? (

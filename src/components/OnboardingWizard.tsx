@@ -28,7 +28,7 @@ import { useFirestore } from '../hooks/useFirestore';
 import { Student, Vehicle } from '../types';
 import { db } from '../lib/firebase';
 import { doc, updateDoc, collection, addDoc } from 'firebase/firestore';
-import { speakTioIAPrompt, playBusHornSound } from '../lib/sound';
+import { speakTiaPrompt, speakTioIAPrompt, playBusHornSound } from '../lib/sound';
 import toast from 'react-hot-toast';
 
 interface OnboardingWizardProps {
@@ -116,13 +116,13 @@ export function OnboardingWizard({
   const completedStepsCount = [step1Done, step2Done, step3Done, step4Done, step5Done].filter(Boolean).length;
   const progressPercent = Math.round((completedStepsCount / 5) * 100);
 
-  // Speech Prompts per Step in Tio IA persona
+  // Speech Prompts per Step in T.IA persona
   const stepExplanations = {
-    1: `Fala ${profile.name ? `Tio ${profile.name.split(' ')[0]}` : 'Tio'}! Sou o Tio IA, seu assistente da van. O primeiro passo é cadastrar seu WhatsApp e sua Chave Pix. É através deles que o SchoolVan vai gerar suas cobranças com QR Code Pix para você mandar no Zap dos pais com um clique!`,
+    1: `Fala ${profile.name ? `Tio(a) ${profile.name.split(' ')[0]}` : 'Tio(a)'}! Sou a T.IA, sua assistente da van. O primeiro passo é cadastrar seu WhatsApp e sua Chave Pix. É através deles que o SchoolVan vai gerar suas cobranças com QR Code Pix para você mandar no Zap dos pais com um clique!`,
     2: `Show de bola! Agora vamos cadastrar sua Van Escolar. No Plano Gratuito você tem uma van inclusa com todos os recursos liberados. Informe o modelo, placa e capacidade de bancos para calcularmos as vagas disponíveis na sua rota!`,
-    3: `Excelente, Tio! O terceiro passo é adicionar os primeiros alunos da sua rota. Com o nome do aluno, escola e telefone do responsável, você faz a chamada do embarque em tempo real e avisa os pais quando o filho embarcar na van!`,
+    3: `Excelente, parceiro(a)! O terceiro passo é adicionar os primeiros alunos da sua rota. Com o nome do aluno, escola e telefone do responsável, você faz a chamada do embarque em tempo real e avisa os pais quando o filho embarcar na van!`,
     4: `No módulo de Rotas e GPS, o sistema organiza os endereços dos alunos e escolas na melhor sequência para você não ficar dando voltas e economizar combustível no dia a dia. Você pode abrir a rota direto no Google Maps!`,
-    5: `Parabéns, Tio! Seu SchoolVan está configurado e pronto para rodar. Lembre-se que você pode usar o botão Chamada do Embarque no rodapé a qualquer hora para fazer a presença em um clique. Se tiver qualquer dúvida, é só me chamar no chat do Tio IA!`
+    5: `Parabéns, parceiro(a)! Seu SchoolVan está configurado e pronto para rodar. Lembre-se que você pode usar o botão Chamada do Embarque no rodapé a qualquer hora para fazer a presença em um clique. Se tiver qualquer dúvida, é só me chamar no chat da T.IA!`
   };
 
   const handleSpeakCurrentStep = () => {
@@ -137,7 +137,7 @@ export function OnboardingWizard({
     const textToSpeak = stepExplanations[activeStep as keyof typeof stepExplanations];
     if (textToSpeak) {
       setIsSpeaking(true);
-      speakTioIAPrompt(textToSpeak);
+      speakTiaPrompt(textToSpeak);
       // Auto toggle off after estimate
       setTimeout(() => setIsSpeaking(false), 14000);
     }
@@ -239,7 +239,7 @@ export function OnboardingWizard({
         exit={{ scale: 0.95, opacity: 0 }}
         className="bg-white dark:bg-gray-900 w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden border border-gray-100 dark:border-gray-800 my-auto relative flex flex-col max-h-[92vh]"
       >
-        {/* Header Banner with Tio IA Persona */}
+        {/* Header Banner with T.IA Persona */}
         <div className="bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 p-6 sm:p-7 text-gray-950 relative shrink-0">
           <button 
             onClick={onClose}
@@ -252,7 +252,7 @@ export function OnboardingWizard({
           <div className="flex flex-wrap items-center gap-2 mb-2">
             <div className="px-3 py-1 bg-gray-950 text-yellow-400 text-xs font-black rounded-full uppercase tracking-wider flex items-center gap-1.5 shadow-md">
               <Bot size={15} className="animate-bounce" />
-              Copiloto Tio IA • Onboarding Inteligente
+              Copiloto T.IA • Onboarding Inteligente
             </div>
             <span className="text-xs font-bold bg-white/30 px-2.5 py-0.5 rounded-full text-gray-950">
               Passo {activeStep} de 5
@@ -260,10 +260,10 @@ export function OnboardingWizard({
           </div>
 
           <h2 className="text-2xl sm:text-3xl font-black tracking-tight flex items-center gap-2">
-            Onboarding Guiado com o Tio IA 🚌🤖
+            Onboarding Guiado com a T.IA 🚌🤖
           </h2>
           <p className="text-xs sm:text-sm font-medium text-gray-900 mt-1 max-w-xl">
-            Olá, <strong>{profile.name || 'Tio da Van'}</strong>! Vou te guiar passo a passo para deixar sua operação redonda em menos de 3 minutos.
+            Olá, <strong>{profile.name || 'Tio(a) da Van'}</strong>! Vou te guiar passo a passo para deixar sua operação redonda em menos de 3 minutos.
           </p>
 
           {/* Progress Bar */}
@@ -677,9 +677,9 @@ export function OnboardingWizard({
                         <Smartphone size={24} />
                       </div>
                       <div>
-                        <h4 className="text-base font-black">Tudo Pronto para Rodar, Tio! 🚌🎉</h4>
+                        <h4 className="text-base font-black">Tudo Pronto para Rodar! 🚌🎉</h4>
                         <p className="text-xs opacity-90">
-                          Sua frota está configurada. Você pode fazer a chamada do embarque no rodapé ou chamar o Tio IA para tirar dúvidas.
+                          Sua frota está configurada. Você pode fazer a chamada do embarque no rodapé ou chamar a T.IA para tirar dúvidas.
                         </p>
                       </div>
                     </div>
@@ -702,7 +702,7 @@ export function OnboardingWizard({
                         }}
                         className="px-4 py-2.5 bg-black/25 text-white font-bold rounded-2xl text-xs hover:bg-black/35 border border-white/20 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
                       >
-                        <MessageSquare size={16} /> Conversar com o Tio IA
+                        <MessageSquare size={16} /> Conversar com a T.IA
                       </button>
                     </div>
                   </div>
@@ -717,7 +717,7 @@ export function OnboardingWizard({
                     <button
                       onClick={() => {
                         playBusHornSound();
-                        speakTioIAPrompt("Parabéns, Tio! Seu SchoolVan está configurado e pronto para rodar. Vamos faturar e cuidar da criançada!");
+                        speakTiaPrompt("Parabéns, parceiro(a)! Seu SchoolVan está configurado e pronto para rodar. Vamos faturar e cuidar da criançada!");
                         onClose();
                       }}
                       className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-2xl text-xs sm:text-sm shadow-lg transition-all flex items-center gap-2 cursor-pointer active:scale-95"
@@ -730,7 +730,7 @@ export function OnboardingWizard({
             </motion.div>
           </AnimatePresence>
 
-          {/* Quick Support / Chat with Tio IA button at bottom */}
+          {/* Quick Support / Chat with T.IA button at bottom */}
           <div className="pt-2 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400 font-medium">
               <ShieldCheck size={14} className="text-emerald-500" />
@@ -744,7 +744,7 @@ export function OnboardingWizard({
               }}
               className="text-xs font-bold text-yellow-600 dark:text-yellow-400 hover:underline flex items-center gap-1 cursor-pointer"
             >
-              <Bot size={14} /> Dúvida? Chamar Tio IA
+              <Bot size={14} /> Dúvida? Chamar T.IA
             </button>
           </div>
         </div>

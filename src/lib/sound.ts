@@ -30,32 +30,56 @@ export function playBusHornSound() {
   }
 }
 
-export function speakTioIAPrompt(text: string) {
+// Pre-load and cache voices to prevent empty list on first trigger
+let cachedVoices: SpeechSynthesisVoice[] = [];
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  cachedVoices = window.speechSynthesis.getVoices();
+  window.speechSynthesis.onvoiceschanged = () => {
+    cachedVoices = window.speechSynthesis.getVoices();
+  };
+}
+
+export function getBestTiaVoice(): SpeechSynthesisVoice | null {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
+  
+  const voices = cachedVoices.length > 0 ? cachedVoices : window.speechSynthesis.getVoices();
+  if (!voices || voices.length === 0) return null;
+
+  const ptVoices = voices.filter(v => v.lang.toLowerCase().startsWith('pt'));
+  if (ptVoices.length === 0) return null;
+
+  // Preferred friendly natural Brazilian Portuguese voices (e.g. Luciana, Maria, Letícia, Francisca, Google, Microsoft, Apple)
+  const naturalPtVoice = ptVoices.find(v => 
+    /luciana|maria|leticia|letícia|francisca|google|pt-br-wavenet|pt-br-standard|helena|zira|vitoria|vitória|brazil/i.test(v.name)
+  );
+  if (naturalPtVoice) return naturalPtVoice;
+
+  // Fallback to any PT-BR voice
+  return ptVoices.find(v => v.lang.toLowerCase().includes('br')) || ptVoices[0] || null;
+}
+
+export function speakTiaPrompt(text: string) {
   if (!('speechSynthesis' in window)) return;
   try {
     window.speechSynthesis.cancel();
-    const cleanText = text.replace(/[*_#~]/g, '');
+    const cleanText = text.replace(/[*_#~`]/g, '');
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = 'pt-BR';
 
-    // Search available system voices for natural Brazilian Portuguese male or friendly voices
-    const voices = window.speechSynthesis.getVoices();
-    const ptVoices = voices.filter(v => v.lang.includes('pt') || v.lang.includes('PT'));
-    
-    // Look for male/natural PT-BR voice profiles (e.g. Daniel, Felipe, Ricardo, Antonio, Google, Microsoft)
-    const preferredMaleVoice = ptVoices.find(v => 
-      /daniel|felipe|ricardo|antonio|mario|homem|male|google|microsoft/i.test(v.name)
-    ) || ptVoices[0];
-
-    if (preferredMaleVoice) {
-      utterance.voice = preferredMaleVoice;
+    const voice = getBestTiaVoice();
+    if (voice) {
+      utterance.voice = voice;
     }
 
-    // Natural speech cadence & friendly warm male driver tone ("Tio da Van")
-    utterance.rate = 1.0;
-    utterance.pitch = 0.9;
+    // Natural, warm, friendly speech cadence for T.IA copiloto
+    utterance.rate = 1.05;
+    utterance.pitch = 1.0;
+    
     window.speechSynthesis.speak(utterance);
   } catch (e) {
     console.warn("Speech synthesis error:", e);
   }
 }
+
+// Backward-compatibility alias
+export const speakTioIAPrompt = speakTiaPrompt;

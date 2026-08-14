@@ -34,7 +34,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../hooks/useAuth';
 import { useFirestore } from '../hooks/useFirestore';
 import { Student, Vehicle, Finance, Lead } from '../types';
-import { playBusHornSound, speakTioIAPrompt } from '../lib/sound';
+import { playBusHornSound, speakTiaPrompt, speakTioIAPrompt } from '../lib/sound';
 import { getReadNotifications, markNotificationAsRead } from '../lib/tioNotifications';
 import { db } from '../lib/firebase';
 import { doc, updateDoc, collection, addDoc } from 'firebase/firestore';
@@ -75,7 +75,7 @@ export function AICSMSupportAssistantModal({
   const { data: leads } = useFirestore<Lead>(profile?.id ? `drivers/${profile.id}/leads` : '');
 
   const [activeTab, setActiveTab] = useState<'chat' | 'onboarding'>(initialMode);
-  const [onboardingStep, setOnboardingStep] = useState(1);
+  const [onboardingStep, setOnboardingStep] = useState(0); // 0 = Welcome & Presentation, 1 = Profile & Pix, 2 = Vehicle, 3 = Students, 4 = Ready
   const [savingStep, setSavingStep] = useState(false);
   const [isSpeakingOnboarding, setIsSpeakingOnboarding] = useState(false);
 
@@ -145,7 +145,7 @@ export function AICSMSupportAssistantModal({
     {
       id: '1',
       sender: 'ai',
-      text: `Olá ${profile?.name ? `Tio(a) ${profile.name}` : 'Tio da Van'}! Sou o **Tio IA**, seu copiloto inteligente conectado ao banco de dados do seu SchoolVan. 🚌🤖\n\nEstou com o microfone ativado e acesso em tempo real à sua lista de alunos, faturas, vagas e presença de hoje!\n\n**O que você quer saber?** Pode me perguntar por voz ou texto:`,
+      text: `Olá ${profile?.name ? `Tio(a) ${profile.name}` : 'Tio(a) da Van'}! Sou a **T.IA**, sua copiloto inteligente conectada ao banco de dados do seu SchoolVan. 🚌🤖\n\nEstou com o microfone ativado e acesso em tempo real à sua lista de alunos, faturas, vagas e presença de hoje!\n\n**O que você quer saber?** Pode me perguntar por voz ou texto:`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
@@ -195,7 +195,7 @@ export function AICSMSupportAssistantModal({
         {
           id: '1',
           sender: 'ai',
-          text: `Olá ${profile?.name ? `Tio(a) ${profile.name}` : 'Tio da Van'}! Sou o **Tio IA**, seu copiloto inteligente do SchoolVan. 🚌🤖${alertsText}\n\nEstou com o microfone ativado e acesso em tempo real à sua lista de alunos, faturas, vagas e presença de hoje!\n\n**O que você quer saber?** Pode me perguntar por voz ou texto:`,
+          text: `Olá ${profile?.name ? `Tio(a) ${profile.name}` : 'Tio(a) da Van'}! Sou a **T.IA**, sua copiloto inteligente do SchoolVan. 🚌🤖${alertsText}\n\nEstou com o microfone ativado e acesso em tempo real à sua lista de alunos, faturas, vagas e presença de hoje!\n\n**O que você quer saber?** Pode me perguntar por voz ou texto:`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);
@@ -226,15 +226,17 @@ export function AICSMSupportAssistantModal({
   const completedStepsCount = [step1Done, step2Done, step3Done, step4Done].filter(Boolean).length;
   const onboardingProgress = Math.round((completedStepsCount / 4) * 100);
 
-  // Step explanations in Tio IA persona
+  // Step explanations in T.IA persona with true warmth & welcoming tone
   const stepNarrations = {
-    1: `Fala ${profile?.name ? `Tio ${profile.name.split(' ')[0]}` : 'Tio'}! Sou o Tio IA, seu copiloto da van. Primeiro, digite seu WhatsApp e sua Chave Pix. Assim o SchoolVan gera as mensagens de cobrança com QR Code Pix no Zap dos pais com um clique!`,
-    2: `Show de bola, Tio! Agora vamos cadastrar sua Van Escolar. No Plano Gratuito você tem 1 Van inclusa. Informe o modelo, placa e capacidade de assentos para calcularmos as vagas livres!`,
-    3: `Excelente! Agora adicione os alunos da sua rota escolar. Com eles cadastrados, você faz a chamada do embarque em tempo real e avisa os pais quando o filho entrar na van!`,
-    4: `Parabéns, Tio! Seu SchoolVan está configurado e pronto para rodar. Lembre-se que você pode usar o botão Chamada do Embarque no rodapé todo dia e me chamar no chat a qualquer hora!`
+    0: `Fala ${profile?.name ? `Tio(a) ${profile.name.split(' ')[0]}` : 'Tio(a) da Van'}! Seja muito bem-vindo ao SchoolVan! Eu sou a T.IA, sua copiloto 24 horas. Eu sei bem que a rotina do transporte escolar é corrida com trânsito, lista de papel e cobrança no Zap. Por isso cheguei pra ser seu braço direito e tirar esse peso das suas costas. Vamos configurar tudo juntinhos em 2 minutinhos?`,
+    1: `Primeiro passo, Tio! Me informe seu WhatsApp de atendimento e sua Chave Pix principal. Assim o SchoolVan gera as mensagens de cobrança com sua Chave Pix prontas para enviar no Zap dos pais com um clique, sem você ter que ficar cobrando manualmente!`,
+    2: `Show de bola! Agora vamos cadastrar a sua Van Escolar. Me fale o modelo, a placa e a quantidade de assentos. Com esses dados eu já calculo automaticamente quantas vagas você tem livres para faturar mais!`,
+    3: `Excelente! Agora vamos adicionar os primeiros alunos da sua rota escolar. Com eles aqui, você faz a chamada do embarque no celular todo dia e os pais recebem aviso em tempo real quando o filho entra na van!`,
+    4: `Parabéns! Sua van está configurada e pronta para rodar com tranquilidade. Conte comigo para tudo! Lembre-se que você pode usar o botão Chamada do Embarque no rodapé todo dia e me chamar no chat a qualquer hora!`
   };
 
-  const handleSpeakOnboardingStep = () => {
+  const handleSpeakOnboardingStep = (stepToSpeak?: number) => {
+    const targetStep = stepToSpeak !== undefined ? stepToSpeak : onboardingStep;
     if (isSpeakingOnboarding) {
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
@@ -243,12 +245,12 @@ export function AICSMSupportAssistantModal({
       return;
     }
 
-    const textToSpeak = stepNarrations[onboardingStep as keyof typeof stepNarrations];
+    const textToSpeak = stepNarrations[targetStep as keyof typeof stepNarrations];
     if (textToSpeak) {
       setIsSpeakingOnboarding(true);
       playBusHornSound();
       speakTioIAPrompt(textToSpeak);
-      setTimeout(() => setIsSpeakingOnboarding(false), 14000);
+      setTimeout(() => setIsSpeakingOnboarding(false), 16000);
     }
   };
 
@@ -396,7 +398,7 @@ export function AICSMSupportAssistantModal({
 
       recognition.onstart = () => {
         setIsListening(true);
-        toast('🎤 Ouvindo você... Pode falar com o Tio IA!', { icon: '🤖' });
+        toast('🎤 Ouvindo você... Pode falar com a T.IA!', { icon: '🤖' });
       };
 
       recognition.onresult = (event: any) => {
@@ -492,8 +494,8 @@ export function AICSMSupportAssistantModal({
           .map(([sch, list]) => `${sch}: ${list.map(s => s.name).join(', ')}`)
           .join('; ');
 
-        const systemContextPrompt = `Você é o "Tio IA", copiloto inteligente e amigável para motoristas de vans escolares no Brasil dentro do app SchoolVan.
-Responda sempre em português brasileiro de forma direta, prestativa e calorosa, usando o jargão respeitoso de "Tio/Tia da Van".
+        const systemContextPrompt = `Você é a "T.IA" (lê-se Tia IA), copiloto inteligente e amigável para motoristas e monitoras de vans escolares no Brasil dentro do app SchoolVan.
+Responda sempre em português brasileiro de forma direta, prestativa e calorosa, usando o jargão respeitoso e acolhedor de "Tio/Tia da Van".
 
 DADOS EM TEMPO REAL DO MOTORISTA:
 - Nome do Motorista: ${profile?.name || 'Tio'}
@@ -559,7 +561,7 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
         exit={{ scale: 0.95, opacity: 0, y: 20 }}
         className="bg-white dark:bg-gray-900 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden border border-gray-100 dark:border-gray-800 flex flex-col h-[90vh] max-h-[750px] relative"
       >
-        {/* Header with Tio IA Persona & Mode Switcher */}
+        {/* Header with T.IA Persona & Mode Switcher */}
         <div className="bg-gradient-to-r from-gray-950 via-gray-900 to-gray-950 p-4 text-white flex flex-col gap-3 shrink-0 border-b border-yellow-400/30">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -572,14 +574,14 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-base font-black text-white flex items-center gap-1.5">
-                    Tio IA <span className="text-xs text-yellow-400 font-bold">• Copiloto 24h</span>
+                    T.IA <span className="text-xs text-yellow-400 font-bold">• Copiloto 24h</span>
                   </h3>
                   <span className="px-2 py-0.5 bg-yellow-400/20 text-yellow-300 text-[10px] font-black rounded-full uppercase">
                     Voz & Banco Real
                   </span>
                 </div>
                 <p className="text-[11px] text-gray-400">
-                  Assistente Inteligente & Onboarding da sua Van Escolar
+                  Sua Copiloto Inteligente & Onboarding da Van Escolar
                 </p>
               </div>
             </div>
@@ -615,7 +617,7 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
               }`}
             >
               <Compass size={15} />
-              <span>Onboarding com Tio IA</span>
+              <span>Onboarding com a T.IA</span>
               <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
                 activeTab === 'onboarding' ? 'bg-gray-950 text-yellow-400' : 'bg-gray-800 text-gray-300'
               }`}>
@@ -636,47 +638,50 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
               }`}
             >
               <MessageSquare size={15} />
-              <span>Chat & Perguntas do Tio</span>
+              <span>Chat com a T.IA</span>
             </button>
           </div>
         </div>
 
-        {/* -------------------- TAB 1: ONBOARDING INTEGRADO DIRETO NO TIO IA -------------------- */}
+        {/* -------------------- TAB 1: ONBOARDING INTEGRADO DIRETO NA T.IA -------------------- */}
         {activeTab === 'onboarding' ? (
           <div className="flex-1 flex flex-col overflow-y-auto bg-gray-50 dark:bg-gray-950/40 p-4 sm:p-5 space-y-4">
-            {/* Tio IA Speech Card */}
-            <div className="bg-yellow-50 dark:bg-yellow-950/30 border-2 border-yellow-300 dark:border-yellow-800/60 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-yellow-400 text-gray-950 rounded-xl flex items-center justify-center shrink-0 font-black shadow">
-                  <Bot size={22} />
+            {/* T.IA Speech Card (Shown for steps 1-4) */}
+            {onboardingStep > 0 && (
+              <div className="bg-yellow-50 dark:bg-yellow-950/30 border-2 border-yellow-300 dark:border-yellow-800/60 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 bg-yellow-400 text-gray-950 rounded-xl flex items-center justify-center shrink-0 font-black shadow">
+                    <Bot size={22} />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black text-yellow-800 dark:text-yellow-400 uppercase tracking-wider block">
+                      Fala da T.IA • Passo {onboardingStep} de 4
+                    </span>
+                    <p className="text-xs text-gray-800 dark:text-gray-200 font-semibold leading-relaxed mt-0.5">
+                      "{stepNarrations[onboardingStep as keyof typeof stepNarrations]}"
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[10px] font-black text-yellow-800 dark:text-yellow-400 uppercase tracking-wider block">
-                    Fala do Tio IA • Passo {onboardingStep} de 4
-                  </span>
-                  <p className="text-xs text-gray-800 dark:text-gray-200 font-semibold leading-relaxed mt-0.5">
-                    "{stepNarrations[onboardingStep as keyof typeof stepNarrations]}"
-                  </p>
-                </div>
-              </div>
 
-              <button
-                onClick={handleSpeakOnboardingStep}
-                className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer shadow-sm ${
-                  isSpeakingOnboarding 
-                    ? 'bg-amber-500 text-white animate-pulse' 
-                    : 'bg-yellow-400 hover:bg-yellow-300 text-gray-950'
-                }`}
-                title="Ouvir explicação do Tio IA em voz alta"
-              >
-                {isSpeakingOnboarding ? <VolumeX size={15} /> : <Volume2 size={15} />}
-                {isSpeakingOnboarding ? 'Pausar Voz' : 'Ouvir Tio IA'}
-              </button>
-            </div>
+                <button
+                  onClick={() => handleSpeakOnboardingStep()}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer shadow-sm ${
+                    isSpeakingOnboarding 
+                      ? 'bg-amber-500 text-white animate-pulse' 
+                      : 'bg-yellow-400 hover:bg-yellow-300 text-gray-950'
+                  }`}
+                  title="Ouvir explicação da T.IA em voz alta"
+                >
+                  {isSpeakingOnboarding ? <VolumeX size={15} /> : <Volume2 size={15} />}
+                  {isSpeakingOnboarding ? 'Pausar Voz' : 'Ouvir T.IA'}
+                </button>
+              </div>
+            )}
 
             {/* Step Navigation Pill Tabs */}
-            <div className="grid grid-cols-4 gap-2 bg-white dark:bg-gray-900 p-1.5 rounded-2xl border border-gray-200 dark:border-gray-800">
+            <div className="grid grid-cols-5 gap-1.5 bg-white dark:bg-gray-900 p-1.5 rounded-2xl border border-gray-200 dark:border-gray-800">
               {[
+                { id: 0, label: 'Apresentação', done: true },
                 { id: 1, label: '1. Pix & Perfil', done: step1Done },
                 { id: 2, label: '2. Sua Van', done: step2Done },
                 { id: 3, label: '3. Alunos', done: step3Done },
@@ -692,16 +697,125 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
                   className={`py-2 px-1 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1 cursor-pointer truncate ${
                     onboardingStep === s.id
                       ? 'bg-gray-950 text-yellow-400 shadow'
-                      : s.done
+                      : s.done && s.id !== 0
                       ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20'
                       : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
                   }`}
                 >
-                  {s.done ? <CheckCircle2 size={13} className="text-emerald-500" /> : null}
+                  {s.done && s.id !== 0 ? <CheckCircle2 size={12} className="text-emerald-500 shrink-0" /> : null}
                   <span className="truncate">{s.label}</span>
                 </button>
               ))}
             </div>
+
+            {/* Step 0: Warm Welcoming & Presentation Screen */}
+            {onboardingStep === 0 && (
+              <div className="bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 text-white p-5 sm:p-6 rounded-3xl shadow-xl border-2 border-yellow-400/50 space-y-5">
+                {/* Hero Mascot & Welcome Banner */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 border-b border-yellow-400/20 pb-4">
+                  <div className="relative shrink-0">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-tr from-yellow-400 to-amber-300 text-gray-950 rounded-3xl flex items-center justify-center shadow-lg border-2 border-white/20">
+                      <Bot size={40} className="text-gray-950 animate-bounce-short" />
+                    </div>
+                    <span className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 border-2 border-gray-950 rounded-full flex items-center justify-center text-[9px] font-black text-white">
+                      ✓
+                    </span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-yellow-400/20 text-yellow-300 text-[10px] font-black uppercase tracking-wider border border-yellow-400/30">
+                      <Sparkles size={11} /> Seu Copiloto Inteligente de Van Escolar
+                    </div>
+                    <h3 className="text-lg sm:text-xl font-black text-white">
+                      Fala, {profile?.name ? `Tio(a) ${profile.name.split(' ')[0]}` : 'Tio(a) da Van'}! Seja bem-vindo ao SchoolVan! 🚌💛
+                    </h3>
+                    <p className="text-xs text-gray-300 leading-relaxed">
+                      Eu sou a <strong>T.IA</strong> (sua copiloto do transporte escolar). Sei como a rotina da van é puxada: trânsito, lista no papel, cobrança no WhatsApp com vergonha de cobrar e pais avisando falta de última hora.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Empathy speech bubble */}
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-2">
+                  <p className="text-xs sm:text-sm text-gray-200 leading-relaxed">
+                    🤝 <em>"Cheguei pra ser o seu braço direito, tirar essa burocracia das suas costas e cuidar da parte chata pra você focar em dirigir com segurança e faturar mais!"</em>
+                  </p>
+                  <p className="text-xs text-yellow-300 font-bold">
+                    👉 Vou te conduzir passo a passo em menos de <strong>2 minutos</strong> para deixar seu Pix, sua Van e seus primeiros Alunos configurados. Vamos juntos?
+                  </p>
+                </div>
+
+                {/* Value Highlights Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                  <div className="bg-gray-900/80 p-3 rounded-2xl border border-gray-800 flex items-start gap-2.5">
+                    <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl shrink-0 font-bold">
+                      <DollarSign size={16} />
+                    </div>
+                    <div>
+                      <h5 className="font-black text-white text-xs">Cobrança Pix no Zap em 1 Toque</h5>
+                      <p className="text-[11px] text-gray-400 mt-0.5">Mensagens automáticas com sua Chave Pix pros pais pagarem sem atraso.</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-900/80 p-3 rounded-2xl border border-gray-800 flex items-start gap-2.5">
+                    <div className="p-2 bg-yellow-500/20 text-yellow-400 rounded-xl shrink-0 font-bold">
+                      <ClipboardCheck size={16} />
+                    </div>
+                    <div>
+                      <h5 className="font-black text-white text-xs">Chamada de Embarque Rápida</h5>
+                      <p className="text-[11px] text-gray-400 mt-0.5">Faça a chamada dos alunos no celular e avise os pais em tempo real.</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-900/80 p-3 rounded-2xl border border-gray-800 flex items-start gap-2.5">
+                    <div className="p-2 bg-amber-500/20 text-amber-400 rounded-xl shrink-0 font-bold">
+                      <AlertTriangle size={16} />
+                    </div>
+                    <div>
+                      <h5 className="font-black text-white text-xs">Avisos de Falta Imediatos</h5>
+                      <p className="text-[11px] text-gray-400 mt-0.5">Saiba antes de sair se o aluno não vai para a escola hoje.</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-900/80 p-3 rounded-2xl border border-gray-800 flex items-start gap-2.5">
+                    <div className="p-2 bg-blue-500/20 text-blue-400 rounded-xl shrink-0 font-bold">
+                      <Bot size={16} />
+                    </div>
+                    <div>
+                      <h5 className="font-black text-white text-xs">T.IA Conectada ao seu Banco</h5>
+                      <p className="text-[11px] text-gray-400 mt-0.5">Pergunte por voz ou texto sobre vagas, alunos e cobranças a qualquer hora.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Call to Action Button with Audio toggle */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                  <button
+                    onClick={() => handleSpeakOnboardingStep(0)}
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-2xl text-xs font-bold bg-white/10 hover:bg-white/20 text-yellow-400 transition-all flex items-center justify-center gap-2 cursor-pointer border border-yellow-400/30"
+                  >
+                    <Volume2 size={16} />
+                    <span>{isSpeakingOnboarding ? 'Pausar Áudio' : 'Ouvir as Boas-Vindas da T.IA 🔊'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      playBusHornSound();
+                      setOnboardingStep(1);
+                      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+                      setIsSpeakingOnboarding(false);
+                      setTimeout(() => {
+                        speakTiaPrompt("Primeiro passo, Tio! Me informe seu WhatsApp de atendimento e sua Chave Pix.");
+                      }, 500);
+                    }}
+                    className="w-full sm:w-auto px-6 py-3.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-2xl text-xs sm:text-sm shadow-xl hover:shadow-yellow-400/20 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                  >
+                    <span>Bora lá, T.IA! Vamos Começar</span>
+                    <ArrowRight size={18} />
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Step 1: Profile & Pix */}
             {onboardingStep === 1 && (
@@ -759,9 +873,16 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
                 </div>
 
                 <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800">
-                  <span className="text-xs text-gray-400 font-semibold">
-                    {step1Done ? '✅ Configurado' : '⚠️ Preencha Nome e Pix'}
-                  </span>
+                  <button
+                    onClick={() => {
+                      setOnboardingStep(0);
+                      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+                      setIsSpeakingOnboarding(false);
+                    }}
+                    className="text-xs font-bold text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 flex items-center gap-1 cursor-pointer"
+                  >
+                    <ChevronLeft size={15} /> Voltar para Apresentação
+                  </button>
                   <button
                     onClick={handleSaveProfileStep}
                     disabled={savingStep || !profileForm.name || !profileForm.pixKey}
@@ -997,18 +1118,18 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
                   <button
                     onClick={() => {
                       setActiveTab('chat');
-                      speakTioIAPrompt("Prontinho, Tio! Estamos no chat. O que você gostaria de saber ou consultar hoje?");
+                      speakTiaPrompt("Prontinho, Tio! Estamos no chat. O que você gostaria de saber ou consultar hoje?");
                     }}
                     className="px-4 py-3 bg-gray-950 text-yellow-400 font-bold rounded-2xl text-xs hover:bg-gray-900 border border-yellow-400/30 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
                   >
-                    <MessageSquare size={16} /> Ir para o Chat do Tio IA
+                    <MessageSquare size={16} /> Ir para o Chat da T.IA
                   </button>
                 </div>
               </div>
             )}
           </div>
         ) : (
-          /* -------------------- TAB 2: CHAT & PERGUNTAS DO TIO IA -------------------- */
+          /* -------------------- TAB 2: CHAT & PERGUNTAS DA T.IA -------------------- */
           <>
             {/* Real-time DB Quick Stats Bar */}
             <div className="bg-gray-900 text-gray-300 px-4 py-2 text-[11px] font-mono border-b border-gray-800 flex items-center justify-between overflow-x-auto gap-3 shrink-0">
@@ -1031,7 +1152,7 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
                   <div className="flex items-center justify-between text-xs font-black text-gray-900 dark:text-yellow-300 uppercase tracking-wider">
                     <span className="flex items-center gap-1.5">
                       <Bell size={14} className="text-yellow-500 animate-bounce" />
-                      Central de Avisos do Tio IA
+                      Central de Avisos da T.IA
                     </span>
                     <span className="text-[10px] bg-yellow-400 text-gray-950 px-2 py-0.5 rounded-full">
                       Em Tempo Real
@@ -1061,7 +1182,7 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
                           <button
                             onClick={() => {
                               playBusHornSound();
-                              speakTioIAPrompt(`Aviso do Tio IA: ${text}`);
+                              speakTiaPrompt(`Aviso da T.IA: ${text}`);
                             }}
                             className="px-2.5 py-1 bg-yellow-400 text-gray-950 font-black rounded-lg text-[10px] flex items-center gap-1 hover:bg-yellow-300 transition-all cursor-pointer"
                           >
@@ -1100,7 +1221,7 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
                           <button
                             onClick={() => {
                               playBusHornSound();
-                              speakTioIAPrompt(`Aviso de cobrança do Tio IA: ${text}`);
+                              speakTiaPrompt(`Aviso de cobrança da T.IA: ${text}`);
                             }}
                             className="px-2.5 py-1 bg-yellow-400 text-gray-950 font-black rounded-lg text-[10px] flex items-center gap-1 hover:bg-yellow-300 transition-all cursor-pointer"
                           >
