@@ -5,6 +5,11 @@ import toast from 'react-hot-toast';
 export const MAX_STUDENTS_FREE = 25;
 export const MAX_VEHICLES_FREE = 1;
 export const MAX_VEHICLES_PRO = 1;
+export const FROTA_INCLUDED_VEHICLES = 3;
+export const EXTRA_VEHICLE_PRICE = 79.90;
+export const PLAN_PRO_PRICE = 79;
+export const PLAN_FROTA_BASE_PRICE = 149;
+export const BILLING_DUE_DAY = 10; // Vencimento unificado todo dia 10
 
 export function getPlanTier(profile?: Partial<Driver> | null): PlanTier {
   if (!profile || !profile.plan) return 'Gratuito';
@@ -31,8 +36,28 @@ export function isFrotaPlan(profile?: Partial<Driver> | null): boolean {
 }
 
 /**
+ * Calculates monthly subscription value based on plan, vehicle count and custom overrides
+ */
+export function calculateMonthlyFee(
+  profile?: Partial<Driver> | null, 
+  vehicleCount: number = 1
+): number {
+  if (!profile) return 0;
+  if ('customMonthlyFee' in profile && typeof profile.customMonthlyFee === 'number') {
+    return profile.customMonthlyFee;
+  }
+  const tier = getPlanTier(profile);
+  if (tier === 'Gratuito') return 0;
+  if (tier === 'Pro') return PLAN_PRO_PRICE;
+  
+  // Frota: R$ 149 (base com até 3 vans) + R$ 79,90 por van adicional (4ª em diante)
+  const extraVans = Math.max(0, vehicleCount - FROTA_INCLUDED_VEHICLES);
+  return PLAN_FROTA_BASE_PRICE + (extraVans * EXTRA_VEHICLE_PRICE);
+}
+
+/**
  * Validates whether a vehicle can be added.
- * If not allowed, sounds the horn, triggers T.IA spoken message, shows toast and opens upgrade modal.
+ * If not allowed or needs confirmation for extra vehicle, triggers T.IA spoken message and modal.
  */
 export function checkCanAddVehicle(
   profile: Partial<Driver> | null | undefined,
@@ -61,6 +86,19 @@ export function checkCanAddVehicle(
     toast.error('O Plano Pro inclui 1 van. Faça o upgrade para o Plano Frota para cadastrar mais veículos!');
     if (onOpenUpgradeModal) {
       onOpenUpgradeModal('multi_vehicle_pro');
+    }
+    return false;
+  }
+
+  // Se já está no Frota e tem 3 ou mais vans (vai adicionar a 4ª van em diante)
+  if (plan === 'Frota' && currentVehicleCount >= FROTA_INCLUDED_VEHICLES) {
+    const nextVanNumber = currentVehicleCount + 1;
+    playBusHornSound();
+    speakTiaPrompt(
+      `Tio, você está adicionando sua ${nextVanNumber}ª van! Seu Plano Frota inclui 3 vans completas. A partir da 4ª van, o valor adicional é de R$ 79,90 por mês por van extra. A van é liberada na hora e a cobrança proporcional virá unificada na sua fatura com vencimento no dia 10!`
+    );
+    if (onOpenUpgradeModal) {
+      onOpenUpgradeModal('extra_vehicle');
     }
     return false;
   }

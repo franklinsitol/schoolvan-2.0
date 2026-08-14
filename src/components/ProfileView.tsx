@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { Settings, Key, ShieldCheck, Mail, Phone, MapPin, CreditCard, FileText, Save, Zap, CheckCircle2 } from 'lucide-react';
+import { Settings, Key, ShieldCheck, Mail, Phone, MapPin, CreditCard, FileText, Save, Zap, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { cn } from '../lib/utils';
 import { db } from '../lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
@@ -40,11 +39,13 @@ export function ProfileView({ onOpenSubscriptionModal }: ProfileViewProps = {}) 
     }
   };
 
+  const invoiceStatus = profile?.invoiceStatus || 'Em Dia';
+
   return (
     <div className="p-4 md:p-8">
       <div className="max-w-2xl bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-8">
-          <h2 className="text-2xl font-black text-gray-900 mb-6 flex items-center gap-2">
+        <div className="p-6 md:p-8">
+          <h2 className="text-2xl font-black text-gray-950 mb-6 flex items-center gap-2">
             <Settings className="text-yellow-500" /> Dados de Acesso e Perfil
           </h2>
 
@@ -55,15 +56,27 @@ export function ProfileView({ onOpenSubscriptionModal }: ProfileViewProps = {}) 
                 <span className="px-2.5 py-0.5 bg-yellow-400 text-gray-950 text-[10px] font-black uppercase rounded-full">
                   SaaS SchoolVan
                 </span>
-                <span className="text-xs text-emerald-400 font-bold flex items-center gap-1">
-                  <CheckCircle2 size={12} /> {profile?.invoiceStatus || 'Em Dia'}
-                </span>
+                {invoiceStatus === 'Em Dia' && (
+                  <span className="text-xs text-emerald-400 font-bold flex items-center gap-1">
+                    <CheckCircle2 size={13} /> Em Dia
+                  </span>
+                )}
+                {invoiceStatus === 'Aguardando Pagamento' && (
+                  <span className="text-xs text-amber-400 font-bold flex items-center gap-1">
+                    <Clock size={13} /> Aguardando Confirmação
+                  </span>
+                )}
+                {invoiceStatus === 'Em Atraso' && (
+                  <span className="text-xs text-red-400 font-bold flex items-center gap-1">
+                    <AlertCircle size={13} /> Fatura Pendente
+                  </span>
+                )}
               </div>
               <h3 className="text-lg font-black text-white mt-1">
                 Plano {profile?.plan || 'Gratuito'}
               </h3>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Renovação da licença direta com o SchoolVan.
+              <p className="text-xs text-gray-300 mt-0.5">
+                Vencimento unificado todo dia 10 • Liberação instantânea
               </p>
             </div>
 
@@ -72,72 +85,72 @@ export function ProfileView({ onOpenSubscriptionModal }: ProfileViewProps = {}) 
                 onClick={onOpenSubscriptionModal}
                 className="px-4 py-2.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow active:scale-95 shrink-0"
               >
-                <Zap size={14} /> Renovar / Alterar Plano
+                <Zap size={14} /> Gerenciar Meu Plano & Fatura
               </button>
             )}
           </div>
 
           {profile?.termsAccepted && (
             <div className="mb-6">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-50 text-green-700 text-xs font-bold border border-green-100">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200">
                 <ShieldCheck size={14} /> {profile.termsAccepted}
               </span>
             </div>
           )}
 
-          <div className="bg-yellow-50 p-4 rounded-2xl border border-yellow-100 mb-8 flex items-start gap-3">
-            <Key className="text-yellow-600 shrink-0" size={20} />
-            <p className="text-sm text-yellow-800">
-              Aqui você pode atualizar seus dados de contato e cobrança. Para alterar sua senha, use as opções de recuperação do Google.
+          <div className="bg-yellow-50 p-4 rounded-2xl border border-yellow-200 mb-8 flex items-start gap-3">
+            <Key className="text-yellow-700 shrink-0" size={20} />
+            <p className="text-xs sm:text-sm text-yellow-950 font-medium leading-relaxed">
+              Aqui você pode atualizar seus dados de contato e chave Pix para recebimento dos pais. Para alterar sua senha, use as opções de recuperação do Google.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="md:col-span-2 space-y-1">
-              <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Nome Completo</label>
+              <label className="text-xs font-bold text-gray-600 uppercase tracking-wider ml-1">Nome Completo</label>
               <div className="relative">
-                <Settings className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
-                <input id="name" value={formData.name} onChange={handleChange} className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-yellow-400 outline-none" />
+                <Settings className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input id="name" value={formData.name} onChange={handleChange} className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-2 focus:ring-yellow-400 outline-none font-medium text-sm" />
               </div>
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">E-mail de Login</label>
+              <label className="text-xs font-bold text-gray-600 uppercase tracking-wider ml-1">E-mail de Login</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
-                <input id="email" disabled value={formData.email} className="w-full pl-10 pr-4 py-3 bg-gray-100 border border-gray-100 rounded-xl outline-none font-bold text-gray-500 cursor-not-allowed" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input id="email" disabled value={formData.email} className="w-full pl-10 pr-4 py-3 bg-gray-100 border border-gray-200 rounded-xl outline-none font-bold text-gray-600 cursor-not-allowed text-sm" />
               </div>
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">CPF / CNPJ</label>
+              <label className="text-xs font-bold text-gray-600 uppercase tracking-wider ml-1">CPF / CNPJ</label>
               <div className="relative">
-                <FileText className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
-                <input id="cpfCnpj" value={formData.cpfCnpj} onChange={handleChange} className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-yellow-400 outline-none" />
+                <FileText className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input id="cpfCnpj" value={formData.cpfCnpj} onChange={handleChange} className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-2 focus:ring-yellow-400 outline-none font-medium text-sm" />
               </div>
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">WhatsApp</label>
+              <label className="text-xs font-bold text-gray-600 uppercase tracking-wider ml-1">WhatsApp</label>
               <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
-                <input id="phone" value={formData.phone} onChange={handleChange} className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-yellow-400 outline-none" />
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input id="phone" value={formData.phone} onChange={handleChange} className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-2 focus:ring-yellow-400 outline-none font-medium text-sm" />
               </div>
             </div>
 
             <div className="md:col-span-2 space-y-1">
-              <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Cidade de Residência</label>
+              <label className="text-xs font-bold text-gray-600 uppercase tracking-wider ml-1">Cidade de Atuação / Residência</label>
               <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
-                <input id="city" value={formData.city} onChange={handleChange} className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-yellow-400 outline-none" />
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input id="city" value={formData.city} onChange={handleChange} className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-2 focus:ring-yellow-400 outline-none font-medium text-sm" />
               </div>
             </div>
 
             <div className="md:col-span-2 space-y-1">
-              <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Chave Pix (Para receber)</label>
+              <label className="text-xs font-bold text-gray-600 uppercase tracking-wider ml-1">Chave Pix (Para receber dos pais dos alunos)</label>
               <div className="relative">
-                <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
-                <input id="pixKey" value={formData.pixKey} onChange={handleChange} className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-yellow-400 outline-none" />
+                <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input id="pixKey" value={formData.pixKey} onChange={handleChange} placeholder="CPF, Celular, E-mail ou Chave Aleatória" className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-2 focus:ring-yellow-400 outline-none font-medium text-sm" />
               </div>
             </div>
           </div>
@@ -146,16 +159,13 @@ export function ProfileView({ onOpenSubscriptionModal }: ProfileViewProps = {}) 
             <button 
               onClick={handleSave}
               disabled={loading}
-              className="flex-1 py-4 bg-yellow-400 text-gray-900 font-bold rounded-2xl hover:bg-yellow-500 transition-all shadow-lg active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 py-4 bg-yellow-400 text-gray-950 font-black rounded-2xl hover:bg-yellow-300 transition-all shadow-lg active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
             >
               {loading ? (
-                <div className="w-5 h-5 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-gray-950 border-t-transparent rounded-full animate-spin" />
               ) : (
                 <><Save size={20} /> SALVAR DADOS</>
               )}
-            </button>
-            <button className="flex-1 py-4 border-2 border-gray-900 text-gray-900 font-bold rounded-2xl hover:bg-gray-50 transition-all active:scale-95">
-              VER TERMOS
             </button>
           </div>
         </div>

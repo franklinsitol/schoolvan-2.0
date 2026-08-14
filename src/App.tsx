@@ -484,8 +484,10 @@ export default function App() {
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
   const [subscriptionPlan, setSubscriptionPlan] = useState<'Pro' | 'Frota'>('Pro');
+  const [subscriptionStep, setSubscriptionStep] = useState<'select' | 'pix'>('select');
   const [upgradeReason, setUpgradeReason] = useState('limit_students');
   const [isAICSMOpen, setIsAICSMOpen] = useState(false);
+  const [triggerNewVehicleModal, setTriggerNewVehicleModal] = useState(false);
   const [authModal, setAuthModal] = useState<{ open: boolean; type: 'driver' | 'parent' }>({ open: false, type: 'driver' });
   const [impersonatedDriver, setImpersonatedDriver] = useState<Driver | null>(null);
 
@@ -665,12 +667,20 @@ export default function App() {
 
                   <button
                     onClick={() => {
+                      setSubscriptionStep('select');
                       setIsSubscriptionModalOpen(true);
                     }}
-                    className="px-3 py-1.5 bg-gray-950 text-yellow-400 hover:bg-gray-800 font-black rounded-xl text-xs flex items-center gap-1.5 shadow-md transition-all cursor-pointer border border-yellow-400/30"
+                    className="px-3 py-1.5 bg-gray-950 text-yellow-400 hover:bg-gray-800 font-black rounded-xl text-xs flex items-center gap-1.5 shadow-md transition-all cursor-pointer border border-yellow-400/30 active:scale-95"
+                    title="Ver meu plano, faturas e régua de cobrança SchoolVan"
                   >
-                    <Zap size={15} className="text-yellow-400" />
-                    <span className="hidden sm:inline">Assinatura Pix</span>
+                    <Zap size={14} className="text-yellow-400" />
+                    <span className="hidden sm:inline">
+                      Meu Plano: {profile?.plan || 'Gratuito'}
+                    </span>
+                    <span className="inline sm:hidden">
+                      {profile?.plan || 'Plano'}
+                    </span>
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse hidden sm:inline-block ml-0.5" />
                   </button>
 
                   <a
@@ -816,6 +826,8 @@ export default function App() {
                       setUpgradeReason(reason); 
                       setIsUpgradeModalOpen(true); 
                     }} 
+                    triggerNewVehicle={triggerNewVehicleModal}
+                    onNewVehicleHandled={() => setTriggerNewVehicleModal(false)}
                   />
                 )}
                 {currentView === 'team' && (
@@ -827,7 +839,14 @@ export default function App() {
                   />
                 )}
                 {currentView === 'finance' && <FinanceView />}
-                {currentView === 'profile' && <ProfileView onOpenSubscriptionModal={() => setIsSubscriptionModalOpen(true)} />}
+                {currentView === 'profile' && (
+                  <ProfileView 
+                    onOpenSubscriptionModal={() => {
+                      setSubscriptionStep('select');
+                      setIsSubscriptionModalOpen(true);
+                    }} 
+                  />
+                )}
                 {currentView === 'support' && <SupportView />}
                 {currentView === 'parent' && <ParentView />}
                 {currentView === 'superadmin' && (
@@ -875,7 +894,13 @@ export default function App() {
         studentCount={students.length}
         onOpenPixCheckout={(plan) => {
           setSubscriptionPlan(plan);
+          setSubscriptionStep('pix');
           setIsSubscriptionModalOpen(true);
+        }}
+        onConfirmAutoAdd={() => {
+          setIsUpgradeModalOpen(false);
+          setCurrentView('vehicles');
+          setTriggerNewVehicleModal(true);
         }}
       />
 
@@ -883,6 +908,7 @@ export default function App() {
         isOpen={isSubscriptionModalOpen}
         onClose={() => setIsSubscriptionModalOpen(false)}
         defaultPlan={subscriptionPlan}
+        initialStep={subscriptionStep}
       />
 
       <AICSMSupportAssistantModal 

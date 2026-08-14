@@ -181,3 +181,20 @@ export interface AdminConfig {
   lgpdText?: string;
   masterPass?: string;
 }
+
+export interface SubscriptionInvoice {
+  id: string;
+  driverId: string;
+  monthRef: string;
+  dueDate: string;
+  paidAt?: string;
+  amount: number;
+  status: 'Pago' | 'Em Aberto' | 'Em Processamento' | 'Pendente';
+  plan: 'Pro' | 'Frota';
+  vehiclesCount: number;
+  method: 'Pix';
+  txid?: string;
+  notes?: string;
+  receiptUrl?: string;
+}
+

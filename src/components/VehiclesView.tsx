@@ -12,15 +12,32 @@ import toast from 'react-hot-toast';
 
 interface VehiclesViewProps {
   onOpenUpgradeModal?: (reason: string) => void;
+  triggerNewVehicle?: boolean;
+  onNewVehicleHandled?: () => void;
 }
 
-export function VehiclesView({ onOpenUpgradeModal }: VehiclesViewProps) {
+export function VehiclesView({ 
+  onOpenUpgradeModal,
+  triggerNewVehicle,
+  onNewVehicleHandled
+}: VehiclesViewProps) {
   const { profile } = useAuth();
   const { data: vehicles, loading } = useFirestore<Vehicle>(profile?.id ? `drivers/${profile.id}/vehicles` : '');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Auto-open vehicle modal when triggered from T.IA modal confirmation
+  React.useEffect(() => {
+    if (triggerNewVehicle) {
+      setSelectedVehicle(null);
+      setIsModalOpen(true);
+      if (onNewVehicleHandled) {
+        onNewVehicleHandled();
+      }
+    }
+  }, [triggerNewVehicle, onNewVehicleHandled]);
 
   if (loading) {
     return (
@@ -34,8 +51,9 @@ export function VehiclesView({ onOpenUpgradeModal }: VehiclesViewProps) {
   const currentPlan = getPlanTier(profile);
   const hasFrota = isFrotaPlan(profile);
   
-  // Free / Basic = 1 van; Pro = 1 van; Frota = até 10 vans
-  const vehicleLimit = hasFrota ? 10 : 1;
+  // Free / Basic = 1 van; Pro = 1 van; Frota = 3 inclusas + ilimitadas adicionais
+  const extraVansCount = hasFrota ? Math.max(0, vehicles.length - 3) : 0;
+  const monthlyExtraFee = extraVansCount * 79.90;
 
   const handleEdit = (vehicle: Vehicle) => {
     setSelectedVehicle(vehicle);
@@ -77,7 +95,7 @@ export function VehiclesView({ onOpenUpgradeModal }: VehiclesViewProps) {
         <div>
           <div className="flex items-center gap-2">
             <span className="px-3 py-1 bg-yellow-400/25 border border-yellow-500/40 text-yellow-950 text-xs font-black rounded-full uppercase tracking-wider">
-              Plano {currentPlan} • {vehicles.length}/{vehicleLimit} {vehicleLimit === 1 ? 'Van' : 'Vans'}
+              Plano {currentPlan} • {vehicles.length} {vehicles.length === 1 ? 'Van' : 'Vans'} {hasFrota && (extraVansCount > 0 ? `(3 Inclusas + ${extraVansCount} Extras)` : '(3 Inclusas)')}
             </span>
           </div>
           <h2 className="text-3xl font-black text-gray-950 mt-1">Minha Frota de Vans</h2>
@@ -103,7 +121,33 @@ export function VehiclesView({ onOpenUpgradeModal }: VehiclesViewProps) {
         </div>
       </div>
 
-      {/* Plan limit notice banner if at capacity */}
+      {/* Frota Plan: Informative Banner if 3 or more vans */}
+      {hasFrota && (
+        <div className="bg-gradient-to-r from-yellow-500/10 via-amber-500/5 to-transparent border border-yellow-500/30 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-10 h-10 bg-yellow-400 text-gray-950 rounded-xl flex items-center justify-center shrink-0 font-black shadow-sm">
+              <Bus size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-xs font-black uppercase tracking-wide text-gray-950">
+                  Plano Frota Pro • 3 Vans Inclusas (+ R$ 79,90/mês por van adicional)
+                </h4>
+                <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-full uppercase">
+                  Vencimento dia 10
+                </span>
+              </div>
+              <p className="text-xs text-gray-700 mt-0.5">
+                {extraVansCount > 0 
+                  ? `Você possui ${vehicles.length} vans cadastradas (${extraVansCount} adicional = +R$ ${monthlyExtraFee.toFixed(2).replace('.', ',')}/mês). A liberação é imediata e o proporcional vem na fatura consolidada do dia 10.` 
+                  : 'Suas primeiras 3 vans estão 100% inclusas no valor base (R$ 149/mês). A partir da 4ª van, adicione novas vans na hora sem travar seu negócio!'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Plan limit notice banner if Free/Pro at capacity */}
       {(isFreePlan(profile) || isProPlan(profile)) && vehicles.length >= 1 && (
         <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
           <div className="flex items-center gap-3">
