@@ -72,7 +72,13 @@ export function useCollectionGroup<T>(collectionId: string, constraints: QueryCo
       unsubscribe = onSnapshot(q, (snapshot) => {
         const items: T[] = [];
         snapshot.forEach((doc) => {
-          items.push({ id: doc.id, ...doc.data() } as T);
+          const docData = doc.data();
+          const driverIdFromPath = doc.ref.parent?.parent?.id;
+          items.push({ 
+            id: doc.id, 
+            driverId: (docData as any)?.driverId || driverIdFromPath,
+            ...docData 
+          } as T);
         });
         setData(items);
         setLoading(false);

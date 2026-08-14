@@ -34,7 +34,7 @@ import { checkCanAddStudent } from './lib/plans';
 
 import { auth, db } from './lib/firebase';
 import { signOut } from 'firebase/auth';
-import { where, doc, updateDoc } from 'firebase/firestore';
+import { where, doc, updateDoc, collection, addDoc } from 'firebase/firestore';
 import { SchoolVanLogo } from './components/SchoolVanLogo';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import toast from 'react-hot-toast';
@@ -64,26 +64,41 @@ import { Sparkles, Bot, Zap, Compass, Phone, MessageSquare } from 'lucide-react'
 // Views
 const ParentView = () => {
   const { user } = useAuth();
-  const { data: students, loading } = useCollectionGroup<Student>('students', [
-    where('parentEmail', '==', user?.email)
+  const userEmail = user?.email || '';
+  const { data: rawStudents, loading } = useCollectionGroup<Student>('students', [
+    where('parentEmail', '==', userEmail)
   ]);
+
+  // Support case-insensitive fallback if driver stored email in different casing
+  const { data: allGroupStudents } = useCollectionGroup<Student>('students');
+  const students = React.useMemo(() => {
+    if (rawStudents && rawStudents.length > 0) return rawStudents;
+    if (!userEmail) return [];
+    const normalized = userEmail.toLowerCase().trim();
+    return (allGroupStudents || []).filter(s => 
+      s.parentEmail?.toLowerCase().trim() === normalized
+    );
+  }, [rawStudents, allGroupStudents, userEmail]);
 
   const [scheduleDates, setScheduleDates] = useState<Record<string, string>>({});
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
 
-  if (loading) return <div className="p-8 text-center font-bold text-gray-500">Carregando dados do aluno...</div>;
+  if (loading && students.length === 0) {
+    return <div className="p-8 text-center font-bold text-gray-500">Carregando dados do aluno...</div>;
+  }
 
   const todayStr = getTodayStr();
 
   const toggleAbsenceToday = async (student: Student) => {
-    if (!student.driverId || !student.id) {
-      toast.error('Identificador do aluno não encontrado.');
+    const driverId = student.driverId;
+    if (!driverId || !student.id) {
+      toast.error('Identificador do aluno ou do motorista não encontrado.');
       return;
     }
     const isCurrentlyAbsent = isStudentAbsentOnDate(student, todayStr);
     try {
-      const studentRef = doc(db, 'drivers', student.driverId, 'students', student.id);
+      const studentRef = doc(db, 'drivers', driverId, 'students', student.id);
       const newAusenteState = !isCurrentlyAbsent;
       
       let newAbsenceDates = student.absenceDates || [];
@@ -101,10 +116,24 @@ const ParentView = () => {
         lastCheck: new Date().toISOString()
       });
 
+      // Audit log in absences subcollection for the driver
+      try {
+        await addDoc(collection(db, 'drivers', driverId, 'absences'), {
+          studentId: student.id,
+          studentName: student.name,
+          date: todayStr,
+          reason: newAusenteState ? 'Aviso de falta enviado pelo responsável' : 'Presença confirmada pelo responsável',
+          registeredAt: new Date().toISOString(),
+          parentEmail: userEmail
+        });
+      } catch (logErr) {
+        console.warn('Absence audit log warning:', logErr);
+      }
+
       toast.success(newAusenteState ? 'Aviso de AUSÊNCIA enviado ao motorista para HOJE!' : 'Aluno marcado como PRESENTE hoje!');
-    } catch (err) {
-      console.error(err);
-      toast.error('Erro ao registrar alteração de ausência.');
+    } catch (err: any) {
+      console.error('Erro ao registrar ausência:', err);
+      toast.error(err?.message ? `Erro ao registrar: ${err.message}` : 'Erro ao registrar alteração de ausência.');
     }
   };
 
@@ -117,7 +146,8 @@ const ParentView = () => {
       return;
     }
 
-    if (!student.driverId || !student.id) {
+    const driverId = student.driverId;
+    if (!driverId || !student.id) {
       toast.error('Erro ao identificar o motorista/aluno.');
       return;
     }
@@ -125,7 +155,7 @@ const ParentView = () => {
     setSubmittingId(student.id);
 
     try {
-      const studentRef = doc(db, 'drivers', student.driverId, 'students', student.id);
+      const studentRef = doc(db, 'drivers', driverId, 'students', student.id);
       const currentScheduled = student.scheduledAbsences || [];
       const currentDates = student.absenceDates || [];
 
@@ -154,24 +184,39 @@ const ParentView = () => {
         lastCheck: new Date().toISOString()
       });
 
+      // Audit log
+      try {
+        await addDoc(collection(db, 'drivers', driverId, 'absences'), {
+          studentId: student.id,
+          studentName: student.name,
+          date: selectedDate,
+          reason: `Falta programada: ${reasonText}`,
+          registeredAt: new Date().toISOString(),
+          parentEmail: userEmail
+        });
+      } catch (logErr) {
+        console.warn('Absence audit log warning:', logErr);
+      }
+
       toast.success(`Falta agendada com sucesso para ${formatDateBR(selectedDate)}!`);
 
       // Clear input state
       setScheduleDates(prev => ({ ...prev, [student.id]: '' }));
       setReasons(prev => ({ ...prev, [student.id]: '' }));
-    } catch (err) {
-      console.error(err);
-      toast.error('Erro ao agendar falta.');
+    } catch (err: any) {
+      console.error('Erro ao agendar falta:', err);
+      toast.error(err?.message ? `Erro ao agendar: ${err.message}` : 'Erro ao agendar falta.');
     } finally {
       setSubmittingId(null);
     }
   };
 
   const handleRemoveScheduledAbsence = async (student: Student, dateToRemove: string) => {
-    if (!student.driverId || !student.id) return;
+    const driverId = student.driverId;
+    if (!driverId || !student.id) return;
 
     try {
-      const studentRef = doc(db, 'drivers', student.driverId, 'students', student.id);
+      const studentRef = doc(db, 'drivers', driverId, 'students', student.id);
       const updatedScheduled = (student.scheduledAbsences || []).filter(a => a.date !== dateToRemove);
       const updatedDates = (student.absenceDates || []).filter(d => d !== dateToRemove);
       const isToday = dateToRemove === todayStr;
@@ -184,9 +229,9 @@ const ParentView = () => {
       });
 
       toast.success(`Falta do dia ${formatDateBR(dateToRemove)} cancelada.`);
-    } catch (err) {
-      console.error(err);
-      toast.error('Erro ao cancelar falta agendada.');
+    } catch (err: any) {
+      console.error('Erro ao cancelar falta:', err);
+      toast.error(err?.message ? `Erro ao cancelar: ${err.message}` : 'Erro ao cancelar falta agendada.');
     }
   };
 

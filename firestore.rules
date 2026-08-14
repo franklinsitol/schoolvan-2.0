@@ -75,8 +75,11 @@ service cloud.firestore {
     }
 
     function isParentOfStudent(driverId, studentId) {
-      return isAuthenticated() && 
-        get(/databases/$(database)/documents/drivers/$(driverId)/students/$(studentId)).data.parentEmail == request.auth.token.email;
+      return isAuthenticated() && (
+        (resource != null && resource.data.parentEmail == request.auth.token.email) ||
+        (exists(/databases/$(database)/documents/drivers/$(driverId)/students/$(studentId)) && 
+         get(/databases/$(database)/documents/drivers/$(driverId)/students/$(studentId)).data.parentEmail == request.auth.token.email)
+      );
     }
 
     function hasOnlyAllowedFields(fields) {
@@ -105,12 +108,17 @@ service cloud.firestore {
 
       match /students/{studentId} {
         allow read: if isDriver(driverId) || isTeamMember(driverId) || isSuperAdmin() || isParentOfStudent(driverId, studentId);
-        allow write: if isDriver(driverId) || canTeamMemberEdit(driverId) || isSuperAdmin();
+        allow create, delete: if isDriver(driverId) || canTeamMemberEdit(driverId) || isSuperAdmin();
+        allow update: if isDriver(driverId) || canTeamMemberEdit(driverId) || isSuperAdmin() || isParentOfStudent(driverId, studentId);
       }
 
       match /finance/{financeId} {
         allow read: if isDriver(driverId) || isSuperAdmin();
         allow write: if isDriver(driverId) || isSuperAdmin();
+      }
+
+      match /subscription_invoices/{invoiceId} {
+        allow read, write: if isDriver(driverId) || isSuperAdmin();
       }
 
       match /leads/{leadId} {
@@ -121,7 +129,7 @@ service cloud.firestore {
 
       match /absences/{absenceId} {
         allow read: if isDriver(driverId) || isTeamMember(driverId) || isSuperAdmin() || isParentOfStudent(driverId, get(/databases/$(database)/documents/drivers/$(driverId)/absences/$(absenceId)).data.studentId);
-        allow create: if isDriver(driverId) || canTeamMemberEdit(driverId) || isSuperAdmin() || (isAuthenticated() && request.resource.data.studentId != null);
+        allow create: if isDriver(driverId) || canTeamMemberEdit(driverId) || isSuperAdmin() || isAuthenticated();
         allow update, delete: if isDriver(driverId) || canTeamMemberEdit(driverId) || isSuperAdmin();
       }
     }
