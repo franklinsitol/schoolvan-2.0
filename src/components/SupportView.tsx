@@ -51,10 +51,15 @@ export function SupportView() {
   const [cancellationStep, setCancellationStep] = useState<'reason' | 'offer' | 'done'>('reason');
   const [processingRetention, setProcessingRetention] = useState(false);
 
+  const isParent = profile?.role === 'parent';
+
   useEffect(() => {
     if (profile) {
       setName(profile.name || '');
       setContact(profile.phone || profile.email || '');
+      if (profile.role === 'parent') {
+        setTicketProfile('Responsavel');
+      }
     }
   }, [profile]);
 
@@ -285,35 +290,37 @@ export function SupportView() {
       <PWAShellDocsModal isOpen={showPwaModal} onClose={() => setShowPwaModal(false)} />
 
       {/* Tabs */}
-      <div className="flex flex-wrap justify-center gap-3 border-b border-gray-200 pb-4">
-        <button
-          onClick={() => setActiveTab('tickets')}
-          className={cn(
-            "px-6 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2",
-            activeTab === 'tickets' ? "bg-gray-900 text-yellow-400 shadow-lg" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-          )}
-        >
-          <MessageSquare size={18} /> Suporte & Chamados
-        </button>
-        <button
-          onClick={() => setActiveTab('financial')}
-          className={cn(
-            "px-6 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2",
-            activeTab === 'financial' ? "bg-gray-900 text-yellow-400 shadow-lg" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-          )}
-        >
-          <Upload size={18} /> Enviar Comprovante / Financeiro
-        </button>
-        <button
-          onClick={() => setActiveTab('cancellation')}
-          className={cn(
-            "px-6 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2",
-            activeTab === 'cancellation' ? "bg-red-600 text-white shadow-lg" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-          )}
-        >
-          <XCircle size={18} /> Auto-Atendimento / Cancelamento
-        </button>
-      </div>
+      {!isParent && (
+        <div className="flex flex-wrap justify-center gap-3 border-b border-gray-200 pb-4">
+          <button
+            onClick={() => setActiveTab('tickets')}
+            className={cn(
+              "px-6 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2",
+              activeTab === 'tickets' ? "bg-gray-900 text-yellow-400 shadow-lg" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            )}
+          >
+            <MessageSquare size={18} /> Suporte & Chamados
+          </button>
+          <button
+            onClick={() => setActiveTab('financial')}
+            className={cn(
+              "px-6 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2",
+              activeTab === 'financial' ? "bg-gray-900 text-yellow-400 shadow-lg" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            )}
+          >
+            <Upload size={18} /> Enviar Comprovante / Financeiro
+          </button>
+          <button
+            onClick={() => setActiveTab('cancellation')}
+            className={cn(
+              "px-6 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2",
+              activeTab === 'cancellation' ? "bg-red-600 text-white shadow-lg" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            )}
+          >
+            <XCircle size={18} /> Auto-Atendimento / Cancelamento
+          </button>
+        </div>
+      )}
 
       {/* TAB 1: TICKETS FORM + REALTIME TICKET LIST */}
       {activeTab === 'tickets' && (

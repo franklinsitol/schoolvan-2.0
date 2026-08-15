@@ -37,7 +37,7 @@ import { cn } from '../lib/utils';
 import { RequestVacancyModal } from './RequestVacancyModal';
 import { playBusHornSound, speakTiaPrompt } from '../lib/sound';
 
-export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
+export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'parent') => void }) {
   const { data: vehicles } = useCollectionGroup<Vehicle>('vehicles');
   const [audienceMode, setAudienceMode] = useState<'driver' | 'parent'>('driver');
   const [activeTab, setActiveTab] = useState<'landing' | 'search' | 'calc'>('landing');
@@ -167,7 +167,7 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
               {/* CTAs */}
               <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 pt-2">
                 <button
-                  onClick={onOpenAuth}
+                  onClick={() => onOpenAuth?.('driver')}
                   className="w-full sm:w-auto px-7 py-4 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-2xl text-sm shadow-xl hover:shadow-yellow-400/20 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Bus size={18} />
@@ -238,11 +238,19 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
                 </button>
 
                 <button
-                  onClick={onOpenAuth}
-                  className="w-full sm:w-auto px-6 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl text-sm transition-all border border-white/20 flex items-center justify-center gap-2 cursor-pointer"
+                  onClick={() => onOpenAuth?.('parent')}
+                  className="w-full sm:w-auto px-6 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl text-sm transition-all border border-blue-400/30 flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-95"
                 >
-                  <Users size={18} className="text-yellow-400" />
-                  <span>SOU MOTORISTA DE VAN</span>
+                  <ShieldCheck size={18} className="text-yellow-400" />
+                  <span>ÁREA DO RESPONSÁVEL (ENTRAR)</span>
+                </button>
+
+                <button
+                  onClick={() => onOpenAuth?.('driver')}
+                  className="w-full sm:w-auto px-5 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl text-sm transition-all border border-white/20 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Users size={16} className="text-yellow-400" />
+                  <span>SOU MOTORISTA</span>
                 </button>
               </div>
 
@@ -696,7 +704,7 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
 
                 <div className="flex flex-wrap gap-3 pt-2">
                   <button
-                    onClick={onOpenAuth}
+                    onClick={() => onOpenAuth?.('driver')}
                     className="px-7 py-4 bg-gray-950 hover:bg-gray-900 text-yellow-400 font-black rounded-2xl text-xs uppercase tracking-wider transition-all shadow-xl active:scale-95 cursor-pointer flex items-center gap-2"
                   >
                     <Bus size={18} />
@@ -858,7 +866,7 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
                 </div>
 
                 <button
-                  onClick={onOpenAuth}
+                  onClick={() => onOpenAuth?.('driver')}
                   className="w-full py-3.5 bg-gray-900 hover:bg-gray-800 text-yellow-400 font-extrabold rounded-2xl text-xs transition-all cursor-pointer shadow-md"
                 >
                   CRIAR CONTA GRÁTIS
@@ -909,7 +917,7 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
                 </div>
 
                 <button
-                  onClick={onOpenAuth}
+                  onClick={() => onOpenAuth?.('driver')}
                   className="w-full py-4 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-2xl text-xs transition-all shadow-xl cursor-pointer"
                 >
                   EXPERIMENTAR PLANO PRO
@@ -956,7 +964,7 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
                 </div>
 
                 <button
-                  onClick={onOpenAuth}
+                  onClick={() => onOpenAuth?.('driver')}
                   className="w-full py-3.5 bg-gray-900 hover:bg-gray-800 text-white font-extrabold rounded-2xl text-xs transition-all cursor-pointer"
                 >
                   CONTRATAR PLANO FROTA
@@ -1062,7 +1070,7 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: () => void }) {
           </div>
 
           <button
-            onClick={onOpenAuth}
+            onClick={() => onOpenAuth?.('driver')}
             className="w-full py-4 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-2xl text-sm transition-all shadow-xl cursor-pointer flex items-center justify-center gap-2"
           >
             <span>COMEÇAR AGORA NO PLANO GRATUITO</span>

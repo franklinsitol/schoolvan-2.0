@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { Driver, TeamMember } from '../types';
 
@@ -14,22 +14,24 @@ export function useAuth() {
       setUser(firebaseUser);
       if (firebaseUser) {
         try {
-          // Check if user is a registered driver
-          const driverDoc = await getDoc(doc(db, 'drivers', firebaseUser.uid));
-          if (driverDoc.exists()) {
-            setProfile({ id: driverDoc.id, ...driverDoc.data() } as Driver);
+          // 1. First check if user is a parent in the 'users' collection
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setProfile({ id: userDoc.id, ...userData } as any);
           } else {
-            // Check if user is in top-level users collection or is a Parent
-            const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-            if (userDoc.exists()) {
-              setProfile({ id: userDoc.id, ...userDoc.data() } as any);
+            // 2. Check if user is a registered driver
+            const driverDoc = await getDoc(doc(db, 'drivers', firebaseUser.uid));
+            if (driverDoc.exists()) {
+              setProfile({ id: driverDoc.id, ...driverDoc.data() } as Driver);
             } else {
-              // Default fallback profile for parents / external users
+              // 3. Fallback profile
+              const isSuperAdminEmail = firebaseUser.email === 'franklin.toledo@gmail.com';
               const fallbackProfile: any = {
                 id: firebaseUser.uid,
-                name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuário',
+                name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Responsável',
                 email: firebaseUser.email || '',
-                role: firebaseUser.email === 'franklin.toledo@gmail.com' ? 'superadmin' : 'parent',
+                role: isSuperAdminEmail ? 'superadmin' : 'parent',
                 status: 'Ativo'
               };
               setProfile(fallbackProfile);
@@ -37,12 +39,12 @@ export function useAuth() {
           }
         } catch (err) {
           console.error("Error fetching user profile:", err);
-          // Fallback profile on error
+          const isSuperAdminEmail = firebaseUser.email === 'franklin.toledo@gmail.com';
           setProfile({
             id: firebaseUser.uid,
-            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuário',
+            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Responsável',
             email: firebaseUser.email || '',
-            role: firebaseUser.email === 'franklin.toledo@gmail.com' ? 'superadmin' : 'parent',
+            role: isSuperAdminEmail ? 'superadmin' : 'parent',
             status: 'Ativo'
           } as any);
         }

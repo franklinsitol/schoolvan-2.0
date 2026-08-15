@@ -64,21 +64,17 @@ import { Sparkles, Bot, Zap, Compass, Phone, MessageSquare } from 'lucide-react'
 // Views
 const ParentView = () => {
   const { user } = useAuth();
-  const userEmail = user?.email || '';
-  const { data: rawStudents, loading } = useCollectionGroup<Student>('students', [
-    where('parentEmail', '==', userEmail)
-  ]);
+  const userEmail = (user?.email || '').trim();
 
-  // Support case-insensitive fallback if driver stored email in different casing
-  const { data: allGroupStudents } = useCollectionGroup<Student>('students');
-  const students = React.useMemo(() => {
-    if (rawStudents && rawStudents.length > 0) return rawStudents;
+  const constraints = React.useMemo(() => {
     if (!userEmail) return [];
-    const normalized = userEmail.toLowerCase().trim();
-    return (allGroupStudents || []).filter(s => 
-      s.parentEmail?.toLowerCase().trim() === normalized
-    );
-  }, [rawStudents, allGroupStudents, userEmail]);
+    return [where('parentEmail', '==', userEmail)];
+  }, [userEmail]);
+
+  const { data: students, loading } = useCollectionGroup<Student>(
+    userEmail ? 'students' : '',
+    constraints
+  );
 
   const [scheduleDates, setScheduleDates] = useState<Record<string, string>>({});
   const [reasons, setReasons] = useState<Record<string, string>>({});
@@ -570,17 +566,30 @@ export default function App() {
     }
   }, [user, profile, students.length]);
 
+  const isSuperAdmin = user?.email === 'franklin.toledo@gmail.com' || profile?.role === 'superadmin';
+  const isParent = profile?.role === 'parent';
+
+  // Strict role-based navigation & guard
   useEffect(() => {
-    if (user && currentView === 'market') {
-      if (profile?.role === 'parent') {
+    if (!user) {
+      if (currentView !== 'market') {
+        setCurrentView('market');
+      }
+      return;
+    }
+
+    if (isParent) {
+      // Parents can ONLY access 'parent' or 'support'
+      if (currentView !== 'parent' && currentView !== 'support') {
         setCurrentView('parent');
-      } else {
+      }
+    } else {
+      // Drivers / Admins / Superadmins
+      if (currentView === 'market') {
         setCurrentView('dash');
       }
-    } else if (!user && currentView !== 'market') {
-      setCurrentView('market');
     }
-  }, [user, profile]);
+  }, [user, profile?.role, isParent, currentView]);
 
   useEffect(() => {
     if (user && authModal.open) {
@@ -608,9 +617,6 @@ export default function App() {
       </div>
     );
   }
-
-  const isSuperAdmin = user?.email === 'franklin.toledo@gmail.com' || profile?.role === 'superadmin';
-  const isParent = profile?.role === 'parent';
 
   const navItems = isParent ? [
     { id: 'parent', label: 'Área dos Pais', icon: Users },
@@ -669,7 +675,7 @@ export default function App() {
           )}
           <div 
             className="flex items-center gap-2 cursor-pointer shrink-0"
-            onClick={() => setCurrentView(user ? 'dash' : 'market')}
+            onClick={() => setCurrentView(user ? (isParent ? 'parent' : 'dash') : 'market')}
           >
             <SchoolVanLogo size={30} />
             <span className="text-lg sm:text-xl font-black tracking-tight text-gray-950">SchoolVan</span>
@@ -846,55 +852,69 @@ export default function App() {
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
               >
-                {currentView === 'market' && <Marketplace onOpenAuth={() => setAuthModal({ open: true, type: 'driver' })} />}
-                {currentView === 'dash' && <Dashboard onNavigateToLeads={() => setCurrentView('leads')} />}
+                {currentView === 'market' && (
+                  <Marketplace onOpenAuth={(type) => setAuthModal({ open: true, type: type || 'driver' })} />
+                )}
+                {currentView === 'dash' && (
+                  isParent ? <ParentView /> : <Dashboard onNavigateToLeads={() => setCurrentView('leads')} />
+                )}
                 {currentView === 'leads' && (
-                  <LeadsView 
-                    onOpenUpgradeModal={(reason) => { 
-                      setUpgradeReason(reason); 
-                      setIsUpgradeModalOpen(true); 
-                    }} 
-                  />
+                  isParent ? <ParentView /> : (
+                    <LeadsView 
+                      onOpenUpgradeModal={(reason) => { 
+                        setUpgradeReason(reason); 
+                        setIsUpgradeModalOpen(true); 
+                      }} 
+                    />
+                  )
                 )}
                 {currentView === 'students' && (
-                  <Students 
-                    onOpenUpgradeModal={(reason) => { 
-                      setUpgradeReason(reason); 
-                      setIsUpgradeModalOpen(true); 
-                    }} 
-                  />
+                  isParent ? <ParentView /> : (
+                    <Students 
+                      onOpenUpgradeModal={(reason) => { 
+                        setUpgradeReason(reason); 
+                        setIsUpgradeModalOpen(true); 
+                      }} 
+                    />
+                  )
                 )}
-                {currentView === 'routes' && <RoutesView />}
+                {currentView === 'routes' && (isParent ? <ParentView /> : <RoutesView />)}
                 {currentView === 'vehicles' && (
-                  <VehiclesView 
-                    onOpenUpgradeModal={(reason) => { 
-                      setUpgradeReason(reason); 
-                      setIsUpgradeModalOpen(true); 
-                    }} 
-                    triggerNewVehicle={triggerNewVehicleModal}
-                    onNewVehicleHandled={() => setTriggerNewVehicleModal(false)}
-                  />
+                  isParent ? <ParentView /> : (
+                    <VehiclesView 
+                      onOpenUpgradeModal={(reason) => { 
+                        setUpgradeReason(reason); 
+                        setIsUpgradeModalOpen(true); 
+                      }} 
+                      triggerNewVehicle={triggerNewVehicleModal}
+                      onNewVehicleHandled={() => setTriggerNewVehicleModal(false)}
+                    />
+                  )
                 )}
                 {currentView === 'team' && (
-                  <TeamView 
-                    onOpenUpgradeModal={(reason) => { 
-                      setUpgradeReason(reason); 
-                      setIsUpgradeModalOpen(true); 
-                    }} 
-                  />
+                  isParent ? <ParentView /> : (
+                    <TeamView 
+                      onOpenUpgradeModal={(reason) => { 
+                        setUpgradeReason(reason); 
+                        setIsUpgradeModalOpen(true); 
+                      }} 
+                    />
+                  )
                 )}
-                {currentView === 'finance' && <FinanceView />}
+                {currentView === 'finance' && (isParent ? <ParentView /> : <FinanceView />)}
                 {currentView === 'profile' && (
-                  <ProfileView 
-                    onOpenSubscriptionModal={() => {
-                      setSubscriptionStep('select');
-                      setIsSubscriptionModalOpen(true);
-                    }} 
-                  />
+                  isParent ? <ParentView /> : (
+                    <ProfileView 
+                      onOpenSubscriptionModal={() => {
+                        setSubscriptionStep('select');
+                        setIsSubscriptionModalOpen(true);
+                      }} 
+                    />
+                  )
                 )}
                 {currentView === 'support' && <SupportView />}
                 {currentView === 'parent' && <ParentView />}
-                {currentView === 'superadmin' && (
+                {currentView === 'superadmin' && isSuperAdmin && (
                   <SuperAdminView 
                     onImpersonate={(driver) => { 
                       setImpersonatedDriver(driver); 

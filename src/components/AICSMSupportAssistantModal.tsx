@@ -28,24 +28,61 @@ import {
   Award,
   ShieldCheck,
   Compass,
-  MessageSquare
+  MessageSquare,
+  UserPlus,
+  Phone,
+  MessageCircle,
+  CreditCard,
+  PlusCircle,
+  Edit3,
+  Calendar,
+  Layers,
+  Check,
+  Search,
+  ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../hooks/useAuth';
 import { useFirestore } from '../hooks/useFirestore';
-import { Student, Vehicle, Finance, Lead } from '../types';
+import { Student, Vehicle, Finance, Lead, TeamMember, InvoiceStatus } from '../types';
 import { playBusHornSound, speakTiaPrompt, speakTioIAPrompt } from '../lib/sound';
-import { checkCanAddStudent, checkCanAddVehicle } from '../lib/plans';
+import { checkCanAddStudent, checkCanAddVehicle, checkCanAddTeamMember } from '../lib/plans';
 import { getReadNotifications, markNotificationAsRead } from '../lib/tioNotifications';
 import { db } from '../lib/firebase';
-import { doc, updateDoc, collection, addDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, addDoc, setDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
+
+export interface ContactCardItem {
+  id: string;
+  studentName: string;
+  schoolName: string;
+  parentName: string;
+  parentPhone: string;
+  value?: number;
+  paymentDay?: number;
+  isAbsentToday: boolean;
+  status: string;
+  invoiceStatus?: InvoiceStatus;
+}
+
+export interface ActionCardData {
+  type: 'student_created' | 'student_updated' | 'team_created' | 'team_updated' | 'vehicle_created' | 'vehicle_updated' | 'payment_updated';
+  title: string;
+  description: string;
+  icon?: string;
+  success: boolean;
+  primaryActionLabel?: string;
+  primaryActionUrl?: string;
+  details?: Record<string, string | number>;
+}
 
 interface Message {
   id: string;
   sender: 'ai' | 'user';
   text: string;
   timestamp: string;
+  actionCard?: ActionCardData;
+  contactCards?: ContactCardItem[];
 }
 
 interface AICSMSupportAssistantModalProps {
@@ -72,8 +109,9 @@ export function AICSMSupportAssistantModal({
   // Real-time Database queries for complete context awareness
   const { data: students } = useFirestore<Student>(profile?.id ? `drivers/${profile.id}/students` : '');
   const { data: vehicles } = useFirestore<Vehicle>(profile?.id ? `drivers/${profile.id}/vehicles` : '');
-  const { data: finances } = useFirestore<Finance>(profile?.id ? `drivers/${profile.id}/finances` : '');
+  const { data: finances } = useFirestore<Finance>(profile?.id ? `drivers/${profile.id}/finance` : '');
   const { data: leads } = useFirestore<Lead>(profile?.id ? `drivers/${profile.id}/leads` : '');
+  const { data: teamMembers } = useFirestore<TeamMember>(profile?.id ? `drivers/${profile.id}/team` : '');
 
   const [activeTab, setActiveTab] = useState<'chat' | 'onboarding'>(initialMode);
   const [onboardingStep, setOnboardingStep] = useState(0); // 0 = Welcome & Presentation, 1 = Profile & Pix, 2 = Vehicle, 3 = Students, 4 = Ready
@@ -171,11 +209,14 @@ export function AICSMSupportAssistantModal({
 
   // Quick contextual prompts matching user exact requests
   const quickQuestions = [
-    '🏫 Quem são os alunos de cada escola?',
+    '➕ Cadastrar aluno Pedro, escola Objetivo, pai Carlos 11988887777, valor 450',
     '💸 QUAIS alunos eu preciso cobrar esse mês?',
-    '💺 Quantos assentos / vagas tenho disponíveis?',
+    '📱 Falar com os pais / Acionar responsáveis no Zap',
+    '👥 Cadastrar monitora Juliana 11977776666',
+    '🚐 Cadastrar van Master placa ABC-1234 capacidade 20',
     '🚫 Quem NÃO vai hoje para a escola?',
-    '📱 Como mandar cobrança Pix automática no Zap?'
+    '🏫 Quem são os alunos de cada escola?',
+    '💺 Quantos assentos / vagas tenho disponíveis?'
   ];
 
   const scrollToBottom = () => {
@@ -458,7 +499,24 @@ export function AICSMSupportAssistantModal({
     }, 15000);
   };
 
-  // Send Message Logic with Gemini Context
+  // Helper to format phone for WhatsApp
+  const formatPhoneForWA = (rawPhone: string) => {
+    const clean = (rawPhone || '').replace(/\D/g, '');
+    if (!clean) return '';
+    return clean.startsWith('55') ? clean : `55${clean}`;
+  };
+
+  // Helper to build WhatsApp message links
+  const createWhatsAppUrl = (phone: string, text: string) => {
+    const formatted = formatPhoneForWA(phone);
+    if (!formatted) return '#';
+    return `https://wa.me/${formatted}?text=${encodeURIComponent(text)}`;
+  };
+
+  // State for message template selector in contact cards
+  const [activeTemplateStudentId, setActiveTemplateStudentId] = useState<string | null>(null);
+
+  // Send Message Logic with Gemini Context & Full Operational Action Engine
   const handleSendMessage = async (textToSend?: string) => {
     const query = textToSend || inputText;
     if (!query.trim() || loading) return;
@@ -476,9 +534,471 @@ export function AICSMSupportAssistantModal({
 
     try {
       let directAnswer = '';
-      const lower = query.toLowerCase();
+      let actionCard: ActionCardData | undefined = undefined;
+      let contactCards: ContactCardItem[] | undefined = undefined;
+      const lower = query.toLowerCase().trim();
 
-      if (lower.includes('escola') || lower.includes('escolas')) {
+      // -------------------------------------------------------------
+      // 1. ACTION: CADASTRAR ALUNO (CREATE STUDENT)
+      // -------------------------------------------------------------
+      if (
+        (lower.startsWith('cadastrar aluno') || 
+         lower.startsWith('cadastra aluno') || 
+         lower.startsWith('adicionar aluno') || 
+         lower.startsWith('adiciona aluno') || 
+         lower.startsWith('novo aluno') ||
+         lower.includes('cadastrar o aluno') ||
+         lower.includes('adicionar o aluno')) && 
+        profile?.id
+      ) {
+        // Check student limits for the active plan
+        const canAdd = checkCanAddStudent(profile, activeStudents.length, onOpenUpgradeModal);
+        if (!canAdd) {
+          setLoading(false);
+          return;
+        }
+
+        // Extract student details
+        // Example: "cadastrar aluno Enzo, escola Objetivo, pai Carlos 11988887777, valor 450"
+        let studentName = '';
+        let schoolName = 'Escola Principal';
+        let parentName = 'Responsável';
+        let parentPhone = '';
+        let studentValue = 400;
+        let paymentDay = 10;
+
+        // Clean query to parse
+        const cleanQuery = query
+          .replace(/^(cadastrar|cadastra|adicionar|adiciona|novo|incluir)(\s+o)?\s+aluno(\s*:)?/i, '')
+          .trim();
+
+        // Extract phone if exists
+        const phoneMatch = cleanQuery.match(/(\(?\d{2}\)?\s*9?\d{4}[-\s]?\d{4})/);
+        if (phoneMatch) {
+          parentPhone = phoneMatch[0].replace(/\D/g, '');
+        }
+
+        // Extract value if exists (e.g. "valor 450", "450 reais", "R$ 450")
+        const valueMatch = cleanQuery.match(/(?:valor|mensalidade|r\$)\s*[:=]?\s*(\d+(?:[.,]\d+)?)/i) || cleanQuery.match(/(\d+)\s*(?:reais|mensal)/i);
+        if (valueMatch) {
+          studentValue = parseFloat(valueMatch[1].replace(',', '.'));
+        }
+
+        // Extract school if exists (e.g. "escola Objetivo", "colegio Objetivo")
+        const schoolMatch = cleanQuery.match(/(?:escola|colégio|colegio)\s+([^,;.]+)/i);
+        if (schoolMatch) {
+          schoolName = schoolMatch[1].trim();
+        }
+
+        // Extract parent name if exists (e.g. "pai Carlos", "mãe Juliana", "responsavel Roberto")
+        const parentMatch = cleanQuery.match(/(?:pai|mãe|mae|responsável|responsavel)\s+([A-Za-zÀ-ÿ]+)/i);
+        if (parentMatch) {
+          parentName = parentMatch[1].trim();
+        }
+
+        // Extract student name (first segment before comma or keyword)
+        const namePart = cleanQuery.split(/[,;]|\bescola\b|\bcolegio\b|\bpai\b|\bmãe\b|\btelefone\b|\bzap\b|\bvalor\b/i)[0].trim();
+        studentName = namePart || 'Novo Aluno';
+
+        if (studentName.length > 1) {
+          // Capitalize Name
+          studentName = studentName.charAt(0).toUpperCase() + studentName.slice(1);
+          
+          const newStudentData = {
+            name: studentName,
+            schoolName: schoolName,
+            parentName: parentName,
+            parentPhone: parentPhone || profile.phone || '',
+            value: studentValue,
+            paymentDay: paymentDay,
+            vehicleId: vehicles[0]?.id || '',
+            status: 'Ativo',
+            boardingStatus: 'PENDENTE',
+            createdAt: new Date().toISOString()
+          };
+
+          const newDocRef = await addDoc(collection(db, 'drivers', profile.id, 'students'), newStudentData);
+
+          // Also create initial invoice in finance
+          await setDoc(doc(db, 'drivers', profile.id, 'finance', newDocRef.id), {
+            studentId: newDocRef.id,
+            studentName: studentName,
+            parentPhone: parentPhone || profile.phone || '',
+            value: studentValue,
+            type: 'Receita',
+            status: 'Em Dia',
+            paymentDay: paymentDay,
+            dueDate: `${paymentDay}/${(new Date().getMonth() + 1).toString().padStart(2, '0')}`,
+            createdAt: new Date().toISOString()
+          });
+
+          playBusHornSound();
+          toast.success(`Aluno ${studentName} cadastrado com sucesso!`);
+
+          directAnswer = `🎉 **Show de bola, Tio!** O aluno **${studentName}** foi cadastrado com sucesso na sua lista escolar!\n\n• **Escola:** ${schoolName}\n• **Mensalidade:** R$ ${studentValue.toFixed(2)} (Vencimento todo dia ${paymentDay})\n• **Responsável:** ${parentName} ${parentPhone ? `(Zap: ${parentPhone})` : ''}\n\nVocê já pode enviar as boas-vindas no WhatsApp com 1 clique abaixo:`;
+
+          actionCard = {
+            type: 'student_created',
+            title: 'Aluno Cadastrado com Sucesso!',
+            description: `${studentName} agora faz parte da sua van escolar.`,
+            success: true,
+            details: {
+              'Aluno': studentName,
+              'Escola': schoolName,
+              'Mensalidade': `R$ ${studentValue.toFixed(2)}`,
+              'Responsável': `${parentName} (${parentPhone || 'Sem tel'})`
+            }
+          };
+
+          contactCards = [{
+            id: newDocRef.id,
+            studentName: studentName,
+            schoolName: schoolName,
+            parentName: parentName,
+            parentPhone: parentPhone || profile.phone || '',
+            value: studentValue,
+            paymentDay: paymentDay,
+            isAbsentToday: false,
+            status: 'Ativo',
+            invoiceStatus: 'Em Dia'
+          }];
+        } else {
+          directAnswer = `Tio, para cadastrar o aluno, por favor me diga o **Nome**, **Escola** e o **WhatsApp do Pai/Mãe**!\n\n💡 *Exemplo de comando:* "Cadastrar aluno Pedro, escola Objetivo, pai Carlos 11988887777, valor 450"`;
+        }
+      }
+
+      // -------------------------------------------------------------
+      // 2. ACTION: EDITAR ALUNO (UPDATE STUDENT)
+      // -------------------------------------------------------------
+      else if (
+        (lower.includes('mudar escola') || 
+         lower.includes('alterar escola') || 
+         lower.includes('mudar valor') || 
+         lower.includes('alterar valor') || 
+         lower.includes('mudar telefone') || 
+         lower.includes('alterar telefone') || 
+         lower.includes('editar aluno') ||
+         lower.includes('alterar aluno')) && 
+        profile?.id
+      ) {
+        // Find which student
+        const targetStudent = activeStudents.find(s => 
+          lower.includes(s.name.toLowerCase()) || 
+          s.name.toLowerCase().split(' ')[0].length > 2 && lower.includes(s.name.toLowerCase().split(' ')[0])
+        );
+
+        if (targetStudent) {
+          const updates: Partial<Student> = {};
+          const changesSummary: string[] = [];
+
+          // School change
+          const schoolMatch = query.match(/(?:escola|colégio|colegio|para a escola|para o colégio)\s+([^,;.]+)/i);
+          if (schoolMatch) {
+            updates.schoolName = schoolMatch[1].trim();
+            changesSummary.push(`Escola alterada para: **${updates.schoolName}**`);
+          }
+
+          // Value change
+          const valueMatch = query.match(/(?:valor|mensalidade|para r\$|para)\s*[:=]?\s*(\d+(?:[.,]\d+)?)/i);
+          if (valueMatch && (lower.includes('valor') || lower.includes('mensalidade') || lower.includes('r$'))) {
+            updates.value = parseFloat(valueMatch[1].replace(',', '.'));
+            changesSummary.push(`Mensalidade alterada para: **R$ ${updates.value.toFixed(2)}**`);
+          }
+
+          // Phone change
+          const phoneMatch = query.match(/(\(?\d{2}\)?\s*9?\d{4}[-\s]?\d{4})/);
+          if (phoneMatch && (lower.includes('telefone') || lower.includes('zap') || lower.includes('contato'))) {
+            updates.parentPhone = phoneMatch[0].replace(/\D/g, '');
+            changesSummary.push(`Telefone do responsável alterado para: **${updates.parentPhone}**`);
+          }
+
+          if (Object.keys(updates).length > 0) {
+            await updateDoc(doc(db, 'drivers', profile.id, 'students', targetStudent.id), updates);
+            playBusHornSound();
+            toast.success(`Aluno ${targetStudent.name} atualizado!`);
+
+            directAnswer = `✅ **Prontinho, Tio!** Os dados do aluno **${targetStudent.name}** foram atualizados no sistema:\n\n${changesSummary.map(c => `• ${c}`).join('\n')}`;
+
+            actionCard = {
+              type: 'student_updated',
+              title: 'Cadastro do Aluno Atualizado!',
+              description: `Alterações salvas para ${targetStudent.name}.`,
+              success: true,
+              details: {
+                'Aluno': targetStudent.name,
+                'Escola Atual': updates.schoolName || targetStudent.schoolName || 'Principal',
+                'Mensalidade': updates.value ? `R$ ${updates.value.toFixed(2)}` : `R$ ${(targetStudent.value || 350).toFixed(2)}`
+              }
+            };
+          } else {
+            directAnswer = `Tio, identifiquei o aluno **${targetStudent.name}**, mas qual informação você deseja alterar? (Ex: "Mudar a escola do ${targetStudent.name} para Colégio Bandeirantes" ou "Alterar valor da mensalidade do ${targetStudent.name} para 480").`;
+          }
+        } else {
+          directAnswer = `Tio, não encontrei esse aluno na sua lista de ${activeStudents.length} alunos cadastrados. Diga o nome como cadastrado (Ex: "Mudar telefone do Lucas para 11988887777").`;
+        }
+      }
+
+      // -------------------------------------------------------------
+      // 3. ACTION: CADASTRAR MONITOR(A) / EQUIPE (CREATE TEAM MEMBER)
+      // -------------------------------------------------------------
+      else if (
+        (lower.includes('cadastrar monitor') || 
+         lower.includes('cadastrar monitora') || 
+         lower.includes('nova monitora') || 
+         lower.includes('novo monitor') || 
+         lower.includes('adicionar monitor') || 
+         lower.includes('adicionar monitora') ||
+         lower.includes('cadastrar colaborador') ||
+         lower.includes('novo colaborador')) && 
+        profile?.id
+      ) {
+        const canAdd = checkCanAddTeamMember(profile, onOpenUpgradeModal);
+        if (!canAdd) {
+          setLoading(false);
+          return;
+        }
+
+        let memberName = '';
+        let memberPhone = '';
+        let memberType: 'Monitor' | 'Motorista' = lower.includes('motorista') ? 'Motorista' : 'Monitor';
+
+        const phoneMatch = query.match(/(\(?\d{2}\)?\s*9?\d{4}[-\s]?\d{4})/);
+        if (phoneMatch) {
+          memberPhone = phoneMatch[0].replace(/\D/g, '');
+        }
+
+        const nameMatch = query.replace(/.*(?:monitora|monitor|colaborador|motorista)\s+/i, '').split(/[,;]|\btelefone\b|\bzap\b/i)[0].trim();
+        memberName = nameMatch || 'Novo Monitor';
+        memberName = memberName.charAt(0).toUpperCase() + memberName.slice(1);
+
+        const newTeamData = {
+          name: memberName,
+          phone: memberPhone || profile.phone || '',
+          email: `${memberName.toLowerCase().replace(/\s+/g, '')}@schoolvan.com`,
+          memberType: memberType,
+          role: 'colab',
+          ownerId: profile.id,
+          status: 'Ativo',
+          vehicleId: vehicles[0]?.id || '',
+          createdAt: new Date().toISOString()
+        };
+
+        await addDoc(collection(db, 'drivers', profile.id, 'team'), newTeamData);
+        playBusHornSound();
+        toast.success(`${memberType} ${memberName} cadastrado(a) com sucesso!`);
+
+        directAnswer = `👥 **Show de bola, Tio!** ${memberType === 'Monitor' ? 'A monitora / O monitor' : 'O motorista colaborador'} **${memberName}** foi adicionado(a) à sua equipe!\n\n• **Função:** ${memberType}\n• **WhatsApp:** ${memberPhone || 'Não informado'}\n• **Van Vinculada:** ${vehicles[0]?.name || 'Van Principal'}\n\nEle(a) já pode acessar o aplicativo de monitoramento para registrar embarques da rota!`;
+
+        actionCard = {
+          type: 'team_created',
+          title: 'Membro da Equipe Cadastrado!',
+          description: `${memberName} adicionado(a) como ${memberType}.`,
+          success: true,
+          details: {
+            'Nome': memberName,
+            'Função': memberType,
+            'WhatsApp': memberPhone || 'Sem tel',
+            'Van': vehicles[0]?.name || 'Van Principal'
+          }
+        };
+      }
+
+      // -------------------------------------------------------------
+      // 4. ACTION: CADASTRAR NOVA VAN (CREATE VEHICLE)
+      // -------------------------------------------------------------
+      else if (
+        (lower.includes('cadastrar van') || 
+         lower.includes('adicionar van') || 
+         lower.includes('nova van') || 
+         lower.includes('cadastrar veiculo') || 
+         lower.includes('novo veiculo') ||
+         lower.includes('adicionar veiculo')) && 
+        profile?.id
+      ) {
+        const canAdd = checkCanAddVehicle(profile, vehicles.length, onOpenUpgradeModal);
+        if (!canAdd) {
+          setLoading(false);
+          return;
+        }
+
+        let vanName = `Van ${(vehicles.length + 1).toString().padStart(2, '0')}`;
+        let model = 'Mercedes Sprinter';
+        let plate = 'ABC-1234';
+        let capacity = 15;
+
+        // Extract capacity (e.g. "capacidade 20", "20 lugares", "20 assentos")
+        const capMatch = query.match(/(\d+)\s*(?:lugares|assentos|vagas|capacidade)/i) || query.match(/capacidade\s*[:=]?\s*(\d+)/i);
+        if (capMatch) {
+          capacity = parseInt(capMatch[1], 10);
+        }
+
+        // Extract plate (e.g. "placa ABC1234", "placa ABC-1234", "placa BRA2E19")
+        const plateMatch = query.match(/placa\s*[:=]?\s*([A-Za-z]{3}[-\s]?\d[A-Za-z0-9]\d{2})/i);
+        if (plateMatch) {
+          plate = plateMatch[1].toUpperCase().replace(/\s+/g, '-');
+        }
+
+        // Extract model
+        if (lower.includes('sprinter')) model = 'Mercedes Sprinter';
+        else if (lower.includes('master')) model = 'Renault Master';
+        else if (lower.includes('ducato')) model = 'Fiat Ducato';
+        else if (lower.includes('transit')) model = 'Ford Transit';
+        else if (lower.includes('kombi')) model = 'VW Kombi';
+
+        const newVehicleData = {
+          name: vanName,
+          model: model,
+          plate: plate,
+          capacity: capacity,
+          status: 'Ativo',
+          createdAt: new Date().toISOString()
+        };
+
+        await addDoc(collection(db, 'drivers', profile.id, 'vehicles'), newVehicleData);
+        playBusHornSound();
+        toast.success(`Van ${vanName} cadastrada com sucesso!`);
+
+        directAnswer = `🚐 **Sensacional, Tio!** Sua nova van escolar foi cadastrada com sucesso na frota!\n\n• **Identificação:** ${vanName}\n• **Modelo:** ${model}\n• **Placa:** ${plate}\n• **Capacidade:** ${capacity} assentos (${capacity} novas vagas livres)\n\nSua frota agora conta com **${vehicles.length + 1} veículos** operacionais!`;
+
+        actionCard = {
+          type: 'vehicle_created',
+          title: 'Nova Van Cadastrada na Frota!',
+          description: `${vanName} (${model}) adicionada com sucesso.`,
+          success: true,
+          details: {
+            'Veículo': vanName,
+            'Modelo': model,
+            'Placa': plate,
+            'Capacidade': `${capacity} assentos`
+          }
+        };
+      }
+
+      // -------------------------------------------------------------
+      // 5. ACTION: ATUALIZAR STATUS DE PAGAMENTO (UPDATE PAYMENT)
+      // -------------------------------------------------------------
+      else if (
+        (lower.includes('pagou') || 
+         lower.includes('marcar como pago') || 
+         lower.includes('marcar como paga') || 
+         lower.includes('fez o pix') || 
+         lower.includes('confirmar pagamento') ||
+         lower.includes('marcar em atraso') ||
+         lower.includes('deixar pendente') ||
+         lower.includes('não pagou')) && 
+        profile?.id
+      ) {
+        // Find matching student
+        const targetStudent = activeStudents.find(s => 
+          lower.includes(s.name.toLowerCase()) || 
+          s.name.toLowerCase().split(' ')[0].length > 2 && lower.includes(s.name.toLowerCase().split(' ')[0])
+        );
+
+        if (targetStudent) {
+          const isOverdue = lower.includes('em atraso') || lower.includes('não pagou') || lower.includes('pendente') || lower.includes('devendo');
+          const newStatus: InvoiceStatus = isOverdue ? 'Em Atraso' : 'Em Dia';
+
+          await setDoc(doc(db, 'drivers', profile.id, 'finance', targetStudent.id), {
+            studentId: targetStudent.id,
+            studentName: targetStudent.name,
+            parentPhone: targetStudent.parentPhone || '',
+            value: targetStudent.value || 400,
+            type: 'Receita',
+            status: newStatus,
+            paymentDay: targetStudent.paymentDay || 10,
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+
+          playBusHornSound();
+          toast.success(`Pagamento de ${targetStudent.name} atualizado para "${newStatus}"!`);
+
+          directAnswer = newStatus === 'Em Dia'
+            ? `🎉 **Pagamento Confirmado!** Registrei a mensalidade de **${targetStudent.name}** como **EM DIA (PAGO)** no seu financeiro!\n\n• **Valor:** R$ ${(targetStudent.value || 400).toFixed(2)}\n• **Responsável:** ${targetStudent.parentName || 'Pai/Mãe'} (${targetStudent.parentPhone || 'Zap'})\n\nO recibo já está atualizado no módulo Financeiro.`
+            : `⚠️ **Status Atualizado!** A mensalidade de **${targetStudent.name}** foi marcada como **EM ATRASO**.\n\n• **Valor Pendente:** R$ ${(targetStudent.value || 400).toFixed(2)}\n\n💡 Você pode acionar o responsável no WhatsApp abaixo para enviar o lembrete com a Chave Pix em 1 clique!`;
+
+          actionCard = {
+            type: 'payment_updated',
+            title: newStatus === 'Em Dia' ? 'Pagamento Registrado: Em Dia' : 'Mensalidade Marcada em Atraso',
+            description: `Status financeiro de ${targetStudent.name} atualizado.`,
+            success: true,
+            details: {
+              'Aluno': targetStudent.name,
+              'Status': newStatus,
+              'Valor': `R$ ${(targetStudent.value || 400).toFixed(2)}`,
+              'Chave Pix': profile.pixKey || 'Não cadastrada'
+            }
+          };
+
+          contactCards = [{
+            id: targetStudent.id,
+            studentName: targetStudent.name,
+            schoolName: targetStudent.schoolName || 'Escola Principal',
+            parentName: targetStudent.parentName || 'Responsável',
+            parentPhone: targetStudent.parentPhone || '',
+            value: targetStudent.value,
+            paymentDay: targetStudent.paymentDay,
+            isAbsentToday: absentStudents.some(a => a.id === targetStudent.id),
+            status: targetStudent.status,
+            invoiceStatus: newStatus
+          }];
+        } else {
+          directAnswer = `Tio, diga qual aluno realizou o pagamento (Ex: "O Enzo pagou" ou "Confirmar pagamento da Sophia").`;
+        }
+      }
+
+      // -------------------------------------------------------------
+      // 6. ACTION: BUSCAR CONTATOS DOS PAIS & ACIONAR EM 1 CLIQUE
+      // -------------------------------------------------------------
+      else if (
+        lower.includes('contato') || 
+        lower.includes('contatos') || 
+        lower.includes('telefone') || 
+        lower.includes('telefones') || 
+        lower.includes('zap') || 
+        lower.includes('whatsapp') || 
+        lower.includes('falar com') || 
+        lower.includes('ligar pra') || 
+        lower.includes('ligar para') || 
+        lower.includes('acionar') || 
+        lower.includes('responsavel') || 
+        lower.includes('responsáveis') || 
+        lower.includes('pais')
+      ) {
+        // Filter students based on query or return all
+        let matched = activeStudents.filter(s => 
+          lower.includes(s.name.toLowerCase()) || 
+          (s.schoolName && lower.includes(s.schoolName.toLowerCase())) ||
+          (s.parentName && lower.includes(s.parentName.toLowerCase()))
+        );
+
+        if (matched.length === 0) {
+          matched = activeStudents;
+        }
+
+        contactCards = matched.map(s => {
+          const isAbsent = absentStudents.some(a => a.id === s.id);
+          const fin = finances.find(f => f.studentId === s.id || f.studentName?.toLowerCase() === s.name.toLowerCase());
+          return {
+            id: s.id,
+            studentName: s.name,
+            schoolName: s.schoolName || 'Escola Não Informada',
+            parentName: s.parentName || 'Responsável',
+            parentPhone: s.parentPhone || '',
+            value: s.value,
+            paymentDay: s.paymentDay,
+            isAbsentToday: isAbsent,
+            status: s.status,
+            invoiceStatus: (fin?.status as InvoiceStatus) || 'Em Dia'
+          };
+        });
+
+        directAnswer = `📱 Encontrei **${contactCards.length} responsável(is)**! Você pode acionar no WhatsApp com mensagem de chegada/pix em 1 clique ou ligar diretamente:`;
+      }
+
+      // -------------------------------------------------------------
+      // 7. INFORMATIVE FALLBACKS (Escolas, Vagas, Faltas, Finanças)
+      // -------------------------------------------------------------
+      else if (lower.includes('escola') || lower.includes('escolas')) {
         const schoolList = Object.entries(studentsBySchool).map(([sch, list]) => 
           `🏫 **${sch}** (${list.length} alunos):\n${list.map(s => `  • ${s.name}${s.parentPhone ? ` (Zap: ${s.parentPhone})` : ''}`).join('\n')}`
         ).join('\n\n');
@@ -487,7 +1007,22 @@ export function AICSMSupportAssistantModal({
       } else if (lower.includes('cobrar') || lower.includes('pendente') || lower.includes('atraso') || lower.includes('deve')) {
         if (overdueFinances.length > 0) {
           const list = overdueFinances.map(f => `• **${f.studentName || 'Aluno'}**: R$ ${f.value.toFixed(2)} (Vencimento: ${f.dueDate || 'Recente'})`).join('\n');
-          directAnswer = `💸 **Alunos com Mensalidade Pendente:**\n\n${list}\n\n💡 Você pode clicar no botão de cobrança no módulo Financeiro para enviar a mensagem automática com Chave Pix no WhatsApp dos pais!`;
+          directAnswer = `💸 **Alunos com Mensalidade Pendente:**\n\n${list}\n\n💡 Você pode clicar no botão de cobrança abaixo para enviar a mensagem automática com Chave Pix no WhatsApp dos pais!`;
+          
+          contactCards = activeStudents
+            .filter(s => overdueFinances.some(f => f.studentId === s.id || f.studentName === s.name))
+            .map(s => ({
+              id: s.id,
+              studentName: s.name,
+              schoolName: s.schoolName || 'Escola Principal',
+              parentName: s.parentName || 'Responsável',
+              parentPhone: s.parentPhone || '',
+              value: s.value,
+              paymentDay: s.paymentDay,
+              isAbsentToday: absentStudents.some(a => a.id === s.id),
+              status: s.status,
+              invoiceStatus: 'Em Atraso'
+            }));
         } else {
           directAnswer = `🎉 Excelente notícia, Tio! Todos os seus alunos estão com as mensalidades **em dia** no sistema! Total de ${activeStudents.length} alunos ativos gerando receita.`;
         }
@@ -497,13 +1032,26 @@ export function AICSMSupportAssistantModal({
         if (absentStudents.length > 0) {
           const list = absentStudents.map(s => `• **${s.name}** (${s.schoolName || 'Escola'})`).join('\n');
           directAnswer = `🚫 **Alunos que NÃO vão para a escola hoje (${todayStr}):**\n\n${list}\n\n✅ Os responsáveis já registraram a ausência. Você não precisa passar no endereço deles hoje!`;
+          contactCards = absentStudents.map(s => ({
+            id: s.id,
+            studentName: s.name,
+            schoolName: s.schoolName || 'Escola Principal',
+            parentName: s.parentName || 'Responsável',
+            parentPhone: s.parentPhone || '',
+            value: s.value,
+            paymentDay: s.paymentDay,
+            isAbsentToday: true,
+            status: s.status,
+            invoiceStatus: 'Em Dia'
+          }));
         } else {
           directAnswer = `🚍 **Presença de Hoje:** Nenhum responsável avisou ausência até o momento. Todos os **${activeStudents.length} alunos** estão confirmados para a rota de hoje!`;
         }
-      } else if (lower.includes('pix') || lower.includes('zap') || lower.includes('whatsapp') || lower.includes('cobrança')) {
-        directAnswer = `📱 **Como enviar cobrança Pix no Zap:**\n\n1. Acesse o menu **Financeiro** ou **Alunos**\n2. Clique no botão verde de **WhatsApp / Cobrança Pix** ao lado do aluno\n3. O SchoolVan gera uma mensagem personalizada com sua Chave Pix (**${profile?.pixKey || 'Não cadastrada'}**) e o valor exato da mensalidade para enviar em 1 clique!`;
       }
 
+      // -------------------------------------------------------------
+      // 8. GEMINI AI FALLBACK WITH ACTION PARSING
+      // -------------------------------------------------------------
       if (!directAnswer) {
         const schoolsSummary = Object.entries(studentsBySchool)
           .map(([sch, list]) => `${sch}: ${list.map(s => s.name).join(', ')}`)
@@ -522,6 +1070,8 @@ DADOS EM TEMPO REAL DO MOTORISTA:
 - Alunos Ausentes Hoje: ${absentStudents.map(s => s.name).join(', ') || 'Nenhum'}
 - Faturas em Atraso: ${overdueFinances.length} pendentes
 - Solicitações de Vagas (Leads): ${leads.length} pedidos de pais
+- Equipe / Monitores: ${teamMembers.length} cadastrados
+- Vans na Frota: ${vehicles.length} cadastradas
 
 Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
 
@@ -537,7 +1087,35 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
 
         if (response.ok) {
           const data = await response.json();
-          directAnswer = data.reply || data.text || 'Entendido, Tio! Estou à disposição para ajudar com sua rota.';
+          let replyText = data.reply || data.text || 'Entendido, Tio! Estou à disposição para ajudar com sua rota.';
+          
+          // Strip action block if model included it in text
+          if (replyText.includes('```action')) {
+            const actionMatch = replyText.match(/```action\s*([\s\S]*?)\s*```/);
+            if (actionMatch) {
+              try {
+                const parsedAction = JSON.parse(actionMatch[1]);
+                if (parsedAction.type === 'SEARCH_CONTACTS') {
+                  contactCards = activeStudents.map(s => ({
+                    id: s.id,
+                    studentName: s.name,
+                    schoolName: s.schoolName || 'Escola',
+                    parentName: s.parentName || 'Responsável',
+                    parentPhone: s.parentPhone || '',
+                    value: s.value,
+                    paymentDay: s.paymentDay,
+                    isAbsentToday: absentStudents.some(a => a.id === s.id),
+                    status: s.status
+                  }));
+                }
+              } catch (e) {
+                console.error('Error parsing AI action JSON', e);
+              }
+            }
+            replyText = replyText.replace(/```action[\s\S]*?```/g, '').trim();
+          }
+
+          directAnswer = replyText;
         } else {
           directAnswer = `Tio, consultei seus registros: você tem **${activeStudents.length} alunos cadastrados**, **${availableVacancies} vagas disponíveis** e **${absentStudents.length} ausências registradas hoje**. Se precisar de algo específico sobre escolas, cobranças Pix ou rotas, é só me perguntar!`;
         }
@@ -547,11 +1125,13 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
         id: (Date.now() + 1).toString(),
         sender: 'ai',
         text: directAnswer,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        actionCard: actionCard,
+        contactCards: contactCards
       };
 
       setMessages(prev => [...prev, aiResponse]);
-      speakTioIAPrompt(directAnswer);
+      speakTioIAPrompt(directAnswer.replace(/[*#_`]/g, ''));
 
     } catch (err) {
       console.error('Error fetching Tio IA reply', err);
@@ -1295,14 +1875,148 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
               {messages.map((msg) => (
                 <div 
                   key={msg.id}
-                  className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
+                  className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'} space-y-2`}
                 >
-                  <div className={`max-w-[88%] rounded-2xl p-4 text-xs leading-relaxed shadow-sm relative group ${
+                  <div className={`max-w-[92%] sm:max-w-[88%] rounded-2xl p-4 text-xs leading-relaxed shadow-sm relative group ${
                     msg.sender === 'user' 
                       ? 'bg-yellow-400 text-gray-950 font-medium rounded-tr-none' 
                       : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-100 dark:border-gray-700/60 rounded-tl-none whitespace-pre-wrap'
                   }`}>
                     {msg.text}
+
+                    {/* Operational Action Feedback Card if generated */}
+                    {msg.actionCard && (
+                      <div className="mt-3 bg-gradient-to-r from-yellow-500/10 via-amber-500/10 to-yellow-500/10 border-2 border-yellow-400/40 rounded-2xl p-3.5 space-y-2 text-gray-900 dark:text-white shadow-sm">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-xl bg-yellow-400 text-gray-950 flex items-center justify-center font-black shrink-0 shadow">
+                            <Check size={16} />
+                          </div>
+                          <div>
+                            <h5 className="font-black text-xs text-yellow-900 dark:text-yellow-300">
+                              {msg.actionCard.title}
+                            </h5>
+                            <p className="text-[11px] text-gray-600 dark:text-gray-400">
+                              {msg.actionCard.description}
+                            </p>
+                          </div>
+                        </div>
+
+                        {msg.actionCard.details && (
+                          <div className="grid grid-cols-2 gap-2 bg-white/60 dark:bg-gray-900/60 p-2.5 rounded-xl text-[11px] border border-yellow-400/20 mt-1">
+                            {Object.entries(msg.actionCard.details).map(([key, val]) => (
+                              <div key={key} className="space-y-0.5">
+                                <span className="text-[9px] font-black uppercase text-gray-500 block">{key}</span>
+                                <span className="font-bold text-gray-900 dark:text-gray-100 truncate block">{val}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Contact Cards with 1-Click WhatsApp & Call Acionamento */}
+                    {msg.contactCards && msg.contactCards.length > 0 && (
+                      <div className="mt-3 space-y-2 pt-2 border-t border-gray-100 dark:border-gray-700/60">
+                        <div className="text-[10px] font-black uppercase tracking-wider text-gray-500 flex items-center gap-1">
+                          <Phone size={12} className="text-yellow-500" /> Acionamento Rápido de Responsáveis ({msg.contactCards.length})
+                        </div>
+                        <div className="grid grid-cols-1 gap-2">
+                          {msg.contactCards.map((contact) => {
+                            const cleanPhone = (contact.parentPhone || '').replace(/\D/g, '');
+                            const isLate = contact.invoiceStatus === 'Em Atraso';
+                            
+                            // Pre-configured message templates
+                            const defaultArrivalMsg = `Olá ${contact.parentName || 'Responsável'}! Aqui é o Tio da Van Escolar. Estamos a 5 minutos do ponto para o embarque do(a) ${contact.studentName}. 🚌💛`;
+                            const defaultPixMsg = `Olá ${contact.parentName || 'Responsável'}! Segue lembrete da mensalidade escolar do(a) ${contact.studentName} no valor de R$ ${(contact.value || 400).toFixed(2)}. Chave Pix do Tio: ${profile?.pixKey || profile?.phone || 'Consulte o app'}. Obrigado! 🙏`;
+                            
+                            return (
+                              <div 
+                                key={contact.id}
+                                className="bg-gray-50 dark:bg-gray-900/90 p-3 rounded-2xl border border-gray-200 dark:border-gray-700 space-y-2.5 shadow-sm"
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-xl bg-yellow-400 text-gray-950 flex items-center justify-center font-black text-xs shrink-0">
+                                      {contact.studentName.charAt(0)}
+                                    </div>
+                                    <div>
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <h5 className="font-black text-xs text-gray-900 dark:text-white">
+                                          {contact.studentName}
+                                        </h5>
+                                        {contact.isAbsentToday && (
+                                          <span className="px-1.5 py-0.2 bg-red-500/20 text-red-700 dark:text-red-300 text-[9px] font-black rounded-md">
+                                            Não Vai Hoje
+                                          </span>
+                                        )}
+                                        {isLate && (
+                                          <span className="px-1.5 py-0.2 bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[9px] font-black rounded-md">
+                                            Em Atraso
+                                          </span>
+                                        )}
+                                      </div>
+                                      <p className="text-[10px] text-gray-500">
+                                        {contact.parentName} • {contact.schoolName}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  {contact.value && (
+                                    <div className="text-right">
+                                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                                        R$ {contact.value.toFixed(2)}
+                                      </span>
+                                      <span className="text-[9px] text-gray-400 block">Dia {contact.paymentDay || 10}</span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* 1-Click Action Buttons */}
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-1">
+                                  {/* Button 1: WhatsApp Chegando */}
+                                  <a
+                                    href={createWhatsAppUrl(contact.parentPhone, defaultArrivalMsg)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="px-2.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-[10px] flex items-center justify-center gap-1.5 shadow transition-all cursor-pointer truncate active:scale-95"
+                                    title="Avisar que a van está chegando"
+                                  >
+                                    <MessageCircle size={13} />
+                                    <span>Van Chegando</span>
+                                  </a>
+
+                                  {/* Button 2: WhatsApp Cobrança Pix */}
+                                  <a
+                                    href={createWhatsAppUrl(contact.parentPhone, defaultPixMsg)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="px-2.5 py-2 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-xl text-[10px] flex items-center justify-center gap-1.5 shadow transition-all cursor-pointer truncate active:scale-95"
+                                    title="Enviar lembrete de Pix"
+                                  >
+                                    <CreditCard size={13} />
+                                    <span>Cobrar Pix</span>
+                                  </a>
+
+                                  {/* Button 3: Ligar Direto */}
+                                  <a
+                                    href={cleanPhone ? `tel:${cleanPhone}` : '#'}
+                                    className={`col-span-2 sm:col-span-1 px-2.5 py-2 font-bold rounded-xl text-[10px] flex items-center justify-center gap-1.5 transition-all truncate active:scale-95 ${
+                                      cleanPhone
+                                        ? 'bg-blue-600 hover:bg-blue-500 text-white shadow cursor-pointer'
+                                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                    }`}
+                                    title="Ligar para o responsável"
+                                  >
+                                    <Phone size={13} />
+                                    <span>Ligar</span>
+                                  </a>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Speech Output Button for AI responses */}
                     {msg.sender === 'ai' && (
