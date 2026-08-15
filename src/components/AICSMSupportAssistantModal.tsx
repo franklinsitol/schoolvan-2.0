@@ -50,6 +50,13 @@ import { checkCanAddStudent, checkCanAddVehicle, checkCanAddTeamMember } from '.
 import { getReadNotifications, markNotificationAsRead } from '../lib/tioNotifications';
 import { db } from '../lib/firebase';
 import { doc, updateDoc, collection, addDoc, setDoc } from 'firebase/firestore';
+import { 
+  markStudentAbsent, 
+  reintegrateStudentToRoute, 
+  isStudentAbsentOnDate, 
+  formatDateBR, 
+  getTodayStr 
+} from '../lib/absence';
 import toast from 'react-hot-toast';
 
 export interface ContactCardItem {
@@ -63,6 +70,21 @@ export interface ContactCardItem {
   isAbsentToday: boolean;
   status: string;
   invoiceStatus?: InvoiceStatus;
+}
+
+export interface StudentDraft {
+  studentId?: string;
+  mode?: 'create' | 'edit';
+  name: string;
+  schoolName: string;
+  shift: string; // 'Manhã' | 'Tarde' | 'Integral'
+  studentAddress: string;
+  parentName: string;
+  parentPhone: string;
+  value: number | string;
+  paymentDay: number | string;
+  currentAskingField?: 'name' | 'school' | 'shift' | 'address' | 'parent' | 'finance' | 'review';
+  isDraftSaved?: boolean;
 }
 
 export interface ActionCardData {
@@ -83,6 +105,7 @@ interface Message {
   timestamp: string;
   actionCard?: ActionCardData;
   contactCards?: ContactCardItem[];
+  studentDraft?: StudentDraft;
 }
 
 interface AICSMSupportAssistantModalProps {
@@ -212,21 +235,34 @@ export function AICSMSupportAssistantModal({
   const [isListening, setIsListening] = useState(false);
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
   const [activeTemplateStudentId, setActiveTemplateStudentId] = useState<string | null>(null);
+  const [activeStudentDraft, setActiveStudentDraft] = useState<StudentDraft | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
   // Quick contextual prompts matching user exact requests
-  const quickQuestions = [
-    '➕ Cadastrar aluno Pedro, escola Objetivo, pai Carlos 11988887777, valor 450',
+  const defaultQuickQuestions = [
+    '➕ Cadastrar novo aluno passo a passo',
     '💸 QUAIS alunos eu preciso cobrar esse mês?',
-    '📱 Falar com os pais / Acionar responsáveis no Zap',
+    '📱 Falar com os pais / Acionar no Zap',
     '👥 Cadastrar monitora Juliana 11977776666',
     '🚐 Cadastrar van Master placa ABC-1234 capacidade 20',
     '🚫 Quem NÃO vai hoje para a escola?',
     '🏫 Quem são os alunos de cada escola?',
     '💺 Quantos assentos / vagas tenho disponíveis?'
   ];
+
+  const draftQuickQuestions = [
+    '💾 Salvar Rascunho / Continuar Depois',
+    '✅ Concluir Cadastro Agora',
+    'Turno Manhã',
+    'Turno Tarde',
+    'Turno Integral',
+    'Vencimento Dia 10',
+    '❌ Cancelar Cadastro'
+  ];
+
+  const quickQuestions = activeStudentDraft ? draftQuickQuestions : defaultQuickQuestions;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -551,6 +587,264 @@ export function AICSMSupportAssistantModal({
     return `https://wa.me/${formatted}?text=${encodeURIComponent(text)}`;
   };
 
+  // Save student draft to continue later
+  const handleSaveDraftLater = async (draftToSave?: StudentDraft) => {
+    const current = draftToSave || activeStudentDraft;
+    if (!current || !profile?.id) return;
+
+    const studentName = current.name.trim() || 'Aluno (Rascunho)';
+    
+    const draftData = {
+      name: studentName,
+      schoolName: current.schoolName.trim() || 'A definir',
+      grade: current.shift || 'Manhã',
+      studentAddress: current.studentAddress.trim() || '',
+      parentName: current.parentName.trim() || 'Responsável',
+      parentPhone: current.parentPhone.trim() || profile.phone || '',
+      tel1: current.parentPhone.trim() || profile.phone || '',
+      value: Number(current.value) || 350,
+      paymentDay: Number(current.paymentDay) || 10,
+      vehicleId: vehicles[0]?.id || '',
+      status: 'Ativo',
+      boardingStatus: 'Casa',
+      isDraft: true,
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      await addDoc(collection(db, 'drivers', profile.id, 'students'), draftData);
+      playBusHornSound();
+      toast.success(`Rascunho de ${studentName} salvo com sucesso!`);
+
+      const saveMessage: Message = {
+        id: Date.now().toString(),
+        sender: 'ai',
+        text: `💾 **Rascunho Salvo com Sucesso, Tio!**\n\nGuardei os dados do(a) **${studentName}** com segurança. Você pode continuar o preenchimento a qualquer momento pelo chat ou na lista de alunos!\n\n• **Nome:** ${studentName}\n• **Escola:** ${current.schoolName || 'A definir'} (${current.shift || 'Manhã'})\n• **Endereço:** ${current.studentAddress || 'Pendente'}\n• **Mensalidade:** R$ ${Number(current.value || 350).toFixed(2)}\n• **Responsável:** ${current.parentName || 'Pai/Mãe'} (${current.parentPhone || 'Sem tel'})`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        actionCard: {
+          type: 'student_created',
+          title: 'Rascunho do Aluno Salvo!',
+          description: `${studentName} foi salvo como rascunho e pode ser continuado a qualquer momento.`,
+          success: true,
+          details: {
+            'Aluno': studentName,
+            'Escola': current.schoolName || 'A definir',
+            'Mensalidade': `R$ ${Number(current.value || 350).toFixed(2)}`,
+            'Status': 'Rascunho Salvo'
+          }
+        }
+      };
+
+      setMessages(prev => [...prev, saveMessage]);
+      speakTiaPrompt(`Rascunho de ${studentName} salvo com sucesso!`);
+      setActiveStudentDraft(null);
+    } catch (error) {
+      console.error('Error saving draft', error);
+      toast.error('Erro ao salvar rascunho.');
+    }
+  };
+
+  // Complete student draft (create or edit) and write to Firestore + Finance
+  const handleCompleteDraft = async (draftToComplete?: StudentDraft) => {
+    const current = draftToComplete || activeStudentDraft;
+    if (!current || !profile?.id) return;
+
+    const studentName = current.name.trim();
+    if (!studentName) {
+      toast.error('Por favor, informe o nome do aluno!');
+      return;
+    }
+
+    const studentValue = Number(current.value) || 350;
+    const paymentDay = Number(current.paymentDay) || 10;
+    const schoolName = current.schoolName.trim() || 'Escola Principal';
+    const parentName = current.parentName.trim() || 'Responsável';
+    const parentPhone = current.parentPhone.trim() || profile.phone || '';
+
+    // If Editing Existing Student
+    if (current.studentId && current.mode === 'edit') {
+      const updatePayload: Partial<Student> = {
+        name: studentName,
+        schoolName: schoolName,
+        grade: current.shift || 'Manhã',
+        studentAddress: current.studentAddress.trim() || '',
+        parentName: parentName,
+        parentPhone: parentPhone,
+        tel1: parentPhone,
+        value: studentValue,
+        paymentDay: paymentDay
+      };
+
+      try {
+        await updateDoc(doc(db, 'drivers', profile.id, 'students', current.studentId), updatePayload);
+
+        // Update Finance record
+        try {
+          await updateDoc(doc(db, 'drivers', profile.id, 'finance', current.studentId), {
+            studentName: studentName,
+            parentPhone: parentPhone,
+            value: studentValue,
+            paymentDay: paymentDay,
+            dueDate: `${paymentDay}/${(new Date().getMonth() + 1).toString().padStart(2, '0')}`
+          });
+        } catch {
+          // If finance doc didn't exist, ignore or create
+        }
+
+        playBusHornSound();
+        toast.success(`Cadastro de ${studentName} atualizado com sucesso!`);
+
+        const directAnswer = `🎉 **Prontinho, Tio!** As alterações do aluno **${studentName}** foram salvas no sistema:\n\n• **Escola:** ${schoolName} (${current.shift || 'Manhã'})\n• **Endereço:** ${current.studentAddress || 'Ponto combinado'}\n• **Mensalidade:** R$ ${studentValue.toFixed(2)} (Vencimento todo dia ${paymentDay})\n• **Responsável:** ${parentName} ${parentPhone ? `(Zap: ${parentPhone})` : ''}`;
+
+        const updateMsg: Message = {
+          id: Date.now().toString(),
+          sender: 'ai',
+          text: directAnswer,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          actionCard: {
+            type: 'student_updated',
+            title: 'Cadastro do Aluno Atualizado!',
+            description: `Dados de ${studentName} atualizados com sucesso.`,
+            success: true,
+            details: {
+              'Aluno': studentName,
+              'Escola': `${schoolName} (${current.shift || 'Manhã'})`,
+              'Endereço': current.studentAddress || 'Ponto combinado',
+              'Mensalidade': `R$ ${studentValue.toFixed(2)}`,
+              'Responsável': `${parentName} (${parentPhone || 'Sem tel'})`
+            }
+          },
+          contactCards: [{
+            id: current.studentId,
+            studentName: studentName,
+            schoolName: schoolName,
+            parentName: parentName,
+            parentPhone: parentPhone,
+            value: studentValue,
+            paymentDay: paymentDay,
+            isAbsentToday: false,
+            status: 'Ativo',
+            invoiceStatus: 'Em Dia'
+          }]
+        };
+
+        setMessages(prev => [...prev, updateMsg]);
+        speakTiaPrompt(`Show de bola, Tio! Os dados de ${studentName} foram atualizados com sucesso.`);
+        setActiveStudentDraft(null);
+      } catch (error) {
+        console.error('Error updating student', error);
+        toast.error('Erro ao atualizar aluno.');
+      }
+      return;
+    }
+
+    // Creating New Student
+    const canAdd = checkCanAddStudent(profile, activeStudents.length, onOpenUpgradeModal);
+    if (!canAdd) {
+      return;
+    }
+
+    const newStudentData = {
+      name: studentName,
+      schoolName: schoolName,
+      grade: current.shift || 'Manhã',
+      studentAddress: current.studentAddress.trim() || '',
+      parentName: parentName,
+      parentPhone: parentPhone,
+      tel1: parentPhone,
+      value: studentValue,
+      paymentDay: paymentDay,
+      vehicleId: vehicles[0]?.id || '',
+      status: 'Ativo',
+      boardingStatus: 'Casa',
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      const newDocRef = await addDoc(collection(db, 'drivers', profile.id, 'students'), newStudentData);
+
+      // Also create initial invoice in finance
+      await setDoc(doc(db, 'drivers', profile.id, 'finance', newDocRef.id), {
+        studentId: newDocRef.id,
+        studentName: studentName,
+        parentPhone: parentPhone,
+        value: studentValue,
+        type: 'Receita',
+        status: 'Em Dia',
+        paymentDay: paymentDay,
+        dueDate: `${paymentDay}/${(new Date().getMonth() + 1).toString().padStart(2, '0')}`,
+        createdAt: new Date().toISOString()
+      });
+
+      playBusHornSound();
+      toast.success(`Aluno ${studentName} cadastrado com sucesso!`);
+
+      const directAnswer = `🎉 **Show de bola, Tio!** O aluno **${studentName}** foi cadastrado com sucesso na sua lista escolar!\n\n• **Escola:** ${schoolName} (${current.shift || 'Manhã'})\n• **Endereço:** ${current.studentAddress || 'Ponto combinado'}\n• **Mensalidade:** R$ ${studentValue.toFixed(2)} (Vencimento todo dia ${paymentDay})\n• **Responsável:** ${parentName} ${parentPhone ? `(Zap: ${parentPhone})` : ''}\n\nVocê já pode enviar as boas-vindas no WhatsApp com 1 clique abaixo:`;
+
+      const completeMsg: Message = {
+        id: Date.now().toString(),
+        sender: 'ai',
+        text: directAnswer,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        actionCard: {
+          type: 'student_created',
+          title: 'Aluno Cadastrado com Sucesso!',
+          description: `${studentName} agora faz parte da sua rota escolar.`,
+          success: true,
+          details: {
+            'Aluno': studentName,
+            'Escola': `${schoolName} (${current.shift || 'Manhã'})`,
+            'Endereço': current.studentAddress || 'Ponto combinado',
+            'Mensalidade': `R$ ${studentValue.toFixed(2)}`,
+            'Responsável': `${parentName} (${parentPhone || 'Sem tel'})`
+          }
+        },
+        contactCards: [{
+          id: newDocRef.id,
+          studentName: studentName,
+          schoolName: schoolName,
+          parentName: parentName,
+          parentPhone: parentPhone,
+          value: studentValue,
+          paymentDay: paymentDay,
+          isAbsentToday: false,
+          status: 'Ativo',
+          invoiceStatus: 'Em Dia'
+        }]
+      };
+
+      setMessages(prev => [...prev, completeMsg]);
+      speakTiaPrompt(`Show de bola, Tio! O aluno ${studentName} foi cadastrado com sucesso na sua rota escolar.`);
+      setActiveStudentDraft(null);
+    } catch (error) {
+      console.error('Error completing student draft', error);
+      toast.error('Erro ao cadastrar aluno.');
+    }
+  };
+
+  // Cancel student draft
+  const handleCancelDraft = () => {
+    setActiveStudentDraft(null);
+    const cancelMsg: Message = {
+      id: Date.now().toString(),
+      sender: 'ai',
+      text: 'Sem problemas, Tio! Cancelei o cadastro em andamento. O que mais posso te ajudar?',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    setMessages(prev => [...prev, cancelMsg]);
+    speakTiaPrompt('Cadastro cancelado. O que mais posso te ajudar?');
+  };
+
+  // Update in-progress draft fields
+  const handleUpdateDraft = (updates: Partial<StudentDraft>) => {
+    setActiveStudentDraft(prev => {
+      if (!prev) return null;
+      const updated = { ...prev, ...updates };
+      setMessages(msgs => msgs.map(m => m.studentDraft ? { ...m, studentDraft: updated } : m));
+      return updated;
+    });
+  };
+
   // Send Message Logic with Gemini Context & Full Operational Action Engine
   const handleSendMessage = async (textToSend?: string) => {
     const query = textToSend || inputText;
@@ -571,19 +865,168 @@ export function AICSMSupportAssistantModal({
       let directAnswer = '';
       let actionCard: ActionCardData | undefined = undefined;
       let contactCards: ContactCardItem[] | undefined = undefined;
+      let generatedDraft: StudentDraft | undefined = undefined;
       const lower = query.toLowerCase().trim();
 
       // -------------------------------------------------------------
-      // 1. ACTION: CADASTRAR ALUNO (CREATE STUDENT)
+      // 1. ACTIVE STUDENT DRAFT CONVERSATION FLOW
       // -------------------------------------------------------------
-      if (
-        (lower.startsWith('cadastrar aluno') || 
-         lower.startsWith('cadastra aluno') || 
-         lower.startsWith('adicionar aluno') || 
-         lower.startsWith('adiciona aluno') || 
-         lower.startsWith('novo aluno') ||
-         lower.includes('cadastrar o aluno') ||
-         lower.includes('adicionar o aluno')) && 
+      if (activeStudentDraft && profile?.id) {
+        // Option A: Cancel
+        if (
+          lower.includes('cancelar') || 
+          lower.includes('cancela') || 
+          lower.includes('deixa pra lá') || 
+          lower.includes('não quero mais') ||
+          lower.includes('parar')
+        ) {
+          handleCancelDraft();
+          setLoading(false);
+          return;
+        }
+
+        // Option B: Save Draft & Continue Later
+        if (
+          lower.includes('salvar rascunho') || 
+          lower.includes('salva rascunho') || 
+          lower.includes('continuar depois') || 
+          lower.includes('continua depois') || 
+          lower.includes('salva depois') || 
+          lower.includes('salvar depois') || 
+          lower.includes('guardar rascunho')
+        ) {
+          await handleSaveDraftLater(activeStudentDraft);
+          setLoading(false);
+          return;
+        }
+
+        // Option C: Conclude / Finalize Registration
+        if (
+          lower.includes('concluir') || 
+          lower.includes('finalizar') || 
+          lower.includes('salvar agora') || 
+          lower.includes('cadastrar agora') || 
+          lower.includes('pode salvar') || 
+          lower.includes('pode cadastrar') ||
+          lower.includes('concluir cadastro')
+        ) {
+          await handleCompleteDraft(activeStudentDraft);
+          setLoading(false);
+          return;
+        }
+
+        // Option D: Conversational Step-by-Step Field Filling
+        const updatedDraft: StudentDraft = { ...activeStudentDraft };
+
+        // 1. Check Shift
+        if (lower.includes('manhã') || lower.includes('manha') || lower.includes('matutino')) {
+          updatedDraft.shift = 'Manhã';
+        } else if (lower.includes('tarde') || lower.includes('vespertino')) {
+          updatedDraft.shift = 'Tarde';
+        } else if (lower.includes('integral')) {
+          updatedDraft.shift = 'Integral';
+        }
+
+        // 2. Check Phone
+        const phoneMatch = query.match(/(\(?\d{2}\)?\s*9?\d{4}[-\s]?\d{4})/);
+        if (phoneMatch) {
+          updatedDraft.parentPhone = phoneMatch[0].replace(/\D/g, '');
+        }
+
+        // 3. Check Value
+        const valueMatch = query.match(/(?:valor|mensalidade|r\$)\s*[:=]?\s*(\d+(?:[.,]\d+)?)/i) || query.match(/(\d+)\s*(?:reais|mensal)/i);
+        if (valueMatch) {
+          updatedDraft.value = parseFloat(valueMatch[1].replace(',', '.'));
+        }
+
+        // 4. Check Payment Day
+        const dayMatch = query.match(/(?:dia|vencimento|todo dia)\s*[:=]?\s*(\d{1,2})/i);
+        if (dayMatch) {
+          const d = parseInt(dayMatch[1], 10);
+          if (d >= 1 && d <= 31) updatedDraft.paymentDay = d;
+        }
+
+        // 5. Context-based Field Assignment
+        const currentField = activeStudentDraft.currentAskingField || 'name';
+
+        if (currentField === 'name' && !updatedDraft.name) {
+          const cleanName = query
+            .replace(/^(o nome é|o nome do aluno é|o aluno se chama|o aluno é|nome:|é o|é a|chama)\s+/i, '')
+            .split(/[,;]|\bescola\b|\bturno\b|\bcolegio\b/i)[0]
+            .trim();
+          updatedDraft.name = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+        } else if (currentField === 'school' && (!updatedDraft.schoolName || updatedDraft.schoolName === 'A definir')) {
+          const cleanSchool = query
+            .replace(/^(a escola é|escola|colégio|colegio|estuda no|estuda na|vai para|vai pro)\s+/i, '')
+            .split(/[,;]|\bturno\b|\bde manhã\b|\bde tarde\b|\bmãe\b|\bpai\b/i)[0]
+            .trim();
+          updatedDraft.schoolName = cleanSchool.charAt(0).toUpperCase() + cleanSchool.slice(1);
+        } else if (currentField === 'address' && !updatedDraft.studentAddress) {
+          if (!lower.includes('pular') && !lower.includes('não sei') && !lower.includes('depois')) {
+            const cleanAddr = query
+              .replace(/^(mora na|mora no|endereço é|o endereço é|rua|av|avenida)\s+/i, (match) => {
+                return (match.toLowerCase().includes('rua') || match.toLowerCase().includes('av')) ? match : '';
+              })
+              .trim();
+            updatedDraft.studentAddress = cleanAddr;
+          } else {
+            updatedDraft.studentAddress = 'Ponto combinado';
+          }
+        } else if (currentField === 'parent' && (!updatedDraft.parentName || !updatedDraft.parentPhone)) {
+          const parentMatch = query.match(/(?:pai|mãe|mae|responsável|responsavel)\s+([A-Za-zÀ-ÿ]+)/i);
+          if (parentMatch) {
+            updatedDraft.parentName = parentMatch[1].trim();
+          } else if (!updatedDraft.parentName && query.split(' ')[0].length > 2 && !query.includes('11') && !phoneMatch) {
+            updatedDraft.parentName = query.split(' ')[0];
+          }
+        } else if (currentField === 'finance') {
+          const numMatch = query.match(/\b\d{2,4}\b/);
+          if (numMatch && !valueMatch) {
+            const val = parseFloat(numMatch[0]);
+            if (val >= 100) updatedDraft.value = val;
+          }
+        }
+
+        // Determine what is the next missing field
+        let nextField: 'name' | 'school' | 'address' | 'parent' | 'finance' | 'review' = 'review';
+        if (!updatedDraft.name) {
+          nextField = 'name';
+          directAnswer = `Com certeza, Tio! Para começar: **qual é o nome completo do aluno?**\n\n*(Você também pode preencher na fichinha abaixo ou salvar como rascunho para continuar depois)*`;
+        } else if (!updatedDraft.schoolName || updatedDraft.schoolName === 'A definir') {
+          nextField = 'school';
+          directAnswer = `Show de bola! Já anotei o nome **${updatedDraft.name}**. 🏫\n\nQual é a **escola de destino** e o **turno** (Manhã, Tarde ou Integral) dele(a)?`;
+        } else if (!updatedDraft.studentAddress) {
+          nextField = 'address';
+          directAnswer = `Perfeito! Escola **${updatedDraft.schoolName} (${updatedDraft.shift || 'Manhã'})** anotada. 📍\n\nQual é o **endereço da casa** (ponto de embarque do ${updatedDraft.name})?\n\n💡 *Se quiser pular, basta dizer "pular" ou "salvar rascunho".*`;
+        } else if (!updatedDraft.parentPhone || !updatedDraft.parentName) {
+          nextField = 'parent';
+          directAnswer = `Ótimo! 👨‍👩‍👧 Quem é o **responsável** (pai ou mãe) e qual o **WhatsApp com DDD** para recados da van?`;
+        } else if (!updatedDraft.value || !updatedDraft.paymentDay) {
+          nextField = 'finance';
+          directAnswer = `Maravilha! 💰 Qual o **valor da mensalidade** (R$) e o **dia de vencimento** (1 a 31)?`;
+        } else {
+          nextField = 'review';
+          directAnswer = `🎉 **Tudo preenchido, Tio!** Confira a fichinha completa do(a) **${updatedDraft.name}** abaixo.\n\nPodemos **concluir o cadastro agora** ou você deseja salvar como rascunho para revisar depois?`;
+        }
+
+        updatedDraft.currentAskingField = nextField;
+        setActiveStudentDraft(updatedDraft);
+        generatedDraft = updatedDraft;
+      }
+
+      // -------------------------------------------------------------
+      // 2. ACTION: CADASTRAR ALUNO (START STEP-BY-STEP OR COMPLETE)
+      // -------------------------------------------------------------
+      else if (
+        (lower.includes('cadastrar aluno') || 
+         lower.includes('cadastra aluno') || 
+         lower.includes('adicionar aluno') || 
+         lower.includes('adiciona aluno') || 
+         lower.includes('novo aluno') ||
+         lower.includes('cadastre um aluno') ||
+         lower.includes('quero cadastrar') ||
+         lower.includes('incluir aluno') ||
+         lower.includes('cadastro de aluno')) && 
         profile?.id
       ) {
         // Check student limits for the active plan
@@ -593,68 +1036,98 @@ export function AICSMSupportAssistantModal({
           return;
         }
 
-        // Extract student details
-        // Example: "cadastrar aluno Enzo, escola Objetivo, pai Carlos 11988887777, valor 450"
-        let studentName = '';
-        let schoolName = 'Escola Principal';
-        let parentName = 'Responsável';
-        let parentPhone = '';
-        let studentValue = 400;
-        let paymentDay = 10;
-
-        // Clean query to parse
+        // Clean query to parse details if provided
         const cleanQuery = query
-          .replace(/^(cadastrar|cadastra|adicionar|adiciona|novo|incluir)(\s+o)?\s+aluno(\s*:)?/i, '')
+          .replace(/^(cadastre|cadastrar|cadastra|adicionar|adiciona|novo|incluir|quero cadastrar)(\s+um|\s+o)?\s+aluno(\s*:)?/i, '')
           .trim();
 
-        // Extract phone if exists
+        let studentName = '';
+        let schoolName = '';
+        let shift = 'Manhã';
+        let parentName = '';
+        let parentPhone = '';
+        let studentAddress = '';
+        let studentValue = 350;
+        let paymentDay = 10;
+
+        // Shift detection
+        if (lower.includes('manhã') || lower.includes('manha') || lower.includes('matutino')) {
+          shift = 'Manhã';
+        } else if (lower.includes('tarde') || lower.includes('vespertino')) {
+          shift = 'Tarde';
+        } else if (lower.includes('integral')) {
+          shift = 'Integral';
+        }
+
+        // Phone detection
         const phoneMatch = cleanQuery.match(/(\(?\d{2}\)?\s*9?\d{4}[-\s]?\d{4})/);
         if (phoneMatch) {
           parentPhone = phoneMatch[0].replace(/\D/g, '');
         }
 
-        // Extract value if exists (e.g. "valor 450", "450 reais", "R$ 450")
+        // Value detection
         const valueMatch = cleanQuery.match(/(?:valor|mensalidade|r\$)\s*[:=]?\s*(\d+(?:[.,]\d+)?)/i) || cleanQuery.match(/(\d+)\s*(?:reais|mensal)/i);
         if (valueMatch) {
           studentValue = parseFloat(valueMatch[1].replace(',', '.'));
         }
 
-        // Extract school if exists (e.g. "escola Objetivo", "colegio Objetivo")
+        // School detection
         const schoolMatch = cleanQuery.match(/(?:escola|colégio|colegio)\s+([^,;.]+)/i);
         if (schoolMatch) {
           schoolName = schoolMatch[1].trim();
         }
 
-        // Extract parent name if exists (e.g. "pai Carlos", "mãe Juliana", "responsavel Roberto")
+        // Parent detection
         const parentMatch = cleanQuery.match(/(?:pai|mãe|mae|responsável|responsavel)\s+([A-Za-zÀ-ÿ]+)/i);
         if (parentMatch) {
           parentName = parentMatch[1].trim();
         }
 
-        // Extract student name (first segment before comma or keyword)
-        const namePart = cleanQuery.split(/[,;]|\bescola\b|\bcolegio\b|\bpai\b|\bmãe\b|\btelefone\b|\bzap\b|\bvalor\b/i)[0].trim();
-        studentName = namePart || 'Novo Aluno';
+        // Name segment extraction
+        const namePart = cleanQuery.split(/[,;]|\bescola\b|\bcolegio\b|\bpai\b|\bmãe\b|\btelefone\b|\bzap\b|\bvalor\b|\bturno\b/i)[0].trim();
+        if (namePart && namePart.length > 1 && !namePart.toLowerCase().includes('para mim') && !namePart.toLowerCase().includes('um aluno')) {
+          studentName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
+        }
 
-        if (studentName.length > 1) {
-          // Capitalize Name
-          studentName = studentName.charAt(0).toUpperCase() + studentName.slice(1);
-          
+        // Case A: User sent generic command like "cadastre um aluno para mim" or no name
+        if (!studentName) {
+          const initialDraft: StudentDraft = {
+            name: '',
+            schoolName: schoolName || '',
+            shift: shift,
+            studentAddress: '',
+            parentName: parentName || '',
+            parentPhone: parentPhone || '',
+            value: studentValue,
+            paymentDay: paymentDay,
+            currentAskingField: 'name'
+          };
+
+          setActiveStudentDraft(initialDraft);
+          generatedDraft = initialDraft;
+
+          directAnswer = `Com certeza, Tio! Vamos cadastrar o aluno juntos passo a passo. 📝✨\n\nPrimeiro: **Qual é o nome completo do aluno?**\n\n*(Você pode ir me respondendo por voz/texto ou preencher os campos na fichinha interativa abaixo. E pode salvar como rascunho para continuar depois quando quiser!)*`;
+        } 
+        // Case B: Full info already provided in single command
+        else if (studentName && schoolName && parentPhone) {
           const newStudentData = {
             name: studentName,
             schoolName: schoolName,
-            parentName: parentName,
+            grade: shift,
+            studentAddress: studentAddress || 'Ponto combinado',
+            parentName: parentName || 'Responsável',
             parentPhone: parentPhone || profile.phone || '',
+            tel1: parentPhone || profile.phone || '',
             value: studentValue,
             paymentDay: paymentDay,
             vehicleId: vehicles[0]?.id || '',
             status: 'Ativo',
-            boardingStatus: 'PENDENTE',
+            boardingStatus: 'Casa',
             createdAt: new Date().toISOString()
           };
 
           const newDocRef = await addDoc(collection(db, 'drivers', profile.id, 'students'), newStudentData);
 
-          // Also create initial invoice in finance
           await setDoc(doc(db, 'drivers', profile.id, 'finance', newDocRef.id), {
             studentId: newDocRef.id,
             studentName: studentName,
@@ -670,7 +1143,7 @@ export function AICSMSupportAssistantModal({
           playBusHornSound();
           toast.success(`Aluno ${studentName} cadastrado com sucesso!`);
 
-          directAnswer = `🎉 **Show de bola, Tio!** O aluno **${studentName}** foi cadastrado com sucesso na sua lista escolar!\n\n• **Escola:** ${schoolName}\n• **Mensalidade:** R$ ${studentValue.toFixed(2)} (Vencimento todo dia ${paymentDay})\n• **Responsável:** ${parentName} ${parentPhone ? `(Zap: ${parentPhone})` : ''}\n\nVocê já pode enviar as boas-vindas no WhatsApp com 1 clique abaixo:`;
+          directAnswer = `🎉 **Show de bola, Tio!** O aluno **${studentName}** foi cadastrado com sucesso na sua lista escolar!\n\n• **Escola:** ${schoolName} (${shift})\n• **Mensalidade:** R$ ${studentValue.toFixed(2)} (Vencimento todo dia ${paymentDay})\n• **Responsável:** ${parentName || 'Responsável'} ${parentPhone ? `(Zap: ${parentPhone})` : ''}\n\nVocê já pode enviar as boas-vindas no WhatsApp com 1 clique abaixo:`;
 
           actionCard = {
             type: 'student_created',
@@ -679,9 +1152,9 @@ export function AICSMSupportAssistantModal({
             success: true,
             details: {
               'Aluno': studentName,
-              'Escola': schoolName,
+              'Escola': `${schoolName} (${shift})`,
               'Mensalidade': `R$ ${studentValue.toFixed(2)}`,
-              'Responsável': `${parentName} (${parentPhone || 'Sem tel'})`
+              'Responsável': `${parentName || 'Responsável'} (${parentPhone || 'Sem tel'})`
             }
           };
 
@@ -689,7 +1162,7 @@ export function AICSMSupportAssistantModal({
             id: newDocRef.id,
             studentName: studentName,
             schoolName: schoolName,
-            parentName: parentName,
+            parentName: parentName || 'Responsável',
             parentPhone: parentPhone || profile.phone || '',
             value: studentValue,
             paymentDay: paymentDay,
@@ -697,8 +1170,30 @@ export function AICSMSupportAssistantModal({
             status: 'Ativo',
             invoiceStatus: 'Em Dia'
           }];
-        } else {
-          directAnswer = `Tio, para cadastrar o aluno, por favor me diga o **Nome**, **Escola** e o **WhatsApp do Pai/Mãe**!\n\n💡 *Exemplo de comando:* "Cadastrar aluno Pedro, escola Objetivo, pai Carlos 11988887777, valor 450"`;
+        }
+        // Case C: Partial info provided (e.g. "cadastrar aluno Sophia" or "cadastrar Pedro na escola Objetivo")
+        else {
+          let nextField: 'school' | 'parent' | 'address' = 'school';
+          if (!schoolName) nextField = 'school';
+          else if (!parentPhone) nextField = 'parent';
+          else nextField = 'address';
+
+          const partialDraft: StudentDraft = {
+            name: studentName,
+            schoolName: schoolName || '',
+            shift: shift,
+            studentAddress: studentAddress,
+            parentName: parentName,
+            parentPhone: parentPhone,
+            value: studentValue,
+            paymentDay: paymentDay,
+            currentAskingField: nextField
+          };
+
+          setActiveStudentDraft(partialDraft);
+          generatedDraft = partialDraft;
+
+          directAnswer = `Show de bola, Tio! Já anotei o nome **${studentName}**${schoolName ? ` e a escola **${schoolName}**` : ''}. 🏫\n\nQual é ${!schoolName ? 'a **escola de destino** e o **turno** (Manhã, Tarde ou Integral)' : !parentPhone ? 'o **nome e WhatsApp do responsável** (pai ou mãe)' : 'o **endereço da casa** (ponto de embarque)'} dele(a)?\n\n*(Você pode ir me respondendo por voz ou preencher os campos na ficha abaixo. Pode salvar como rascunho a qualquer momento!)*`;
         }
       }
 
@@ -712,14 +1207,24 @@ export function AICSMSupportAssistantModal({
          lower.includes('alterar valor') || 
          lower.includes('mudar telefone') || 
          lower.includes('alterar telefone') || 
+         lower.includes('mudar endereço') ||
+         lower.includes('alterar endereço') ||
+         lower.includes('mudar turno') ||
+         lower.includes('alterar turno') ||
          lower.includes('editar aluno') ||
-         lower.includes('alterar aluno')) && 
+         lower.includes('alterar aluno') ||
+         lower.includes('editar o aluno') ||
+         lower.includes('alterar o aluno') ||
+         lower.includes('editar a aluna') ||
+         lower.includes('alterar a aluna') ||
+         lower.startsWith('editar ') ||
+         lower.startsWith('alterar ')) && 
         profile?.id
       ) {
         // Find which student
         const targetStudent = activeStudents.find(s => 
           lower.includes(s.name.toLowerCase()) || 
-          s.name.toLowerCase().split(' ')[0].length > 2 && lower.includes(s.name.toLowerCase().split(' ')[0])
+          (s.name.toLowerCase().split(' ')[0].length > 2 && lower.includes(s.name.toLowerCase().split(' ')[0]))
         );
 
         if (targetStudent) {
@@ -731,6 +1236,18 @@ export function AICSMSupportAssistantModal({
           if (schoolMatch) {
             updates.schoolName = schoolMatch[1].trim();
             changesSummary.push(`Escola alterada para: **${updates.schoolName}**`);
+          }
+
+          // Shift change
+          if (lower.includes('turno manhã') || lower.includes('de manhã') || lower.includes('turno da manhã')) {
+            updates.grade = 'Manhã';
+            changesSummary.push(`Turno alterado para: **Manhã**`);
+          } else if (lower.includes('turno tarde') || lower.includes('de tarde') || lower.includes('turno da tarde')) {
+            updates.grade = 'Tarde';
+            changesSummary.push(`Turno alterado para: **Tarde**`);
+          } else if (lower.includes('integral')) {
+            updates.grade = 'Integral';
+            changesSummary.push(`Turno alterado para: **Integral**`);
           }
 
           // Value change
@@ -747,8 +1264,25 @@ export function AICSMSupportAssistantModal({
             changesSummary.push(`Telefone do responsável alterado para: **${updates.parentPhone}**`);
           }
 
+          // Address change
+          const addressMatch = query.match(/(?:endereço|endereco|mora na|mora no|rua|av|avenida)\s+([^,;.]+)/i);
+          if (addressMatch && (lower.includes('endereço') || lower.includes('endereco') || lower.includes('rua') || lower.includes('avenida'))) {
+            updates.studentAddress = addressMatch[1].trim();
+            changesSummary.push(`Endereço alterado para: **${updates.studentAddress}**`);
+          }
+
           if (Object.keys(updates).length > 0) {
             await updateDoc(doc(db, 'drivers', profile.id, 'students', targetStudent.id), updates);
+            
+            // If value changed, update finance
+            if (updates.value) {
+              try {
+                await updateDoc(doc(db, 'drivers', profile.id, 'finance', targetStudent.id), {
+                  value: updates.value
+                });
+              } catch {}
+            }
+
             playBusHornSound();
             toast.success(`Aluno ${targetStudent.name} atualizado!`);
 
@@ -765,11 +1299,42 @@ export function AICSMSupportAssistantModal({
                 'Mensalidade': updates.value ? `R$ ${updates.value.toFixed(2)}` : `R$ ${(targetStudent.value || 350).toFixed(2)}`
               }
             };
+
+            contactCards = [{
+              id: targetStudent.id,
+              studentName: targetStudent.name,
+              schoolName: updates.schoolName || targetStudent.schoolName || 'Principal',
+              parentName: targetStudent.parentName || 'Responsável',
+              parentPhone: updates.parentPhone || targetStudent.parentPhone || targetStudent.tel1 || '',
+              value: updates.value || targetStudent.value || 350,
+              paymentDay: targetStudent.paymentDay || 10,
+              isAbsentToday: false,
+              status: 'Ativo',
+              invoiceStatus: 'Em Dia'
+            }];
           } else {
-            directAnswer = `Tio, identifiquei o aluno **${targetStudent.name}**, mas qual informação você deseja alterar? (Ex: "Mudar a escola do ${targetStudent.name} para Colégio Bandeirantes" ou "Alterar valor da mensalidade do ${targetStudent.name} para 480").`;
+            // Open interactive edit draft populated with student data
+            const studentDraftToEdit: StudentDraft = {
+              studentId: targetStudent.id,
+              mode: 'edit',
+              name: targetStudent.name,
+              schoolName: targetStudent.schoolName || '',
+              shift: targetStudent.grade || 'Manhã',
+              studentAddress: targetStudent.studentAddress || '',
+              parentName: targetStudent.parentName || '',
+              parentPhone: targetStudent.parentPhone || targetStudent.tel1 || '',
+              value: targetStudent.value || 350,
+              paymentDay: targetStudent.paymentDay || 10,
+              currentAskingField: 'review'
+            };
+
+            setActiveStudentDraft(studentDraftToEdit);
+            generatedDraft = studentDraftToEdit;
+
+            directAnswer = `Tio, abri a **ficha completa do(a) ${targetStudent.name}** abaixo! 📝✨\n\nVocê pode me dizer por voz o que deseja alterar (ex: *"muda a escola para Objetivo"*, *"muda a mensalidade para 450"*) ou editar diretamente nos campos abaixo e clicar em **Salvar Alterações**!`;
           }
         } else {
-          directAnswer = `Tio, não encontrei esse aluno na sua lista de ${activeStudents.length} alunos cadastrados. Diga o nome como cadastrado (Ex: "Mudar telefone do Lucas para 11988887777").`;
+          directAnswer = `Tio, não encontrei esse aluno na sua lista de ${activeStudents.length} alunos cadastrados. Diga o nome como cadastrado (Ex: "Editar o Pedro" ou "Mudar escola do Lucas para Colégio Objetivo").`;
         }
       }
 
@@ -910,7 +1475,165 @@ export function AICSMSupportAssistantModal({
       }
 
       // -------------------------------------------------------------
-      // 5. ACTION: ATUALIZAR STATUS DE PAGAMENTO (UPDATE PAYMENT)
+      // 5. ACTION: REINTEGRAR ALUNO À ROTA / PAI MUDOU DE IDEIA / VAI HOJE
+      // -------------------------------------------------------------
+      else if (
+        (lower.includes('vai hoje') || 
+         lower.includes('vai sim') || 
+         lower.includes('reintegrar') || 
+         lower.includes('voltar para a rota') || 
+         lower.includes('voltar pra rota') || 
+         lower.includes('colocar na rota') || 
+         lower.includes('coloca na rota') || 
+         lower.includes('por na rota') || 
+         lower.includes('põe na rota') || 
+         lower.includes('tirar falta') || 
+         lower.includes('tira falta') || 
+         lower.includes('remover falta') || 
+         lower.includes('cancelar falta') || 
+         lower.includes('pai mudou de ideia') || 
+         lower.includes('pai ligou') || 
+         lower.includes('mãe ligou') || 
+         lower.includes('mae ligou') || 
+         lower.includes('confirmar presenca') || 
+         lower.includes('confirmar presença')) && 
+        !lower.includes('não vai') && 
+        !lower.includes('nao vai') && 
+        profile?.id
+      ) {
+        const today = getTodayStr();
+        // Look in all students including absent ones
+        const targetStudent = students.find(s => 
+          lower.includes(s.name.toLowerCase()) || 
+          (s.name.toLowerCase().split(' ')[0].length > 2 && lower.includes(s.name.toLowerCase().split(' ')[0]))
+        );
+
+        if (targetStudent) {
+          await reintegrateStudentToRoute(profile.id, targetStudent.id, targetStudent, today);
+          playBusHornSound();
+          toast.success(`🎉 ${targetStudent.name} reintegrado(a) à rota de hoje!`);
+
+          directAnswer = `🎉 **Prontinho, Tio!** O aluno **${targetStudent.name}** foi **reintegrado à rota de hoje (${formatDateBR(today)})**!\n\n• **Status:** Presente na rota ativa\n• **Endereço:** ${targetStudent.studentAddress || 'Ponto combinado'}\n• **Escola:** ${targetStudent.schoolName || 'Escola'}\n\n✅ O endereço dele já voltou para a lista de paradas e para a navegação do Google Maps GPS. Boa viagem!`;
+
+          actionCard = {
+            type: 'student_updated',
+            title: 'Aluno Reintegrado à Rota!',
+            description: `${targetStudent.name} está de volta à rota de hoje.`,
+            success: true,
+            details: {
+              'Aluno': targetStudent.name,
+              'Data': formatDateBR(today),
+              'Status': 'Presente na Rota',
+              'Escola': targetStudent.schoolName || 'Escola'
+            }
+          };
+
+          contactCards = [{
+            id: targetStudent.id,
+            studentName: targetStudent.name,
+            schoolName: targetStudent.schoolName || 'Escola Principal',
+            parentName: targetStudent.parentName || 'Responsável',
+            parentPhone: targetStudent.parentPhone || '',
+            value: targetStudent.value,
+            paymentDay: targetStudent.paymentDay,
+            isAbsentToday: false,
+            status: targetStudent.status,
+            invoiceStatus: 'Em Dia'
+          }];
+        } else {
+          directAnswer = `Tio, diga qual aluno o responsável avisou que vai participar da rota (Ex: "O pai do Pedro ligou e ele vai hoje" ou "Reintegrar o Enzo na rota").`;
+        }
+      }
+
+      // -------------------------------------------------------------
+      // 6. ACTION: MARCAR FALTA / AGENDAR AUSÊNCIA ESCOLAR
+      // -------------------------------------------------------------
+      else if (
+        (lower.includes('não vai') || 
+         lower.includes('nao vai') || 
+         lower.includes('vai faltar') || 
+         lower.includes('marcar falta') || 
+         lower.includes('marcar como ausente') || 
+         lower.includes('aviso de falta') || 
+         lower.includes('agendar falta') || 
+         lower.includes('tirar da rota')) && 
+        !lower.includes('quem') && 
+        !lower.includes('quais') && 
+        profile?.id
+      ) {
+        const today = getTodayStr();
+        let targetDate = today;
+
+        // Check if query specifies "amanhã"
+        if (lower.includes('amanhã') || lower.includes('amanha')) {
+          const d = new Date();
+          d.setDate(d.getDate() + 1);
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          targetDate = `${y}-${m}-${day}`;
+        } else {
+          // Check for date pattern DD/MM or YYYY-MM-DD
+          const dateMatchBR = query.match(/(\d{1,2})[\/-](\d{1,2})(?:[\/-](\d{2,4}))?/);
+          if (dateMatchBR) {
+            const day = dateMatchBR[1].padStart(2, '0');
+            const month = dateMatchBR[2].padStart(2, '0');
+            const year = dateMatchBR[3] ? (dateMatchBR[3].length === 2 ? `20${dateMatchBR[3]}` : dateMatchBR[3]) : new Date().getFullYear().toString();
+            targetDate = `${year}-${month}-${day}`;
+          }
+        }
+
+        const targetStudent = students.find(s => 
+          lower.includes(s.name.toLowerCase()) || 
+          (s.name.toLowerCase().split(' ')[0].length > 2 && lower.includes(s.name.toLowerCase().split(' ')[0]))
+        );
+
+        if (targetStudent) {
+          const isToday = targetDate === today;
+          await markStudentAbsent(
+            profile.id, 
+            targetStudent.id, 
+            targetStudent, 
+            targetDate, 
+            isToday ? 'Aviso de ausência registrado pelo motorista/T.IA' : 'Falta agendada via T.IA'
+          );
+          playBusHornSound();
+          toast.success(`Aviso de falta de ${targetStudent.name} registrado para ${formatDateBR(targetDate)}!`);
+
+          directAnswer = `🚫 **Aviso de Ausência Registrado, Tio!** O aluno **${targetStudent.name}** foi marcado como ausente **apenas para a data ${formatDateBR(targetDate)}**.\n\n• **Logística:** Ele foi colocado na área **"Alunos Fora da Rota"** e não será incluído no trajeto do GPS desse dia.\n• **Automático:** Nas outras datas, ele continua normalmente na rota!\n• **Flexível:** Se o pai ligar mudando de ideia, você pode arrastá-lo de volta para a rota ou me pedir por voz (*"O ${targetStudent.name} vai hoje"*)!`;
+
+          actionCard = {
+            type: 'student_updated',
+            title: isToday ? 'Falta de Hoje Registrada' : 'Falta Futura Agendada',
+            description: `${targetStudent.name} ficará ausente apenas em ${formatDateBR(targetDate)}.`,
+            success: true,
+            details: {
+              'Aluno': targetStudent.name,
+              'Data da Falta': formatDateBR(targetDate),
+              'Status': 'Ausente no Dia (Fora da Rota)',
+              'Escola': targetStudent.schoolName || 'Escola'
+            }
+          };
+
+          contactCards = [{
+            id: targetStudent.id,
+            studentName: targetStudent.name,
+            schoolName: targetStudent.schoolName || 'Escola Principal',
+            parentName: targetStudent.parentName || 'Responsável',
+            parentPhone: targetStudent.parentPhone || '',
+            value: targetStudent.value,
+            paymentDay: targetStudent.paymentDay,
+            isAbsentToday: true,
+            status: targetStudent.status,
+            invoiceStatus: 'Em Dia'
+          }];
+        } else {
+          directAnswer = `Tio, diga qual aluno não participará da rota (Ex: "O Pedro não vai hoje" ou "Agendar falta da Sophia amanhã").`;
+        }
+      }
+
+      // -------------------------------------------------------------
+      // 7. ACTION: ATUALIZAR STATUS DE PAGAMENTO (UPDATE PAYMENT)
       // -------------------------------------------------------------
       else if (
         (lower.includes('pagou') || 
@@ -1162,7 +1885,8 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
         text: directAnswer,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         actionCard: actionCard,
-        contactCards: contactCards
+        contactCards: contactCards,
+        studentDraft: generatedDraft
       };
 
       setMessages(prev => [...prev, aiResponse]);
@@ -2041,6 +2765,187 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
                       : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-100 dark:border-gray-700/60 rounded-tl-none whitespace-pre-wrap'
                   }`}>
                     {msg.text}
+
+                    {/* Interactive Step-by-Step Student Registration / Edit Draft Card */}
+                    {msg.studentDraft && (
+                      <div className="mt-3 bg-gradient-to-br from-yellow-500/10 via-amber-500/5 to-white dark:to-gray-900 border-2 border-yellow-400/50 rounded-2xl p-3.5 space-y-3 shadow-md text-gray-900 dark:text-white">
+                        <div className="flex items-center justify-between gap-2 pb-2 border-b border-yellow-400/20">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-xl bg-yellow-400 text-gray-950 flex items-center justify-center font-black shadow shrink-0">
+                              <Edit3 size={15} />
+                            </div>
+                            <div>
+                              <h5 className="font-black text-xs text-yellow-900 dark:text-yellow-300 flex items-center gap-1.5">
+                                {msg.studentDraft.mode === 'edit' ? `Editar Aluno: ${msg.studentDraft.name || 'Aluno'}` : 'Ficha de Cadastro Interativa'}
+                                <span className="px-1.5 py-0.5 bg-yellow-400/30 text-yellow-900 dark:text-yellow-200 text-[9px] font-black rounded-md uppercase">
+                                  {msg.studentDraft.mode === 'edit' ? 'Modo de Edição' : msg.studentDraft.currentAskingField === 'review' ? 'Pronto para Salvar' : 'Em Preenchimento'}
+                                </span>
+                              </h5>
+                              <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                                {msg.studentDraft.mode === 'edit' 
+                                  ? 'Altere por voz/chat ou edite diretamente nos campos abaixo:'
+                                  : 'Preencha por voz, chat ou digite diretamente nos campos abaixo:'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Interactive Form Fields Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                          {/* Student Name */}
+                          <div className="space-y-1 sm:col-span-2">
+                            <label className="text-[10px] font-black uppercase text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                              <Users size={12} className="text-yellow-500" /> Nome Completo do Aluno *
+                            </label>
+                            <input 
+                              type="text"
+                              value={msg.studentDraft.name || ''}
+                              onChange={(e) => handleUpdateDraft({ name: e.target.value })}
+                              placeholder="Ex: Pedro Henrique Silva"
+                              className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-2.5 py-1.5 text-xs font-bold text-gray-950 dark:text-white placeholder:text-gray-400 focus:ring-2 focus:ring-yellow-400 outline-none"
+                            />
+                          </div>
+
+                          {/* School Name */}
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                              <School size={12} className="text-yellow-500" /> Escola de Destino
+                            </label>
+                            <input 
+                              type="text"
+                              value={msg.studentDraft.schoolName || ''}
+                              onChange={(e) => handleUpdateDraft({ schoolName: e.target.value })}
+                              placeholder="Ex: Colégio Objetivo"
+                              className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-2.5 py-1.5 text-xs font-bold text-gray-950 dark:text-white placeholder:text-gray-400 focus:ring-2 focus:ring-yellow-400 outline-none"
+                            />
+                          </div>
+
+                          {/* Shift */}
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                              <Calendar size={12} className="text-yellow-500" /> Turno Escolar
+                            </label>
+                            <select
+                              value={msg.studentDraft.shift || 'Manhã'}
+                              onChange={(e) => handleUpdateDraft({ shift: e.target.value })}
+                              className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-2.5 py-1.5 text-xs font-bold text-gray-950 dark:text-white focus:ring-2 focus:ring-yellow-400 outline-none cursor-pointer"
+                            >
+                              <option value="Manhã">Manhã</option>
+                              <option value="Tarde">Tarde</option>
+                              <option value="Integral">Integral</option>
+                            </select>
+                          </div>
+
+                          {/* Address */}
+                          <div className="space-y-1 sm:col-span-2">
+                            <label className="text-[10px] font-black uppercase text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                              <MapPin size={12} className="text-yellow-500" /> Endereço da Casa (Embarque)
+                            </label>
+                            <input 
+                              type="text"
+                              value={msg.studentDraft.studentAddress || ''}
+                              onChange={(e) => handleUpdateDraft({ studentAddress: e.target.value })}
+                              placeholder="Ex: Rua das Flores, 123 - Centro"
+                              className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-2.5 py-1.5 text-xs font-bold text-gray-950 dark:text-white placeholder:text-gray-400 focus:ring-2 focus:ring-yellow-400 outline-none"
+                            />
+                          </div>
+
+                          {/* Parent Name */}
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                              <Users size={12} className="text-yellow-500" /> Responsável (Pai/Mãe)
+                            </label>
+                            <input 
+                              type="text"
+                              value={msg.studentDraft.parentName || ''}
+                              onChange={(e) => handleUpdateDraft({ parentName: e.target.value })}
+                              placeholder="Ex: Carlos Eduardo"
+                              className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-2.5 py-1.5 text-xs font-bold text-gray-950 dark:text-white placeholder:text-gray-400 focus:ring-2 focus:ring-yellow-400 outline-none"
+                            />
+                          </div>
+
+                          {/* Parent WhatsApp */}
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                              <Phone size={12} className="text-yellow-500" /> WhatsApp com DDD
+                            </label>
+                            <input 
+                              type="text"
+                              value={msg.studentDraft.parentPhone || ''}
+                              onChange={(e) => handleUpdateDraft({ parentPhone: e.target.value })}
+                              placeholder="Ex: 11988887777"
+                              className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-2.5 py-1.5 text-xs font-bold text-gray-950 dark:text-white placeholder:text-gray-400 focus:ring-2 focus:ring-yellow-400 outline-none"
+                            />
+                          </div>
+
+                          {/* Monthly Value */}
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                              <DollarSign size={12} className="text-yellow-500" /> Mensalidade (R$)
+                            </label>
+                            <input 
+                              type="number"
+                              value={msg.studentDraft.value || ''}
+                              onChange={(e) => handleUpdateDraft({ value: e.target.value })}
+                              placeholder="350"
+                              className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-2.5 py-1.5 text-xs font-bold text-gray-950 dark:text-white placeholder:text-gray-400 focus:ring-2 focus:ring-yellow-400 outline-none"
+                            />
+                          </div>
+
+                          {/* Due Date */}
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                              <Calendar size={12} className="text-yellow-500" /> Dia do Vencimento
+                            </label>
+                            <select
+                              value={msg.studentDraft.paymentDay || 10}
+                              onChange={(e) => handleUpdateDraft({ paymentDay: Number(e.target.value) })}
+                              className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-2.5 py-1.5 text-xs font-bold text-gray-950 dark:text-white focus:ring-2 focus:ring-yellow-400 outline-none cursor-pointer"
+                            >
+                              {[1, 5, 10, 15, 20, 25, 28, 30].map(d => (
+                                <option key={d} value={d}>Todo dia {d}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons: Save Draft & Complete */}
+                        <div className="pt-2 border-t border-yellow-400/20 flex flex-wrap items-center gap-2">
+                          {msg.studentDraft.mode !== 'edit' && (
+                            <button
+                              type="button"
+                              onClick={() => handleSaveDraftLater(msg.studentDraft)}
+                              className="flex-1 min-w-[140px] px-3 py-2 bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/50 dark:hover:bg-amber-900/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700/60 font-black rounded-xl text-[11px] flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-95"
+                            >
+                              <Save size={13} />
+                              <span>Salvar Rascunho / Continuar Depois</span>
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleCompleteDraft(msg.studentDraft)}
+                            disabled={!msg.studentDraft.name?.trim()}
+                            className={`flex-1 min-w-[140px] px-3 py-2 font-black rounded-xl text-[11px] flex items-center justify-center gap-1.5 shadow transition-all active:scale-95 ${
+                              msg.studentDraft.name?.trim()
+                                ? 'bg-emerald-500 hover:bg-emerald-400 text-white cursor-pointer ring-2 ring-emerald-300 dark:ring-emerald-800'
+                                : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                            }`}
+                          >
+                            <CheckCircle2 size={13} />
+                            <span>{msg.studentDraft.mode === 'edit' ? 'Salvar Alterações do Aluno' : 'Concluir Cadastro Agora'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handleCancelDraft}
+                            className="px-2.5 py-2 text-gray-500 hover:text-red-500 text-[10px] font-bold transition-all cursor-pointer"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Operational Action Feedback Card if generated */}
                     {msg.actionCard && (

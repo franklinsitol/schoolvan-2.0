@@ -28,7 +28,13 @@ import { usePWAShellIntegration } from './hooks/usePWAShellIntegration';
 import { cn } from './lib/utils';
 import { useFirestore, useCollectionGroup } from './hooks/useFirestore';
 import { Student, Vehicle, Driver } from './types';
-import { isStudentAbsentOnDate, getTodayStr, formatDateBR } from './lib/absence';
+import { 
+  isStudentAbsentOnDate, 
+  getTodayStr, 
+  formatDateBR, 
+  markStudentAbsent, 
+  reintegrateStudentToRoute 
+} from './lib/absence';
 import { playBusHornSound, speakTioIAPrompt } from './lib/sound';
 import { checkCanAddStudent } from './lib/plans';
 
@@ -94,39 +100,13 @@ const ParentView = () => {
     }
     const isCurrentlyAbsent = isStudentAbsentOnDate(student, todayStr);
     try {
-      const studentRef = doc(db, 'drivers', driverId, 'students', student.id);
-      const newAusenteState = !isCurrentlyAbsent;
-      
-      let newAbsenceDates = student.absenceDates || [];
-      if (newAusenteState) {
-        if (!newAbsenceDates.includes(todayStr)) {
-          newAbsenceDates = [...newAbsenceDates, todayStr];
-        }
+      if (isCurrentlyAbsent) {
+        await reintegrateStudentToRoute(driverId, student.id, student, todayStr, userEmail);
+        toast.success('Aluno marcado como PRESENTE hoje!');
       } else {
-        newAbsenceDates = newAbsenceDates.filter(d => d !== todayStr);
+        await markStudentAbsent(driverId, student.id, student, todayStr, 'Aviso de falta enviado pelo responsável', userEmail);
+        toast.success('Aviso de AUSÊNCIA enviado ao motorista para HOJE!');
       }
-
-      await updateDoc(studentRef, {
-        ausenteHoje: newAusenteState,
-        absenceDates: newAbsenceDates,
-        lastCheck: new Date().toISOString()
-      });
-
-      // Audit log in absences subcollection for the driver
-      try {
-        await addDoc(collection(db, 'drivers', driverId, 'absences'), {
-          studentId: student.id,
-          studentName: student.name,
-          date: todayStr,
-          reason: newAusenteState ? 'Aviso de falta enviado pelo responsável' : 'Presença confirmada pelo responsável',
-          registeredAt: new Date().toISOString(),
-          parentEmail: userEmail
-        });
-      } catch (logErr) {
-        console.warn('Absence audit log warning:', logErr);
-      }
-
-      toast.success(newAusenteState ? 'Aviso de AUSÊNCIA enviado ao motorista para HOJE!' : 'Aluno marcado como PRESENTE hoje!');
     } catch (err: any) {
       console.error('Erro ao registrar ausência:', err);
       toast.error(err?.message ? `Erro ao registrar: ${err.message}` : 'Erro ao registrar alteração de ausência.');
@@ -151,48 +131,21 @@ const ParentView = () => {
     setSubmittingId(student.id);
 
     try {
-      const studentRef = doc(db, 'drivers', driverId, 'students', student.id);
-      const currentScheduled = student.scheduledAbsences || [];
       const currentDates = student.absenceDates || [];
-
       if (currentDates.includes(selectedDate)) {
         toast.error('Falta já agendada para este dia.');
         setSubmittingId(null);
         return;
       }
 
-      const updatedScheduled = [
-        ...currentScheduled,
-        {
-          date: selectedDate,
-          reason: reasonText,
-          createdAt: new Date().toISOString()
-        }
-      ];
-
-      const updatedDates = [...currentDates, selectedDate];
-      const isToday = selectedDate === todayStr;
-
-      await updateDoc(studentRef, {
-        scheduledAbsences: updatedScheduled,
-        absenceDates: updatedDates,
-        ...(isToday ? { ausenteHoje: true } : {}),
-        lastCheck: new Date().toISOString()
-      });
-
-      // Audit log
-      try {
-        await addDoc(collection(db, 'drivers', driverId, 'absences'), {
-          studentId: student.id,
-          studentName: student.name,
-          date: selectedDate,
-          reason: `Falta programada: ${reasonText}`,
-          registeredAt: new Date().toISOString(),
-          parentEmail: userEmail
-        });
-      } catch (logErr) {
-        console.warn('Absence audit log warning:', logErr);
-      }
+      await markStudentAbsent(
+        driverId, 
+        student.id, 
+        student, 
+        selectedDate, 
+        `Falta programada: ${reasonText}`,
+        userEmail
+      );
 
       toast.success(`Falta agendada com sucesso para ${formatDateBR(selectedDate)}!`);
 
@@ -212,18 +165,7 @@ const ParentView = () => {
     if (!driverId || !student.id) return;
 
     try {
-      const studentRef = doc(db, 'drivers', driverId, 'students', student.id);
-      const updatedScheduled = (student.scheduledAbsences || []).filter(a => a.date !== dateToRemove);
-      const updatedDates = (student.absenceDates || []).filter(d => d !== dateToRemove);
-      const isToday = dateToRemove === todayStr;
-
-      await updateDoc(studentRef, {
-        scheduledAbsences: updatedScheduled,
-        absenceDates: updatedDates,
-        ...(isToday ? { ausenteHoje: false } : {}),
-        lastCheck: new Date().toISOString()
-      });
-
+      await reintegrateStudentToRoute(driverId, student.id, student, dateToRemove, userEmail);
       toast.success(`Falta do dia ${formatDateBR(dateToRemove)} cancelada.`);
     } catch (err: any) {
       console.error('Erro ao cancelar falta:', err);

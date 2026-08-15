@@ -101,12 +101,14 @@ export interface Student {
   tel3?: string;
   nextAlert?: string;
   ausenteHoje?: boolean;
+  ausenteHojeDate?: string;
   absenceDates?: string[];
   scheduledAbsences?: {
     date: string;
     reason?: string;
     createdAt: string;
   }[];
+  routeOrder?: number;
 }
 
 export interface Finance {

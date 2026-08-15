@@ -4,7 +4,6 @@ import {
   Save, 
   Navigation, 
   Info, 
-  ChevronDown, 
   ArrowUp, 
   ArrowDown, 
   Bus, 
@@ -18,13 +17,27 @@ import {
   Sparkles, 
   RefreshCw, 
   Users, 
-  Phone 
+  Phone,
+  Calendar,
+  GripVertical,
+  PlusCircle,
+  XCircle,
+  AlertTriangle,
+  UserPlus,
+  UserCheck
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useFirestore } from '../hooks/useFirestore';
 import { Student, Vehicle } from '../types';
 import { cn } from '../lib/utils';
-import { isStudentAbsentOnDate, formatDateBR, getTodayStr } from '../lib/absence';
+import { 
+  isStudentAbsentOnDate, 
+  formatDateBR, 
+  getTodayStr, 
+  markStudentAbsent, 
+  reintegrateStudentToRoute 
+} from '../lib/absence';
+import { playBusHornSound } from '../lib/sound';
 import toast from 'react-hot-toast';
 
 export interface RouteStop {
@@ -41,12 +54,17 @@ export interface RouteStop {
 
 export function RoutesView() {
   const { profile } = useAuth();
+  const todayStr = getTodayStr();
+  const [selectedDate, setSelectedDate] = useState(todayStr);
   const [turno, setTurno] = useState('Manha_Ida');
   const { data: students } = useFirestore<Student>(`drivers/${profile?.id}/students`);
   const { data: vehicles } = useFirestore<Vehicle>(`drivers/${profile?.id}/vehicles`);
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [orderedStudents, setOrderedStudents] = useState<Student[]>([]);
   const [customStops, setCustomStops] = useState<RouteStop[] | null>(null);
+  const [draggedItem, setDraggedItem] = useState<{ type: 'stop' | 'student'; id: string; index?: number } | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [isOverAbsentZone, setIsOverAbsentZone] = useState(false);
 
   useEffect(() => {
     if (vehicles.length > 0 && !selectedVehicleId) {
@@ -60,8 +78,13 @@ export function RoutesView() {
     setCustomStops(null); // reset custom order on vehicle change
   }, [students, selectedVehicleId]);
 
-  const activeStudents = orderedStudents.filter(s => !isStudentAbsentOnDate(s));
-  const absentStudents = orderedStudents.filter(s => isStudentAbsentOnDate(s));
+  const activeStudents = useMemo(() => {
+    return orderedStudents.filter(s => !isStudentAbsentOnDate(s, selectedDate));
+  }, [orderedStudents, selectedDate]);
+
+  const absentStudents = useMemo(() => {
+    return orderedStudents.filter(s => isStudentAbsentOnDate(s, selectedDate));
+  }, [orderedStudents, selectedDate]);
 
   // Determine if it's an Ida (Going to school) or Volta (Leaving school) shift
   const isIda = turno.includes('Ida');
@@ -153,13 +176,14 @@ export function RoutesView() {
   }, [activeStudents]);
 
   // Collect future scheduled absences for alert card
-  const todayStr = getTodayStr();
-  const upcomingAbsences = students.flatMap(s => {
-    const sched = s.scheduledAbsences || [];
-    return sched
-      .filter(a => a.date >= todayStr)
-      .map(a => ({ studentName: s.name, parentName: s.parentName, ...a }));
-  }).sort((a, b) => a.date.localeCompare(b.date));
+  const upcomingAbsences = useMemo(() => {
+    return students.flatMap(s => {
+      const sched = s.scheduledAbsences || [];
+      return sched
+        .filter(a => a.date >= todayStr)
+        .map(a => ({ studentName: s.name, parentName: s.parentName, ...a }));
+    }).sort((a, b) => a.date.localeCompare(b.date));
+  }, [students, todayStr]);
 
   const moveStopUp = (index: number) => {
     if (index === 0) return;
@@ -188,13 +212,137 @@ export function RoutesView() {
     toast.success('Ordem sequencial da rota salva com sucesso!');
   };
 
+  // Reintegrate an absent student back into active route
+  const handleReintegrate = async (student: Student, targetIndex?: number) => {
+    if (!profile?.id) return;
+    try {
+      await reintegrateStudentToRoute(profile.id, student.id, student, selectedDate);
+      playBusHornSound();
+      toast.success(`🎉 ${student.name} reintegrado(a) à rota do dia ${formatDateBR(selectedDate)}!`);
+
+      // If custom stops active, insert student stop at specific index
+      if (customStops) {
+        const newStop: RouteStop = {
+          id: `student-${student.id}`,
+          type: 'student',
+          title: student.name,
+          address: student.studentAddress || 'Endereço residencial',
+          schoolName: student.schoolName,
+          timeLabel: isIda ? student.entryTime : student.exitTime,
+          studentData: student,
+        };
+
+        const next = [...customStops];
+        if (targetIndex !== undefined && targetIndex >= 0 && targetIndex <= next.length) {
+          next.splice(targetIndex, 0, newStop);
+        } else {
+          next.push(newStop);
+        }
+        setCustomStops(next);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Erro ao reintegrar aluno na rota.');
+    }
+  };
+
+  // Remove student from route (mark as absent for selected date)
+  const handleRemoveFromRoute = async (student: Student) => {
+    if (!profile?.id) return;
+    try {
+      await markStudentAbsent(
+        profile.id, 
+        student.id, 
+        student, 
+        selectedDate, 
+        'Removido da rota pelo motorista'
+      );
+      toast.success(`${student.name} marcado(a) como ausente em ${formatDateBR(selectedDate)} e movido(a) para fora da rota.`);
+
+      if (customStops) {
+        setCustomStops(customStops.filter(s => s.id !== `student-${student.id}`));
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Erro ao marcar ausência do aluno.');
+    }
+  };
+
+  // Drag & drop handlers
+  const handleDragStartFromAbsent = (e: React.DragEvent, student: Student) => {
+    e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'absent_student', studentId: student.id }));
+    setDraggedItem({ type: 'student', id: student.id });
+  };
+
+  const handleDragStartFromRoute = (e: React.DragEvent, stop: RouteStop, index: number) => {
+    e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'route_stop', stopId: stop.id, fromIndex: index }));
+    setDraggedItem({ type: 'stop', id: stop.id, index });
+  };
+
+  const handleDragOverStop = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (dragOverIndex !== index) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDropOnStop = async (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    setDragOverIndex(null);
+    const dataStr = e.dataTransfer.getData('text/plain');
+    if (!dataStr) return;
+
+    try {
+      const data = JSON.parse(dataStr);
+      if (data.type === 'absent_student') {
+        const student = absentStudents.find(s => s.id === data.studentId);
+        if (student) {
+          await handleReintegrate(student, targetIndex);
+        }
+      } else if (data.type === 'route_stop') {
+        const fromIndex = data.fromIndex;
+        if (fromIndex !== undefined && fromIndex !== targetIndex) {
+          const newStops = [...routeStops];
+          const [moved] = newStops.splice(fromIndex, 1);
+          newStops.splice(targetIndex, 0, moved);
+          setCustomStops(newStops);
+          toast.success('Ordem da parada atualizada!');
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDraggedItem(null);
+    }
+  };
+
+  const handleDropOnAbsentZone = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsOverAbsentZone(false);
+    const dataStr = e.dataTransfer.getData('text/plain');
+    if (!dataStr) return;
+
+    try {
+      const data = JSON.parse(dataStr);
+      if (data.type === 'route_stop') {
+        const stop = routeStops.find(s => s.id === data.stopId);
+        if (stop && stop.studentData) {
+          await handleRemoveFromRoute(stop.studentData);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDraggedItem(null);
+    }
+  };
+
   const handleOpenGoogleMaps = () => {
     if (routeStops.length === 0) {
       toast.error('Nenhum ponto ou escola cadastrado para os alunos da rota.');
       return;
     }
 
-    // Collect all valid stop addresses in exact sequence
     const waypoints = routeStops
       .map(s => s.address || s.title)
       .filter(Boolean);
@@ -209,10 +357,19 @@ export function RoutesView() {
     toast.success('Abrindo rota GPS no Google Maps com paradas nas residências e escolas...');
   };
 
+  const tomorrowStr = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  })();
+
   return (
     <div className="p-4 md:p-8 space-y-8">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <span className="bg-yellow-400 text-gray-900 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider">
             Logística & Rota Inteligente
@@ -221,6 +378,38 @@ export function RoutesView() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          {/* Date Selector */}
+          <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-2xl p-1.5 shadow-sm">
+            <button
+              onClick={() => setSelectedDate(todayStr)}
+              className={cn(
+                "px-3 py-1.5 rounded-xl font-black text-xs transition-all cursor-pointer",
+                selectedDate === todayStr 
+                  ? "bg-yellow-400 text-gray-950 shadow-xs" 
+                  : "text-gray-600 hover:bg-gray-100"
+              )}
+            >
+              Hoje ({formatDateBR(todayStr).slice(0, 5)})
+            </button>
+            <button
+              onClick={() => setSelectedDate(tomorrowStr)}
+              className={cn(
+                "px-3 py-1.5 rounded-xl font-black text-xs transition-all cursor-pointer",
+                selectedDate === tomorrowStr 
+                  ? "bg-yellow-400 text-gray-950 shadow-xs" 
+                  : "text-gray-600 hover:bg-gray-100"
+              )}
+            >
+              Amanhã
+            </button>
+            <input 
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="bg-transparent text-xs font-bold text-gray-800 outline-none px-2 cursor-pointer border-l border-gray-200"
+            />
+          </div>
+
           <select 
             value={selectedVehicleId}
             onChange={(e) => setSelectedVehicleId(e.target.value)}
@@ -236,7 +425,7 @@ export function RoutesView() {
             value={turno}
             onChange={(e) => {
               setTurno(e.target.value);
-              setCustomStops(null); // recompute auto stops on shift change
+              setCustomStops(null);
             }}
             className="bg-white border border-gray-200 rounded-2xl px-4 py-2.5 shadow-sm outline-none focus:ring-2 focus:ring-yellow-400 font-bold text-sm cursor-pointer"
           >
@@ -248,6 +437,7 @@ export function RoutesView() {
         </div>
       </div>
 
+      {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Route Sequence Column */}
         <div className="bg-white p-6 md:p-8 rounded-[40px] shadow-sm border border-gray-100 space-y-6">
@@ -255,10 +445,10 @@ export function RoutesView() {
             <div>
               <h3 className="text-xl font-bold flex items-center gap-2 text-gray-900">
                 <span className="w-8 h-8 bg-yellow-400 text-gray-900 rounded-full flex items-center justify-center text-sm font-black">1</span>
-                Sequência de Paradas ({routeStops.length})
+                Sequência de Paradas Ativas ({routeStops.length})
               </h3>
               <p className="text-xs text-gray-500 mt-0.5">
-                {isIda ? 'Embarque dos alunos em casa → Desembarque na Escola' : 'Embarque na Escola → Desembarque nas Casas'}
+                Data: <strong>{formatDateBR(selectedDate)}</strong> • {isIda ? 'Embarque em Casa → Desembarque na Escola' : 'Embarque na Escola → Desembarque nas Casas'}
               </p>
             </div>
 
@@ -280,7 +470,7 @@ export function RoutesView() {
             </div>
           </div>
 
-          {/* Upcoming Absences Banner */}
+          {/* Upcoming Scheduled Absences Banner */}
           {upcomingAbsences.length > 0 && (
             <div className="bg-amber-50/80 p-4 rounded-2xl border border-amber-200 space-y-2">
               <label className="text-xs font-black text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
@@ -293,8 +483,11 @@ export function RoutesView() {
                       <span className="font-bold text-gray-900">{item.studentName}</span>
                       {item.reason && <span className="text-gray-500 text-[11px] ml-1.5">({item.reason})</span>}
                     </div>
-                    <span className="font-black text-amber-800 bg-amber-100 px-2 py-0.5 rounded text-[10px]">
-                      {formatDateBR(item.date)}
+                    <span className={cn(
+                      "font-black px-2 py-0.5 rounded text-[10px]",
+                      item.date === selectedDate ? "bg-red-500 text-white animate-pulse" : "text-amber-800 bg-amber-100"
+                    )}>
+                      {formatDateBR(item.date)} {item.date === selectedDate && '(Data Selecionada)'}
                     </span>
                   </div>
                 ))}
@@ -302,29 +495,33 @@ export function RoutesView() {
             </div>
           )}
 
-          {/* Logistical Strategy Banner */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-2xl border border-blue-200 flex items-start gap-3">
-            <Building2 className="text-blue-600 shrink-0 mt-0.5" size={20} />
-            <div className="text-xs text-blue-950 leading-relaxed font-medium space-y-1">
-              <span className="font-bold text-blue-900">Engenharia de Rota por Escola:</span>
+          {/* Hint / Operational Instructions */}
+          <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-amber-50 p-4 rounded-2xl border border-blue-200/80 flex items-start gap-3">
+            <Sparkles className="text-blue-600 shrink-0 mt-0.5" size={20} />
+            <div className="text-xs text-gray-800 leading-relaxed space-y-1">
+              <span className="font-black text-blue-900 block">💡 Cenário: Pai mudou de ideia e avisou por telefone?</span>
               <p>
-                {isIda 
-                  ? 'Coletamos os alunos em suas residências e, ao finalizar os alunos de determinada escola, realizamos a parada de desembarque diretamente no endereço da Escola.' 
-                  : 'Buscamos os alunos reunidos no endereço da Escola e, em seguida, realizamos o desembarque em suas respectivas residências.'}
+                O aluno ausente fica na área <strong>"Alunos Fora da Rota"</strong> abaixo. Você pode <strong>arrastá-lo diretamente para qualquer posição na rota</strong> acima ou clicar em <strong>"Reintegrar à Rota"</strong> (ou pedir para a <strong>T.IA</strong> por voz!). Ele voltará imediatamente para a rota e para o GPS!
               </p>
             </div>
           </div>
 
-          {/* Stops List */}
+          {/* Stops Drop Target Container */}
           <div className="space-y-3">
             {routeStops.map((stop, i) => {
               const isSchool = stop.type === 'school';
+              const isDropTarget = dragOverIndex === i;
 
               if (isSchool) {
                 return (
                   <div 
                     key={stop.id} 
-                    className="flex items-start gap-3 p-4 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white rounded-3xl shadow-md border border-blue-400/30 transition-all"
+                    onDragOver={(e) => handleDragOverStop(e, i)}
+                    onDrop={(e) => handleDropOnStop(e, i)}
+                    className={cn(
+                      "flex items-start gap-3 p-4 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white rounded-3xl shadow-md border transition-all relative",
+                      isDropTarget ? "border-yellow-400 scale-[1.02] shadow-xl ring-2 ring-yellow-400" : "border-blue-400/30"
+                    )}
                   >
                     <div className="font-black text-xs text-blue-300 w-6 text-center mt-1">#{i + 1}</div>
 
@@ -368,7 +565,7 @@ export function RoutesView() {
                       </div>
 
                       {stop.studentsList && stop.studentsList.length > 0 && (
-                        <div className="pt-2 border-t border-white/10 flex items-center justify-between text-xs text-blue-200">
+                        <div className="pt-2 border-t border-white/10 flex items-center justify-between text-xs text-blue-200 flex-wrap gap-2">
                           <span className="font-semibold flex items-center gap-1.5">
                             <Users size={14} className="text-blue-300" />
                             {isIda ? 'Alunos Entregues Nesta Escola:' : 'Alunos Coletados Nesta Escola:'}
@@ -391,25 +588,38 @@ export function RoutesView() {
               const student = stop.studentData;
               return (
                 <div 
-                  key={stop.id} 
-                  className="flex items-center gap-3 p-3.5 bg-gray-50 border border-gray-100 rounded-2xl shadow-sm hover:border-yellow-300 transition-all"
+                  key={stop.id}
+                  draggable={true}
+                  onDragStart={(e) => handleDragStartFromRoute(e, stop, i)}
+                  onDragOver={(e) => handleDragOverStop(e, i)}
+                  onDrop={(e) => handleDropOnStop(e, i)}
+                  className={cn(
+                    "flex items-center gap-3 p-3.5 bg-gray-50 border rounded-2xl shadow-sm transition-all relative group cursor-grab active:cursor-grabbing",
+                    isDropTarget 
+                      ? "border-yellow-400 bg-yellow-50/50 scale-[1.02] ring-2 ring-yellow-400" 
+                      : "border-gray-200 hover:border-yellow-400 hover:bg-white"
+                  )}
                 >
-                  <div className="font-black text-xs text-gray-400 w-6 text-center">#{i + 1}</div>
+                  <div className="cursor-grab text-gray-400 hover:text-gray-700 hidden sm:block">
+                    <GripVertical size={16} />
+                  </div>
 
-                  <div className="flex flex-col gap-1">
+                  <div className="font-black text-xs text-gray-400 w-5 text-center">#{i + 1}</div>
+
+                  <div className="flex flex-col gap-0.5">
                     <button 
                       onClick={() => moveStopUp(i)}
                       disabled={i === 0}
                       className="p-1 hover:bg-white rounded text-gray-500 hover:text-gray-900 transition-colors disabled:opacity-20 cursor-pointer"
                     >
-                      <ArrowUp size={14} />
+                      <ArrowUp size={13} />
                     </button>
                     <button 
                       onClick={() => moveStopDown(i)}
                       disabled={i === routeStops.length - 1}
                       className="p-1 hover:bg-white rounded text-gray-500 hover:text-gray-900 transition-colors disabled:opacity-20 cursor-pointer"
                     >
-                      <ArrowDown size={14} />
+                      <ArrowDown size={13} />
                     </button>
                   </div>
 
@@ -453,42 +663,134 @@ export function RoutesView() {
                     </div>
                   </div>
 
-                  <span className="px-2.5 py-1 bg-green-100 text-green-800 text-[10px] font-bold rounded-lg shrink-0">
-                    Ativo
-                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="px-2 py-1 bg-green-100 text-green-800 text-[10px] font-black rounded-lg">
+                      Na Rota
+                    </span>
+                    {student && (
+                      <button
+                        onClick={() => handleRemoveFromRoute(student)}
+                        title="Marcar falta hoje / Tirar da rota"
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                      >
+                        <XCircle size={16} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}
 
             {routeStops.length === 0 && (
-              <div className="text-center py-12 text-gray-400 text-xs border-2 border-dashed border-gray-200 rounded-2xl space-y-1">
-                <Bus size={32} className="mx-auto opacity-30" />
-                <p className="font-bold">Nenhum aluno ativo nesta van/turno.</p>
+              <div 
+                onDragOver={(e) => { e.preventDefault(); }}
+                onDrop={(e) => handleDropOnStop(e, 0)}
+                className="text-center py-12 text-gray-400 text-xs border-2 border-dashed border-gray-300 rounded-3xl space-y-2 bg-gray-50"
+              >
+                <Bus size={36} className="mx-auto opacity-30 text-gray-900" />
+                <p className="font-bold text-gray-600 text-sm">Nenhum aluno ativo nesta van/turno para {formatDateBR(selectedDate)}.</p>
+                <p className="text-[11px] text-gray-500">
+                  Arraste um aluno ausente da seção abaixo para cá ou clique em "Reintegrar à Rota".
+                </p>
               </div>
             )}
           </div>
 
-          {/* Absent Students Section */}
-          {absentStudents.length > 0 && (
-            <div className="pt-4 space-y-2 border-t border-gray-100">
-              <label className="text-xs font-black text-red-600 uppercase tracking-wider flex items-center gap-2">
-                <Info size={14} /> Alunos Ausentes Hoje (Removidos da Rota) ({absentStudents.length})
-              </label>
-              <div className="space-y-2 opacity-60">
+          {/* ABSENT / STAGING ZONE: "Alunos Fora da Rota / Ausentes no Dia" */}
+          <div 
+            onDragOver={(e) => { e.preventDefault(); setIsOverAbsentZone(true); }}
+            onDragLeave={() => setIsOverAbsentZone(false)}
+            onDrop={handleDropOnAbsentZone}
+            className={cn(
+              "pt-6 border-t-2 border-dashed rounded-3xl p-4 transition-all space-y-3",
+              isOverAbsentZone 
+                ? "bg-red-50/80 border-red-400 ring-2 ring-red-400" 
+                : absentStudents.length > 0
+                  ? "bg-gradient-to-br from-amber-50/40 via-red-50/30 to-gray-50 border-amber-300"
+                  : "bg-gray-50 border-gray-200"
+            )}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <label className="text-xs font-black text-red-700 uppercase tracking-wider flex items-center gap-2">
+                  <AlertTriangle size={16} className="text-red-500" />
+                  Alunos Fora da Rota / Ausentes ({absentStudents.length})
+                </label>
+                <p className="text-[11px] text-gray-500">
+                  {selectedDate === todayStr ? 'Ausentes hoje' : `Ausentes na data selecionada (${formatDateBR(selectedDate)})`} — Arraste para a sequência da rota ou clique para reintegrar.
+                </p>
+              </div>
+            </div>
+
+            {absentStudents.length > 0 ? (
+              <div className="space-y-2.5">
                 {absentStudents.map((student) => (
-                  <div key={student.id} className="flex items-center gap-3 p-3 bg-gray-100 rounded-2xl text-xs">
-                    <div className="flex-1 min-w-0 font-bold text-gray-700 truncate">{student.name}</div>
-                    <span className="px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded">
-                      Ausente Hoje
-                    </span>
+                  <div 
+                    key={student.id} 
+                    draggable={true}
+                    onDragStart={(e) => handleDragStartFromAbsent(e, student)}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-white border-2 border-amber-200/80 hover:border-yellow-400 rounded-2xl shadow-xs transition-all cursor-grab active:cursor-grabbing group hover:shadow-md"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="cursor-grab text-amber-500 group-hover:text-yellow-600">
+                        <GripVertical size={18} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-extrabold text-gray-900 text-sm flex items-center gap-2">
+                          <span className="truncate">{student.name}</span>
+                          <span className="px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-black rounded-md uppercase shrink-0">
+                            Ausente
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-gray-500 flex items-center gap-2 mt-0.5 truncate">
+                          <span>{student.schoolName || 'Escola não informada'}</span>
+                          {student.studentAddress && (
+                            <>
+                              <span>•</span>
+                              <span className="truncate">{student.studentAddress}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {student.parentPhone && (
+                        <a 
+                          href={`https://wa.me/55${student.parentPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá! Confirmando se o(a) ${student.name} vai para a escola hoje.`)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-2.5 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-xl font-bold text-xs flex items-center gap-1 transition-all"
+                          title="Falar com o responsável no WhatsApp"
+                        >
+                          <Phone size={13} />
+                          <span className="hidden sm:inline">Ligar/Zap</span>
+                        </a>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => handleReintegrate(student)}
+                        className="px-3.5 py-1.5 bg-gradient-to-r from-yellow-400 to-amber-400 hover:from-yellow-300 hover:to-amber-300 text-gray-950 font-black rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-95 border border-yellow-500/40"
+                      >
+                        <UserPlus size={14} />
+                        <span>Reintegrar à Rota</span>
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="text-center py-6 text-gray-400 text-xs bg-white/60 rounded-2xl border border-gray-100">
+                <UserCheck size={24} className="mx-auto text-emerald-500 mb-1" />
+                <p className="font-bold text-gray-700">Nenhum aluno ausente nesta data!</p>
+                <p className="text-[11px] text-gray-500">Todos os alunos vinculados a esta van estão participando da rota.</p>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* GPS Navigation Column */}
+        {/* GPS Navigation & Route Overview Column */}
         <div className="space-y-8">
           <div className="bg-gradient-to-br from-gray-900 via-gray-950 to-black text-white p-6 md:p-8 rounded-[40px] shadow-2xl border border-white/10 space-y-6">
             <div className="flex items-center justify-between">
@@ -497,12 +799,12 @@ export function RoutesView() {
                 Navegação GPS
               </h3>
               <span className="bg-green-500/20 text-green-400 text-xs font-bold px-3 py-1 rounded-full border border-green-500/30">
-                {routeStops.length} Paradas na Sequência
+                {routeStops.length} Paradas Ativas
               </span>
             </div>
 
             <p className="text-gray-300 text-xs leading-relaxed">
-              Inicie a navegação com parada múltipla. Todas as residências e paradas de escolas serão enviadas ao Google Maps em ordem sequencial exata.
+              Inicie a navegação com paradas múltiplas. As paradas dos alunos presentes e escolas serão enviadas ao Google Maps na ordem sequencial exata. Alunos ausentes não são incluídos no trajeto.
             </p>
 
             <button 
@@ -518,6 +820,10 @@ export function RoutesView() {
               <div className="text-xs font-bold text-yellow-400 uppercase tracking-wider">Resumo da Rota Logística:</div>
               <div className="text-xs text-gray-300 space-y-1.5">
                 <div className="flex justify-between">
+                  <span>Data da Rota:</span>
+                  <span className="font-bold text-white">{formatDateBR(selectedDate)}</span>
+                </div>
+                <div className="flex justify-between">
                   <span>Van Selecionada:</span>
                   <span className="font-bold text-white">
                     {vehicles.find(v => v.id === selectedVehicleId)?.name || 'Nenhuma'}
@@ -528,9 +834,15 @@ export function RoutesView() {
                   <span className="font-bold text-white">{turno.replace('_', ' ')}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Paradas Totais:</span>
+                  <span>Paradas Ativas:</span>
                   <span className="font-bold text-green-400">
                     {routeStops.length} ({routeStops.filter(s => s.type === 'student').length} casas + {routeStops.filter(s => s.type === 'school').length} escolas)
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Alunos Fora da Rota (Ausentes):</span>
+                  <span className={cn("font-bold", absentStudents.length > 0 ? "text-amber-400" : "text-gray-400")}>
+                    {absentStudents.length} aluno(s)
                   </span>
                 </div>
               </div>
@@ -566,4 +878,3 @@ export function RoutesView() {
     </div>
   );
 }
-

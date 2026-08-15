@@ -1,12 +1,13 @@
-import React from 'react';
-import { X, CheckCircle2, Home, Bus, School, UserX, Sparkles } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, CheckCircle2, Home, Bus, School, UserX, AlertTriangle, UserPlus, ChevronDown, ChevronUp } from 'lucide-react';
 import { SchoolVanLogo } from './SchoolVanLogo';
 import { motion, AnimatePresence } from 'motion/react';
 import { Student, BoardingStatus } from '../types';
 import { cn } from '../lib/utils';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { isStudentAbsentOnDate } from '../lib/absence';
+import { isStudentAbsentOnDate, reintegrateStudentToRoute, getTodayStr } from '../lib/absence';
+import { playBusHornSound } from '../lib/sound';
 import toast from 'react-hot-toast';
 
 interface CheckinModalProps {
@@ -17,7 +18,10 @@ interface CheckinModalProps {
 }
 
 export function CheckinModal({ isOpen, onClose, students, driverId }: CheckinModalProps) {
+  const [showAbsentSection, setShowAbsentSection] = useState(false);
   if (!isOpen) return null;
+
+  const todayStr = getTodayStr();
 
   const handleStatusChange = async (student: Student) => {
     const nextStatus: Record<BoardingStatus, BoardingStatus> = {
@@ -49,7 +53,18 @@ export function CheckinModal({ isOpen, onClose, students, driverId }: CheckinMod
     }
   };
 
-  const activeStudents = students.filter(s => s.status === 'Ativo' && !isStudentAbsentOnDate(s));
+  const handleReintegrate = async (student: Student) => {
+    try {
+      await reintegrateStudentToRoute(driverId, student.id, student, todayStr);
+      playBusHornSound();
+      toast.success(`🎉 ${student.name} reintegrado(a) à chamada de hoje!`);
+    } catch (err) {
+      toast.error('Erro ao reintegrar aluno.');
+    }
+  };
+
+  const activeStudents = students.filter(s => s.status === 'Ativo' && !isStudentAbsentOnDate(s, todayStr));
+  const absentStudents = students.filter(s => s.status === 'Ativo' && isStudentAbsentOnDate(s, todayStr));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
@@ -70,7 +85,7 @@ export function CheckinModal({ isOpen, onClose, students, driverId }: CheckinMod
               </h3>
             </div>
             <p className="text-xs text-gray-400 mt-1">
-              Toque no aluno para avançar onde ele está na rota agora.
+              Toque no aluno para avançar onde ele está na rota agora ({activeStudents.length} presentes).
             </p>
           </div>
           <button 
@@ -133,6 +148,49 @@ export function CheckinModal({ isOpen, onClose, students, driverId }: CheckinMod
           {activeStudents.length === 0 && (
             <div className="p-8 text-center text-gray-400 font-bold text-xs">
               Nenhum aluno ativo para o dia de hoje.
+            </div>
+          )}
+
+          {/* Absent Students section in Checkin */}
+          {absentStudents.length > 0 && (
+            <div className="pt-3 border-t border-gray-200 dark:border-gray-800 space-y-2">
+              <button
+                onClick={() => setShowAbsentSection(!showAbsentSection)}
+                className="w-full flex items-center justify-between p-2.5 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 rounded-xl font-bold text-xs border border-amber-200 dark:border-amber-800/50 cursor-pointer"
+              >
+                <span className="flex items-center gap-1.5">
+                  <AlertTriangle size={15} className="text-amber-600" />
+                  Alunos Ausentes Hoje ({absentStudents.length})
+                </span>
+                {showAbsentSection ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
+
+              {showAbsentSection && (
+                <div className="space-y-2 pt-1">
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 px-1">
+                    O aluno compareceu de surpresa na van? Clique em reintegrar para adicioná-lo à chamada:
+                  </p>
+                  {absentStudents.map((st) => (
+                    <div
+                      key={st.id}
+                      className="flex items-center justify-between p-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl text-xs"
+                    >
+                      <div>
+                        <div className="font-extrabold text-gray-900 dark:text-gray-100">{st.name}</div>
+                        <div className="text-[11px] text-gray-500">{st.schoolName || 'Escola'} • Ausente hoje</div>
+                      </div>
+
+                      <button
+                        onClick={() => handleReintegrate(st)}
+                        className="px-3 py-1.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-xl text-xs flex items-center gap-1 cursor-pointer transition-all shadow-xs"
+                      >
+                        <UserPlus size={13} />
+                        <span>Reintegrar</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
