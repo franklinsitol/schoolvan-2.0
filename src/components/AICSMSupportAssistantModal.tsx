@@ -140,13 +140,21 @@ export function AICSMSupportAssistantModal({
   const [quickStudentForm, setQuickStudentForm] = useState<{
     name: string;
     schoolName: string;
+    shift: string;
+    studentAddress: string;
+    parentName: string;
     parentPhone: string;
     value: number | string;
+    paymentDay: number | string;
   }>({
     name: '',
     schoolName: '',
+    shift: 'Manhã',
+    studentAddress: '',
+    parentName: '',
     parentPhone: '',
-    value: 350
+    value: 350,
+    paymentDay: 10
   });
 
   useEffect(() => {
@@ -203,6 +211,7 @@ export function AICSMSupportAssistantModal({
   const [loading, setLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
+  const [activeTemplateStudentId, setActiveTemplateStudentId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -405,22 +414,51 @@ export function AICSMSupportAssistantModal({
 
     setSavingStep(true);
     try {
-      await addDoc(collection(db, 'drivers', profile.id, 'students'), {
-        name: quickStudentForm.name,
-        schoolName: quickStudentForm.schoolName,
-        parentPhone: quickStudentForm.parentPhone,
-        value: Number(quickStudentForm.value),
+      const parsedValue = Number(quickStudentForm.value);
+      const finalValue = isNaN(parsedValue) || parsedValue < 0 ? 350 : parsedValue;
+      const parsedDay = Number(quickStudentForm.paymentDay);
+      const finalDay = isNaN(parsedDay) || parsedDay < 1 ? 10 : Math.min(31, parsedDay);
+
+      const docRef = await addDoc(collection(db, 'drivers', profile.id, 'students'), {
+        name: quickStudentForm.name.trim(),
+        schoolName: quickStudentForm.schoolName.trim() || 'Escola Principal',
+        grade: quickStudentForm.shift || 'Manhã',
+        studentAddress: quickStudentForm.studentAddress.trim() || '',
+        parentName: quickStudentForm.parentName.trim() || 'Responsável',
+        parentPhone: quickStudentForm.parentPhone.trim() || profile.phone || '',
+        tel1: quickStudentForm.parentPhone.trim() || profile.phone || '',
+        value: finalValue,
+        paymentDay: finalDay,
+        vehicleId: vehicles[0]?.id || '',
         status: 'Ativo',
-        boardingStatus: 'PENDENTE',
+        boardingStatus: 'Casa',
         createdAt: new Date().toISOString()
       });
+
+      // Create initial finance record
+      await setDoc(doc(db, 'drivers', profile.id, 'finance', docRef.id), {
+        studentId: docRef.id,
+        studentName: quickStudentForm.name.trim(),
+        parentPhone: quickStudentForm.parentPhone.trim() || profile.phone || '',
+        value: finalValue,
+        type: 'Receita',
+        status: 'Em Dia',
+        paymentDay: finalDay,
+        dueDate: `${finalDay}/${(new Date().getMonth() + 1).toString().padStart(2, '0')}`,
+        createdAt: new Date().toISOString()
+      });
+
       playBusHornSound();
       toast.success(`Aluno ${quickStudentForm.name} cadastrado com sucesso!`);
       setQuickStudentForm({
         name: '',
         schoolName: '',
+        shift: 'Manhã',
+        studentAddress: '',
+        parentName: '',
         parentPhone: '',
-        value: 350
+        value: 350,
+        paymentDay: 10
       });
       speakTioIAPrompt(`Aluno cadastrado! Você já pode adicionar outro aluno ou avançar para o próximo passo.`);
     } catch (e) {
@@ -512,9 +550,6 @@ export function AICSMSupportAssistantModal({
     if (!formatted) return '#';
     return `https://wa.me/${formatted}?text=${encodeURIComponent(text)}`;
   };
-
-  // State for message template selector in contact cards
-  const [activeTemplateStudentId, setActiveTemplateStudentId] = useState<string | null>(null);
 
   // Send Message Logic with Gemini Context & Full Operational Action Engine
   const handleSendMessage = async (textToSend?: string) => {
@@ -1426,42 +1461,42 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
 
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-[11px] font-black uppercase text-gray-600 dark:text-gray-300 mb-1">
-                      Seu Nome / Nome da Van
+                    <label className="block text-[11px] font-black uppercase text-gray-700 dark:text-gray-300 mb-1">
+                      Seu Nome / Nome da Van *
                     </label>
                     <input 
                       type="text"
                       value={profileForm.name}
                       onChange={(e) => setProfileForm(p => ({ ...p, name: e.target.value }))}
                       placeholder="Ex: Tio Carlos - Van Estrela"
-                      className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                      className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs sm:text-sm font-semibold text-gray-950 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-yellow-400 focus:outline-none"
                     />
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] font-black uppercase text-gray-600 dark:text-gray-300 mb-1">
-                        WhatsApp de Atendimento
+                      <label className="block text-[11px] font-black uppercase text-gray-700 dark:text-gray-300 mb-1">
+                        WhatsApp de Atendimento *
                       </label>
                       <input 
                         type="text"
                         value={profileForm.phone}
                         onChange={(e) => setProfileForm(p => ({ ...p, phone: e.target.value }))}
                         placeholder="(11) 99999-9999"
-                        className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs sm:text-sm font-semibold text-gray-950 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-yellow-400 focus:outline-none"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-black uppercase text-gray-600 dark:text-gray-300 mb-1">
-                        Sua Chave Pix Principal
+                      <label className="block text-[11px] font-black uppercase text-gray-700 dark:text-gray-300 mb-1">
+                        Sua Chave Pix Principal *
                       </label>
                       <input 
                         type="text"
                         value={profileForm.pixKey}
                         onChange={(e) => setProfileForm(p => ({ ...p, pixKey: e.target.value }))}
                         placeholder="CPF, CNPJ, Celular, E-mail..."
-                        className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs sm:text-sm font-semibold text-gray-950 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-yellow-400 focus:outline-none"
                       />
                     </div>
                   </div>
@@ -1509,35 +1544,35 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
                 <div className="space-y-3">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="sm:col-span-2">
-                      <label className="block text-[11px] font-black uppercase text-gray-600 dark:text-gray-300 mb-1">
-                        Nome / Identificação da Van
+                      <label className="block text-[11px] font-black uppercase text-gray-700 dark:text-gray-300 mb-1">
+                        Nome / Identificação da Van *
                       </label>
                       <input 
                         type="text"
                         value={vehicleForm.name}
                         onChange={(e) => setVehicleForm(p => ({ ...p, name: e.target.value }))}
                         placeholder="Ex: Van 01 - Zona Sul"
-                        className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs sm:text-sm font-semibold text-gray-950 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-yellow-400 focus:outline-none"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-black uppercase text-gray-600 dark:text-gray-300 mb-1">
-                        Placa
+                      <label className="block text-[11px] font-black uppercase text-gray-700 dark:text-gray-300 mb-1">
+                        Placa *
                       </label>
                       <input 
                         type="text"
                         value={vehicleForm.plate}
                         onChange={(e) => setVehicleForm(p => ({ ...p, plate: e.target.value.toUpperCase() }))}
                         placeholder="ABC-1234"
-                        className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs sm:text-sm uppercase font-mono focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs sm:text-sm font-mono font-bold uppercase text-gray-950 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-yellow-400 focus:outline-none"
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] font-black uppercase text-gray-600 dark:text-gray-300 mb-1">
+                      <label className="block text-[11px] font-black uppercase text-gray-700 dark:text-gray-300 mb-1">
                         Modelo
                       </label>
                       <input 
@@ -1545,13 +1580,13 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
                         value={vehicleForm.model}
                         onChange={(e) => setVehicleForm(p => ({ ...p, model: e.target.value }))}
                         placeholder="Mercedes Sprinter, Fiat Ducato..."
-                        className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs sm:text-sm font-semibold text-gray-950 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-yellow-400 focus:outline-none"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-black uppercase text-gray-600 dark:text-gray-300 mb-1">
-                        Capacidade de Assentos
+                      <label className="block text-[11px] font-black uppercase text-gray-700 dark:text-gray-300 mb-1">
+                        Capacidade de Assentos *
                       </label>
                       <input 
                         type="number"
@@ -1563,7 +1598,7 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
                         }}
                         min={1}
                         max={60}
-                        className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs sm:text-sm font-bold focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs sm:text-sm font-bold text-gray-950 dark:text-white focus:ring-2 focus:ring-yellow-400 focus:outline-none"
                       />
                     </div>
                   </div>
@@ -1595,69 +1630,192 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
                     <h4 className="text-sm font-black text-gray-900 dark:text-white flex items-center gap-2">
                       <Users size={16} className="text-yellow-500" /> Passo 3: Adicionar Alunos da Rota
                     </h4>
-                    <span className="px-2.5 py-0.5 bg-yellow-400/20 text-yellow-800 dark:text-yellow-300 text-xs font-black rounded-full">
+                    <span className="px-2.5 py-0.5 bg-yellow-400 text-gray-950 text-xs font-black rounded-full shadow-sm">
                       {activeStudents.length} Alunos Cadastrados
                     </span>
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    Cadastre os alunos para ter lista de presença, chamada rápida e cobrança automática.
+                    Cadastre os alunos com endereço de embarque, escola e WhatsApp do responsável para chamadas e cobranças.
                   </p>
                 </div>
 
-                {/* Inline Quick Add Form */}
-                <form onSubmit={handleQuickAddStudent} className="bg-gray-50 dark:bg-gray-800/60 p-3.5 rounded-2xl space-y-3 border border-gray-200 dark:border-gray-700">
-                  <span className="text-[11px] font-black uppercase text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                    <Users size={13} className="text-yellow-500" /> Cadastro Rápido de Aluno
+                {/* Inline Full Add Form */}
+                <form onSubmit={handleQuickAddStudent} className="bg-gray-50 dark:bg-gray-800/70 p-4 rounded-2xl space-y-3.5 border-2 border-gray-200 dark:border-gray-700">
+                  <span className="text-[11px] font-black uppercase text-gray-800 dark:text-gray-200 flex items-center gap-1.5 border-b border-gray-200 dark:border-gray-700 pb-2">
+                    <Users size={14} className="text-yellow-500" /> Cadastro Completo de Aluno
                   </span>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    <input 
-                      type="text"
-                      placeholder="Nome do Aluno"
-                      value={quickStudentForm.name}
-                      onChange={(e) => setQuickStudentForm(p => ({ ...p, name: e.target.value }))}
-                      required
-                      className="px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:ring-2 focus:ring-yellow-400 focus:outline-none"
-                    />
+                  {/* Nome e Turno */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div className="sm:col-span-2">
+                      <label className="block text-[10px] font-black uppercase text-gray-700 dark:text-gray-300 mb-1">
+                        Nome Completo do Aluno *
+                      </label>
+                      <input 
+                        type="text"
+                        placeholder="Ex: Bernardo Silva"
+                        value={quickStudentForm.name}
+                        onChange={(e) => setQuickStudentForm(p => ({ ...p, name: e.target.value }))}
+                        required
+                        className="w-full px-3 py-2 bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs font-semibold text-gray-950 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                      />
+                    </div>
 
-                    <input 
-                      type="text"
-                      placeholder="Escola de Destino"
-                      value={quickStudentForm.schoolName}
-                      onChange={(e) => setQuickStudentForm(p => ({ ...p, schoolName: e.target.value }))}
-                      className="px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:ring-2 focus:ring-yellow-400 focus:outline-none"
-                    />
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-gray-700 dark:text-gray-300 mb-1">
+                        Turno *
+                      </label>
+                      <select 
+                        value={quickStudentForm.shift}
+                        onChange={(e) => setQuickStudentForm(p => ({ ...p, shift: e.target.value }))}
+                        className="w-full px-3 py-2 bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs font-semibold text-gray-950 dark:text-white focus:ring-2 focus:ring-yellow-400 focus:outline-none cursor-pointer"
+                      >
+                        <option value="Manhã">Manhã</option>
+                        <option value="Tarde">Tarde</option>
+                        <option value="Integral">Integral</option>
+                      </select>
+                    </div>
                   </div>
 
+                  {/* Escola e Endereço da Casa */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    <input 
-                      type="text"
-                      placeholder="WhatsApp do Pai/Mãe"
-                      value={quickStudentForm.parentPhone}
-                      onChange={(e) => setQuickStudentForm(p => ({ ...p, parentPhone: e.target.value }))}
-                      className="px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:ring-2 focus:ring-yellow-400 focus:outline-none"
-                    />
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-gray-700 dark:text-gray-300 mb-1">
+                        Escola de Destino *
+                      </label>
+                      <input 
+                        type="text"
+                        placeholder="Ex: Colégio Objetivo"
+                        value={quickStudentForm.schoolName}
+                        onChange={(e) => setQuickStudentForm(p => ({ ...p, schoolName: e.target.value }))}
+                        required
+                        className="w-full px-3 py-2 bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs font-semibold text-gray-950 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                      />
+                    </div>
 
-                    <input 
-                      type="number"
-                      placeholder="Valor Mensalidade (R$)"
-                      value={quickStudentForm.value}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setQuickStudentForm(p => ({ ...p, value: val === '' ? '' : Number(val) }));
-                      }}
-                      className="px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-bold focus:ring-2 focus:ring-yellow-400 focus:outline-none"
-                    />
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-gray-700 dark:text-gray-300 mb-1">
+                        Endereço da Casa (Embarque GPS)
+                      </label>
+                      <input 
+                        type="text"
+                        placeholder="Ex: Rua das Palmeiras, 150"
+                        value={quickStudentForm.studentAddress}
+                        onChange={(e) => setQuickStudentForm(p => ({ ...p, studentAddress: e.target.value }))}
+                        className="w-full px-3 py-2 bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs font-semibold text-gray-950 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Responsável e WhatsApp */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-gray-700 dark:text-gray-300 mb-1">
+                        Nome do Responsável *
+                      </label>
+                      <input 
+                        type="text"
+                        placeholder="Ex: Juliana Silva (Mãe)"
+                        value={quickStudentForm.parentName}
+                        onChange={(e) => setQuickStudentForm(p => ({ ...p, parentName: e.target.value }))}
+                        required
+                        className="w-full px-3 py-2 bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs font-semibold text-gray-950 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-gray-700 dark:text-gray-300 mb-1">
+                        WhatsApp do Responsável *
+                      </label>
+                      <input 
+                        type="text"
+                        placeholder="(11) 98888-7777"
+                        value={quickStudentForm.parentPhone}
+                        onChange={(e) => setQuickStudentForm(p => ({ ...p, parentPhone: e.target.value }))}
+                        required
+                        className="w-full px-3 py-2 bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs font-semibold text-gray-950 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Mensalidade e Vencimento */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-gray-700 dark:text-gray-300 mb-1">
+                        Valor Mensalidade (R$) *
+                      </label>
+                      <input 
+                        type="number"
+                        placeholder="350.00"
+                        value={quickStudentForm.value}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setQuickStudentForm(p => ({ ...p, value: val === '' ? '' : Number(val) }));
+                        }}
+                        className="w-full px-3 py-2 bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs font-bold text-gray-950 dark:text-white focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-gray-700 dark:text-gray-300 mb-1">
+                        Dia do Vencimento (1 a 31) *
+                      </label>
+                      <input 
+                        type="number"
+                        placeholder="10"
+                        min={1}
+                        max={31}
+                        value={quickStudentForm.paymentDay}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setQuickStudentForm(p => ({ ...p, paymentDay: val === '' ? '' : Number(val) }));
+                        }}
+                        className="w-full px-3 py-2 bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs font-bold text-gray-950 dark:text-white focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                      />
+                    </div>
                   </div>
 
                   <button
                     type="submit"
                     disabled={savingStep || !quickStudentForm.name.trim()}
-                    className="w-full py-2 bg-gray-950 text-yellow-400 font-bold rounded-xl text-xs shadow hover:bg-gray-800 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="w-full py-2.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-xl text-xs shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
                   >
                     + Salvar este Aluno na Rota
                   </button>
                 </form>
+
+                {/* List of Registered Students */}
+                {activeStudents.length > 0 && (
+                  <div className="space-y-2 pt-1">
+                    <div className="text-[11px] font-black uppercase text-gray-500 dark:text-gray-400 flex items-center justify-between">
+                      <span>Alunos Salvos ({activeStudents.length})</span>
+                      <span>Mensalidade</span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-1.5 max-h-48 overflow-y-auto pr-1">
+                      {activeStudents.map((s) => (
+                        <div 
+                          key={s.id}
+                          className="bg-gray-50 dark:bg-gray-800 p-2.5 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-between gap-2 shadow-sm text-xs"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-yellow-400 text-gray-950 flex items-center justify-center font-bold text-xs shrink-0">
+                              {s.name.charAt(0)}
+                            </div>
+                            <div>
+                              <span className="font-bold text-gray-900 dark:text-white block">{s.name}</span>
+                              <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                                🏫 {s.schoolName || 'Escola Principal'} • 📱 {s.parentPhone || 'Sem tel'}
+                              </span>
+                            </div>
+                          </div>
+                          <span className="font-black text-emerald-600 dark:text-emerald-400 text-xs">
+                            R$ {(s.value || 350).toFixed(2)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800">
                   <button
