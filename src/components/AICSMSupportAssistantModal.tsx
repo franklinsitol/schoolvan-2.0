@@ -48,6 +48,7 @@ import { Student, Vehicle, Finance, Lead, TeamMember, InvoiceStatus } from '../t
 import { playBusHornSound, speakTiaPrompt, speakTioIAPrompt } from '../lib/sound';
 import { checkCanAddStudent, checkCanAddVehicle, checkCanAddTeamMember } from '../lib/plans';
 import { getReadNotifications, markNotificationAsRead } from '../lib/tioNotifications';
+import { AddressAutocompleteInput } from './AddressAutocompleteInput';
 import { db } from '../lib/firebase';
 import { doc, updateDoc, collection, addDoc, setDoc } from 'firebase/firestore';
 import { 
@@ -77,10 +78,12 @@ export interface StudentDraft {
   mode?: 'create' | 'edit';
   name: string;
   schoolName: string;
+  schoolAddress?: string;
   shift: string; // 'Manhã' | 'Tarde' | 'Integral'
   studentAddress: string;
   parentName: string;
   parentPhone: string;
+  parentEmail?: string;
   value: number | string;
   paymentDay: number | string;
   currentAskingField?: 'name' | 'school' | 'shift' | 'address' | 'parent' | 'finance' | 'review';
@@ -163,19 +166,23 @@ export function AICSMSupportAssistantModal({
   const [quickStudentForm, setQuickStudentForm] = useState<{
     name: string;
     schoolName: string;
+    schoolAddress: string;
     shift: string;
     studentAddress: string;
     parentName: string;
     parentPhone: string;
+    parentEmail: string;
     value: number | string;
     paymentDay: number | string;
   }>({
     name: '',
     schoolName: '',
+    schoolAddress: '',
     shift: 'Manhã',
     studentAddress: '',
     parentName: '',
     parentPhone: '',
+    parentEmail: '',
     value: 350,
     paymentDay: 10
   });
@@ -443,7 +450,48 @@ export function AICSMSupportAssistantModal({
 
   const handleQuickAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profile?.id || !quickStudentForm.name.trim()) return;
+    if (!profile?.id) return;
+
+    if (!quickStudentForm.name.trim()) {
+      toast.error('Informe o nome completo do aluno.');
+      return;
+    }
+
+    if (!quickStudentForm.shift) {
+      toast.error('Selecione o turno (Manhã/Tarde/Integral) — obrigatório para separar as rotas.');
+      return;
+    }
+
+    if (!quickStudentForm.studentAddress.trim()) {
+      toast.error('Informe o endereço da residência para embarque — obrigatório para trajeto GPS da rota.');
+      return;
+    }
+
+    if (!quickStudentForm.schoolName.trim()) {
+      toast.error('Informe o nome da escola de destino.');
+      return;
+    }
+
+    if (!quickStudentForm.schoolAddress.trim()) {
+      toast.error('Informe o endereço completo da escola — obrigatório para trajeto GPS da rota.');
+      return;
+    }
+
+    if (!quickStudentForm.parentName.trim()) {
+      toast.error('Informe o nome do responsável.');
+      return;
+    }
+
+    const cleanPhone = quickStudentForm.parentPhone.replace(/\D/g, '');
+    if (!cleanPhone || cleanPhone.length < 10) {
+      toast.error('Informe um WhatsApp válido do responsável (com DDD) — obrigatório para cobrança e avisos.');
+      return;
+    }
+
+    if (!quickStudentForm.parentEmail.trim() || !quickStudentForm.parentEmail.includes('@')) {
+      toast.error('Informe um e-mail válido do responsável — obrigatório para acesso ao App dos Pais.');
+      return;
+    }
 
     const allowed = checkCanAddStudent(profile, students.length, onOpenUpgradeModal);
     if (!allowed) return;
@@ -455,14 +503,23 @@ export function AICSMSupportAssistantModal({
       const parsedDay = Number(quickStudentForm.paymentDay);
       const finalDay = isNaN(parsedDay) || parsedDay < 1 ? 10 : Math.min(31, parsedDay);
 
+      const isTarde = quickStudentForm.shift === 'Tarde';
+      const entryTime = isTarde ? '13:00' : '07:00';
+      const exitTime = isTarde ? '18:00' : '12:00';
+
       const docRef = await addDoc(collection(db, 'drivers', profile.id, 'students'), {
         name: quickStudentForm.name.trim(),
-        schoolName: quickStudentForm.schoolName.trim() || 'Escola Principal',
-        grade: quickStudentForm.shift || 'Manhã',
-        studentAddress: quickStudentForm.studentAddress.trim() || '',
-        parentName: quickStudentForm.parentName.trim() || 'Responsável',
-        parentPhone: quickStudentForm.parentPhone.trim() || profile.phone || '',
-        tel1: quickStudentForm.parentPhone.trim() || profile.phone || '',
+        schoolName: quickStudentForm.schoolName.trim(),
+        schoolAddress: quickStudentForm.schoolAddress.trim(),
+        shift: quickStudentForm.shift,
+        grade: quickStudentForm.shift,
+        studentAddress: quickStudentForm.studentAddress.trim(),
+        parentName: quickStudentForm.parentName.trim(),
+        parentPhone: cleanPhone,
+        parentEmail: quickStudentForm.parentEmail.trim(),
+        tel1: cleanPhone,
+        entryTime,
+        exitTime,
         value: finalValue,
         paymentDay: finalDay,
         vehicleId: vehicles[0]?.id || '',
@@ -475,7 +532,7 @@ export function AICSMSupportAssistantModal({
       await setDoc(doc(db, 'drivers', profile.id, 'finance', docRef.id), {
         studentId: docRef.id,
         studentName: quickStudentForm.name.trim(),
-        parentPhone: quickStudentForm.parentPhone.trim() || profile.phone || '',
+        parentPhone: cleanPhone,
         value: finalValue,
         type: 'Receita',
         status: 'Em Dia',
@@ -489,10 +546,12 @@ export function AICSMSupportAssistantModal({
       setQuickStudentForm({
         name: '',
         schoolName: '',
+        schoolAddress: '',
         shift: 'Manhã',
         studentAddress: '',
         parentName: '',
         parentPhone: '',
+        parentEmail: '',
         value: 350,
         paymentDay: 10
       });
@@ -2386,26 +2445,40 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-black uppercase text-gray-700 dark:text-gray-300 mb-1">
-                        Turno *
+                      <label className="block text-[10px] font-black uppercase text-gray-700 dark:text-gray-300 mb-1 flex items-center justify-between">
+                        <span>Turno *</span>
+                        <span className="text-[9px] text-amber-600 dark:text-yellow-400 font-bold">Filtra Rota</span>
                       </label>
                       <select 
                         value={quickStudentForm.shift}
                         onChange={(e) => setQuickStudentForm(p => ({ ...p, shift: e.target.value }))}
-                        className="w-full px-3 py-2 bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs font-semibold text-gray-950 dark:text-white focus:ring-2 focus:ring-yellow-400 focus:outline-none cursor-pointer"
+                        className="w-full px-3 py-2 bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs font-bold text-gray-950 dark:text-white focus:ring-2 focus:ring-yellow-400 focus:outline-none cursor-pointer"
                       >
-                        <option value="Manhã">Manhã</option>
-                        <option value="Tarde">Tarde</option>
-                        <option value="Integral">Integral</option>
+                        <option value="Manhã">🌅 Manhã</option>
+                        <option value="Tarde">🌇 Tarde</option>
+                        <option value="Integral">☀️ Integral</option>
                       </select>
                     </div>
                   </div>
 
-                  {/* Escola e Endereço da Casa */}
+                  {/* Endereço da Residência */}
+                  <div>
+                    <AddressAutocompleteInput
+                      label="Endereço de Embarque (Residência)"
+                      helperBadge="Trajeto GPS"
+                      required
+                      placeholder="Digite rua, número, bairro e cidade (ou CEP)..."
+                      value={quickStudentForm.studentAddress}
+                      onChange={(val) => setQuickStudentForm(p => ({ ...p, studentAddress: val }))}
+                    />
+                  </div>
+
+                  {/* Escola e Endereço da Escola */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <div>
-                      <label className="block text-[10px] font-black uppercase text-gray-700 dark:text-gray-300 mb-1">
-                        Escola de Destino *
+                      <label className="block text-[10px] font-black uppercase text-gray-700 dark:text-gray-300 mb-1 flex items-center justify-between">
+                        <span>Escola de Destino *</span>
+                        <span className="text-[9px] text-amber-600 dark:text-yellow-400 font-bold">Destino</span>
                       </label>
                       <input 
                         type="text"
@@ -2418,24 +2491,23 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-black uppercase text-gray-700 dark:text-gray-300 mb-1">
-                        Endereço da Casa (Embarque GPS)
-                      </label>
-                      <input 
-                        type="text"
-                        placeholder="Ex: Rua das Palmeiras, 150"
-                        value={quickStudentForm.studentAddress}
-                        onChange={(e) => setQuickStudentForm(p => ({ ...p, studentAddress: e.target.value }))}
-                        className="w-full px-3 py-2 bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs font-semibold text-gray-950 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                      <AddressAutocompleteInput
+                        label="Endereço da Escola"
+                        helperBadge="GPS Escola"
+                        required
+                        isSchool
+                        placeholder="Digite endereço da escola ou CEP..."
+                        value={quickStudentForm.schoolAddress}
+                        onChange={(val) => setQuickStudentForm(p => ({ ...p, schoolAddress: val }))}
                       />
                     </div>
                   </div>
 
-                  {/* Responsável e WhatsApp */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {/* Responsável, WhatsApp e E-mail */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                     <div>
                       <label className="block text-[10px] font-black uppercase text-gray-700 dark:text-gray-300 mb-1">
-                        Nome do Responsável *
+                        Responsável *
                       </label>
                       <input 
                         type="text"
@@ -2448,14 +2520,30 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-black uppercase text-gray-700 dark:text-gray-300 mb-1">
-                        WhatsApp do Responsável *
+                      <label className="block text-[10px] font-black uppercase text-gray-700 dark:text-gray-300 mb-1 flex items-center justify-between">
+                        <span>WhatsApp *</span>
+                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold">Cobrança Zap</span>
                       </label>
                       <input 
-                        type="text"
+                        type="tel"
                         placeholder="(11) 98888-7777"
                         value={quickStudentForm.parentPhone}
                         onChange={(e) => setQuickStudentForm(p => ({ ...p, parentPhone: e.target.value }))}
+                        required
+                        className="w-full px-3 py-2 bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs font-semibold text-gray-950 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-gray-700 dark:text-gray-300 mb-1 flex items-center justify-between">
+                        <span>E-mail dos Pais *</span>
+                        <span className="text-[9px] text-blue-600 dark:text-blue-400 font-bold">Acesso Pais</span>
+                      </label>
+                      <input 
+                        type="email"
+                        placeholder="mae@email.com"
+                        value={quickStudentForm.parentEmail}
+                        onChange={(e) => setQuickStudentForm(p => ({ ...p, parentEmail: e.target.value }))}
                         required
                         className="w-full px-3 py-2 bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs font-semibold text-gray-950 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-yellow-400 focus:outline-none"
                       />

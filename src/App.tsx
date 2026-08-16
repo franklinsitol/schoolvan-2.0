@@ -206,6 +206,7 @@ const ParentView = () => {
               {/* Status Header Banner */}
               <div className={cn(
                 "p-8 rounded-[40px] shadow-xl text-center transition-all",
+                status === 'A CAMINHO' ? "bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 text-white animate-pulse" :
                 status === 'Van' ? "bg-gradient-to-br from-yellow-400 to-amber-500 text-gray-950" :
                 status === 'Escola' ? "bg-gradient-to-br from-blue-500 to-indigo-600 text-white" :
                 isAbsentToday || status === 'NÃO VAI' ? "bg-gradient-to-br from-gray-600 to-gray-800 text-white" :
@@ -213,10 +214,11 @@ const ParentView = () => {
               )}>
                  <Bus size={48} className="mx-auto mb-4 animate-bounce-short" />
                  <h2 className="text-3xl font-black mb-2 uppercase tracking-wide">
-                   {isAbsentToday ? 'AUSENTE HOJE' : status}
+                   {isAbsentToday ? 'AUSENTE HOJE' : status === 'A CAMINHO' ? '🚐 A VAN É A PRÓXIMA!' : status}
                  </h2>
                  <p className="font-bold text-sm opacity-90">
                    {isAbsentToday ? 'Aviso de ausência registrado! O aluno não participará da rota de hoje.' :
+                    status === 'A CAMINHO' ? '🔔 O passageiro anterior embarcou! A van está a caminho da sua residência agora. Prepare seu filho(a).' :
                     status === 'Van' ? 'Em trânsito na Van Escolar' : 
                     status === 'Escola' ? 'Entregue com segurança na Escola' :
                     'Em casa / Aguardando embarque'}

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { 
   collection, 
   query, 
-  where, 
   onSnapshot, 
   QueryConstraint,
   collectionGroup
@@ -36,7 +35,11 @@ export function useFirestore<T>(collectionPath: string, constraints: QueryConstr
         setData(items);
         setLoading(false);
       }, (err) => {
-        console.error(`Firestore error on [${collectionPath}]:`, err);
+        if (err.message?.includes('offline') || (err as any).code === 'unavailable') {
+          console.warn(`Firestore working in offline cache mode for [${collectionPath}]`);
+        } else {
+          console.error(`Firestore error on [${collectionPath}]:`, err);
+        }
         setError(err);
         setLoading(false);
       });
@@ -83,7 +86,11 @@ export function useCollectionGroup<T>(collectionId: string, constraints: QueryCo
         setData(items);
         setLoading(false);
       }, (err) => {
-        console.error(`CollectionGroup error on [${collectionId}]:`, err);
+        if (err.message?.includes('offline') || (err as any).code === 'unavailable') {
+          console.warn(`CollectionGroup working in offline mode for [${collectionId}]`);
+        } else {
+          console.error(`CollectionGroup error on [${collectionId}]:`, err);
+        }
         setLoading(false);
       });
     } catch (err: any) {

@@ -73,10 +73,31 @@ export function RoutesView() {
   }, [vehicles, selectedVehicleId]);
 
   useEffect(() => {
-    const list = students.filter(s => (!selectedVehicleId || s.vehicleId === selectedVehicleId) && s.status !== 'Excluido');
+    const isManha = turno.startsWith('Manha');
+    const isTarde = turno.startsWith('Tarde');
+
+    const list = students.filter(s => {
+      if (selectedVehicleId && s.vehicleId && s.vehicleId !== selectedVehicleId) return false;
+      if (s.status === 'Excluido') return false;
+
+      // Filter by shift (Manhã vs Tarde vs Integral)
+      const shiftStr = (s.grade || '').toLowerCase();
+      const entryHour = s.entryTime ? parseInt(s.entryTime.split(':')[0], 10) : NaN;
+
+      if (isManha) {
+        if (shiftStr.includes('tarde')) return false;
+        if (!isNaN(entryHour) && entryHour >= 12) return false;
+      } else if (isTarde) {
+        if (shiftStr.includes('manhã') || shiftStr.includes('manha')) return false;
+        if (!isNaN(entryHour) && entryHour < 12 && !shiftStr.includes('integral')) return false;
+      }
+
+      return true;
+    });
+
     setOrderedStudents(list);
-    setCustomStops(null); // reset custom order on vehicle change
-  }, [students, selectedVehicleId]);
+    setCustomStops(null); // reset custom order on vehicle or shift change
+  }, [students, selectedVehicleId, turno]);
 
   const activeStudents = useMemo(() => {
     return orderedStudents.filter(s => !isStudentAbsentOnDate(s, selectedDate));

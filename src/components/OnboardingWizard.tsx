@@ -36,6 +36,7 @@ import { db } from '../lib/firebase';
 import { doc, updateDoc, collection, addDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { speakTiaPrompt, playBusHornSound } from '../lib/sound';
 import { checkCanAddStudent, checkCanAddVehicle } from '../lib/plans';
+import { AddressAutocompleteInput } from './AddressAutocompleteInput';
 import toast from 'react-hot-toast';
 
 interface OnboardingWizardProps {
@@ -92,10 +93,12 @@ export function OnboardingWizard({
   const [studentForm, setStudentForm] = useState({
     name: '',
     schoolName: '',
+    schoolAddress: '',
     shift: 'Manhã', // Manhã | Tarde | Integral
     studentAddress: '',
     parentName: '',
     parentPhone: '',
+    parentEmail: '',
     value: 350,
     paymentDay: 10,
   });
@@ -273,8 +276,46 @@ export function OnboardingWizard({
   // 3. SAVE STUDENT (FULL COMPLETE REGISTRATION)
   const handleSaveStudentStep = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Strict mandatory field validations
     if (!studentForm.name.trim()) {
-      toast.error('Informe pelo menos o Nome do Aluno!');
+      toast.error('Informe o nome completo do aluno.');
+      return;
+    }
+
+    if (!studentForm.shift) {
+      toast.error('Selecione o turno (Manhã/Tarde/Integral) — obrigatório para separar as rotas.');
+      return;
+    }
+
+    if (!studentForm.studentAddress.trim()) {
+      toast.error('Informe o endereço da residência para embarque — obrigatório para cálculo da rota e GPS.');
+      return;
+    }
+
+    if (!studentForm.schoolName.trim()) {
+      toast.error('Informe o nome da escola — obrigatório para a rota de destino.');
+      return;
+    }
+
+    if (!studentForm.schoolAddress.trim()) {
+      toast.error('Informe o endereço da escola — obrigatório para o trajeto da rota até a escola.');
+      return;
+    }
+
+    if (!studentForm.parentName.trim()) {
+      toast.error('Informe o nome do responsável.');
+      return;
+    }
+
+    const cleanPhone = studentForm.parentPhone.replace(/\D/g, '');
+    if (!cleanPhone || cleanPhone.length < 10) {
+      toast.error('Informe um WhatsApp válido do responsável (com DDD) — obrigatório para cobrança e avisos via Zap.');
+      return;
+    }
+
+    if (!studentForm.parentEmail.trim() || !studentForm.parentEmail.includes('@')) {
+      toast.error('Informe um e-mail válido do responsável — obrigatório para acesso ao App dos Pais.');
       return;
     }
 
@@ -288,14 +329,23 @@ export function OnboardingWizard({
       const parsedDay = Number(studentForm.paymentDay);
       const finalDay = isNaN(parsedDay) || parsedDay < 1 ? 10 : Math.min(31, parsedDay);
 
+      const isTarde = studentForm.shift === 'Tarde';
+      const entryTime = isTarde ? '13:00' : '07:00';
+      const exitTime = isTarde ? '18:00' : '12:00';
+
       const newStudentData = {
         name: studentForm.name.trim(),
-        schoolName: studentForm.schoolName.trim() || 'Escola Principal',
-        grade: studentForm.shift || 'Manhã',
-        studentAddress: studentForm.studentAddress.trim() || '',
-        parentName: studentForm.parentName.trim() || 'Responsável',
-        parentPhone: studentForm.parentPhone.trim() || profile.phone || '',
-        tel1: studentForm.parentPhone.trim() || profile.phone || '',
+        schoolName: studentForm.schoolName.trim(),
+        schoolAddress: studentForm.schoolAddress.trim(),
+        shift: studentForm.shift,
+        grade: studentForm.shift,
+        studentAddress: studentForm.studentAddress.trim(),
+        parentName: studentForm.parentName.trim(),
+        parentPhone: cleanPhone,
+        parentEmail: studentForm.parentEmail.trim(),
+        tel1: cleanPhone,
+        entryTime,
+        exitTime,
         value: finalValue,
         paymentDay: finalDay,
         vehicleId: vehicles[0]?.id || '',
@@ -310,7 +360,7 @@ export function OnboardingWizard({
       await setDoc(doc(db, 'drivers', profile.id, 'finance', docRef.id), {
         studentId: docRef.id,
         studentName: studentForm.name.trim(),
-        parentPhone: studentForm.parentPhone.trim() || profile.phone || '',
+        parentPhone: cleanPhone,
         value: finalValue,
         type: 'Receita',
         status: 'Em Dia',
@@ -326,10 +376,12 @@ export function OnboardingWizard({
       setStudentForm({
         name: '',
         schoolName: '',
+        schoolAddress: '',
         shift: 'Manhã',
         studentAddress: '',
         parentName: '',
         parentPhone: '',
+        parentEmail: '',
         value: 350,
         paymentDay: 10,
       });
@@ -736,56 +788,70 @@ export function OnboardingWizard({
                         </div>
 
                         <div>
-                          <label className="block text-xs font-black uppercase text-gray-800 dark:text-gray-200 mb-1">
-                            Turno Escolar *
+                          <label className="block text-xs font-black uppercase text-gray-800 dark:text-gray-200 mb-1 flex items-center justify-between">
+                            <span>Turno Escolar *</span>
+                            <span className="text-[10px] text-amber-700 dark:text-yellow-400 font-bold">Filtra Rota</span>
                           </label>
                           <select
                             value={studentForm.shift}
                             onChange={(e) => setStudentForm(p => ({ ...p, shift: e.target.value }))}
-                            className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs sm:text-sm font-semibold text-gray-950 dark:text-white focus:ring-2 focus:ring-yellow-400 focus:outline-none cursor-pointer"
+                            className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs sm:text-sm font-bold text-gray-950 dark:text-white focus:ring-2 focus:ring-yellow-400 focus:outline-none cursor-pointer"
                           >
-                            <option value="Manhã">Manhã (Entrada Cedo)</option>
-                            <option value="Tarde">Tarde (Saída Fim do Dia)</option>
-                            <option value="Integral">Integral (Dia Todo)</option>
+                            <option value="Manhã">🌅 Manhã</option>
+                            <option value="Tarde">🌇 Tarde</option>
+                            <option value="Integral">☀️ Integral</option>
                           </select>
                         </div>
                       </div>
 
-                      {/* Line 2: Escola & Endereço de Embarque (Casa) */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Line 2: Endereço do Aluno & Nome da Escola & Endereço da Escola */}
+                      <div className="space-y-3">
                         <div>
-                          <label className="block text-xs font-black uppercase text-gray-800 dark:text-gray-200 mb-1">
-                            Nome da Escola de Destino *
-                          </label>
-                          <input 
-                            type="text"
-                            placeholder="Ex: Colégio Objetivo, EE Maria José..."
-                            value={studentForm.schoolName}
-                            onChange={(e) => setStudentForm(p => ({ ...p, schoolName: e.target.value }))}
+                          <AddressAutocompleteInput
+                            label="Endereço de Residência (Embarque)"
+                            helperBadge="Interfere no GPS"
                             required
-                            className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs sm:text-sm font-semibold text-gray-950 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                            placeholder="Digite rua, número, bairro e cidade (ou CEP)..."
+                            value={studentForm.studentAddress}
+                            onChange={(val) => setStudentForm(p => ({ ...p, studentAddress: val }))}
                           />
                         </div>
 
-                        <div>
-                          <label className="block text-xs font-black uppercase text-gray-800 dark:text-gray-200 mb-1">
-                            Endereço da Residência (Embarque GPS)
-                          </label>
-                          <input 
-                            type="text"
-                            placeholder="Ex: Rua das Flores, 120 - Apto 32"
-                            value={studentForm.studentAddress}
-                            onChange={(e) => setStudentForm(p => ({ ...p, studentAddress: e.target.value }))}
-                            className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs sm:text-sm font-semibold text-gray-950 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-yellow-400 focus:outline-none"
-                          />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-black uppercase text-gray-800 dark:text-gray-200 mb-1 flex items-center justify-between">
+                              <span>Nome da Escola *</span>
+                              <span className="text-[10px] text-amber-700 dark:text-yellow-400 font-bold">Destino Rota</span>
+                            </label>
+                            <input 
+                              type="text"
+                              placeholder="Ex: Colégio Santo Agostinho"
+                              value={studentForm.schoolName}
+                              onChange={(e) => setStudentForm(p => ({ ...p, schoolName: e.target.value }))}
+                              required
+                              className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs sm:text-sm font-semibold text-gray-950 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                            />
+                          </div>
+
+                          <div>
+                            <AddressAutocompleteInput
+                              label="Endereço Completo da Escola"
+                              helperBadge="GPS Escola"
+                              required
+                              isSchool
+                              placeholder="Digite o endereço da escola ou CEP..."
+                              value={studentForm.schoolAddress}
+                              onChange={(val) => setStudentForm(p => ({ ...p, schoolAddress: val }))}
+                            />
+                          </div>
                         </div>
                       </div>
 
-                      {/* Line 3: Responsável & WhatsApp */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Line 3: Responsável, WhatsApp e E-mail */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                           <label className="block text-xs font-black uppercase text-gray-800 dark:text-gray-200 mb-1">
-                            Nome do Responsável (Pai/Mãe) *
+                            Nome do Responsável *
                           </label>
                           <input 
                             type="text"
@@ -798,14 +864,30 @@ export function OnboardingWizard({
                         </div>
 
                         <div>
-                          <label className="block text-xs font-black uppercase text-gray-800 dark:text-gray-200 mb-1">
-                            WhatsApp do Responsável *
+                          <label className="block text-xs font-black uppercase text-gray-800 dark:text-gray-200 mb-1 flex items-center justify-between">
+                            <span>WhatsApp do Responsável *</span>
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">Cobrança Zap</span>
                           </label>
                           <input 
-                            type="text"
+                            type="tel"
                             placeholder="(11) 98888-7777"
                             value={studentForm.parentPhone}
                             onChange={(e) => setStudentForm(p => ({ ...p, parentPhone: e.target.value }))}
+                            required
+                            className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs sm:text-sm font-semibold text-gray-950 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-black uppercase text-gray-800 dark:text-gray-200 mb-1 flex items-center justify-between">
+                            <span>E-mail do Responsável *</span>
+                            <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold">Acesso Pais</span>
+                          </label>
+                          <input 
+                            type="email"
+                            placeholder="carlos@email.com"
+                            value={studentForm.parentEmail}
+                            onChange={(e) => setStudentForm(p => ({ ...p, parentEmail: e.target.value }))}
                             required
                             className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs sm:text-sm font-semibold text-gray-950 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-yellow-400 focus:outline-none"
                           />

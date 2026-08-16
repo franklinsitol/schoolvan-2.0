@@ -3,6 +3,7 @@ import { X, Bus, CheckCircle2, MessageSquare, Send, MapPin, School, Clock, Phone
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Vehicle } from '../types';
+import { AddressAutocompleteInput } from './AddressAutocompleteInput';
 import toast from 'react-hot-toast';
 
 interface RequestVacancyModalProps {
@@ -32,8 +33,44 @@ export function RequestVacancyModal({ isOpen, onClose, vehicle }: RequestVacancy
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!parentName.trim() || !phone.trim() || !childName.trim() || !studentAddress.trim() || !schoolName.trim()) {
-      toast.error('Por favor, preencha todos os campos obrigatórios (Responsável, WhatsApp, Aluno, Escola e Endereço).');
+    if (!parentName.trim()) {
+      toast.error('Informe o nome do responsável.');
+      return;
+    }
+
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (!cleanPhone || cleanPhone.length < 10) {
+      toast.error('Informe um WhatsApp válido com DDD (interfere no contato e avisos).');
+      return;
+    }
+
+    if (!email.trim() || !email.includes('@')) {
+      toast.error('Informe um e-mail válido do responsável (interfere no login dos pais).');
+      return;
+    }
+
+    if (!childName.trim()) {
+      toast.error('Informe o nome do aluno/criança.');
+      return;
+    }
+
+    if (!schoolName.trim()) {
+      toast.error('Informe o nome da escola (interfere na rota).');
+      return;
+    }
+
+    if (!schoolAddress.trim()) {
+      toast.error('Informe o endereço da escola (interfere no destino GPS da rota).');
+      return;
+    }
+
+    if (!studentAddress.trim()) {
+      toast.error('Informe o endereço da residência para embarque (interfere no trajeto GPS da rota).');
+      return;
+    }
+
+    if (!shift) {
+      toast.error('Selecione o turno escolar (interfere na separação das rotas).');
       return;
     }
 
@@ -41,7 +78,6 @@ export function RequestVacancyModal({ isOpen, onClose, vehicle }: RequestVacancy
 
     try {
       const driverId = vehicle.driverId;
-      const cleanPhone = phone.replace(/\D/g, '');
 
       await addDoc(collection(db, 'drivers', driverId, 'leads'), {
         driverId,
@@ -160,7 +196,7 @@ export function RequestVacancyModal({ isOpen, onClose, vehicle }: RequestVacancy
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                    <label className="block text-xs font-black text-gray-700 mb-1">
                       Nome do Responsável *
                     </label>
                     <input 
@@ -169,13 +205,14 @@ export function RequestVacancyModal({ isOpen, onClose, vehicle }: RequestVacancy
                       placeholder="Ex: Maria das Dores"
                       value={parentName}
                       onChange={(e) => setParentName(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-yellow-400 outline-none"
+                      className="w-full px-3.5 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-yellow-400 outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">
-                      WhatsApp para Contato *
+                    <label className="block text-xs font-black text-gray-700 mb-1 flex items-center justify-between">
+                      <span>WhatsApp para Contato *</span>
+                      <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1 rounded font-bold">Cobrança/Avisos</span>
                     </label>
                     <input 
                       type="tel"
@@ -183,34 +220,37 @@ export function RequestVacancyModal({ isOpen, onClose, vehicle }: RequestVacancy
                       placeholder="(11) 98765-4321"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-yellow-400 outline-none"
+                      className="w-full px-3.5 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-yellow-400 outline-none"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">
-                    E-mail do Responsável (Opcional)
+                  <label className="block text-xs font-black text-gray-700 mb-1 flex items-center justify-between">
+                    <span>E-mail do Responsável *</span>
+                    <span className="text-[10px] text-blue-700 bg-blue-50 px-1 rounded font-bold">Acesso ao App dos Pais</span>
                   </label>
                   <input 
                     type="email"
+                    required
                     placeholder="maria@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-yellow-400 outline-none"
+                    className="w-full px-3.5 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-yellow-400 outline-none"
                   />
                 </div>
               </div>
 
               {/* Student & School Info */}
               <div className="space-y-3 pt-2">
-                <h3 className="text-xs font-black uppercase text-gray-400 tracking-wider flex items-center gap-1.5">
-                  <School size={14} /> Dados do Aluno & Escola
+                <h3 className="text-xs font-black uppercase text-gray-400 tracking-wider flex items-center justify-between">
+                  <span className="flex items-center gap-1.5"><School size={14} /> Dados do Aluno & Escola</span>
+                  <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded font-bold">Interfere na Rota & GPS</span>
                 </h3>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                    <label className="block text-xs font-black text-gray-700 mb-1">
                       Nome da Criança / Aluno *
                     </label>
                     <input 
@@ -219,13 +259,14 @@ export function RequestVacancyModal({ isOpen, onClose, vehicle }: RequestVacancy
                       placeholder="Ex: Lucas Dores Silva"
                       value={childName}
                       onChange={(e) => setChildName(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-yellow-400 outline-none"
+                      className="w-full px-3.5 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-yellow-400 outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">
-                      Escola Onde Estuda *
+                    <label className="block text-xs font-black text-gray-700 mb-1 flex items-center justify-between">
+                      <span>Escola Onde Estuda *</span>
+                      <span className="text-[10px] text-amber-700 font-bold">Destino Rota</span>
                     </label>
                     <input 
                       type="text"
@@ -233,43 +274,40 @@ export function RequestVacancyModal({ isOpen, onClose, vehicle }: RequestVacancy
                       placeholder="Ex: Colégio Santo Agostinho"
                       value={schoolName}
                       onChange={(e) => setSchoolName(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-yellow-400 outline-none"
+                      className="w-full px-3.5 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-yellow-400 outline-none"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">
-                    Endereço de Residência para Embarque *
-                  </label>
-                  <input 
-                    type="text"
+                  <AddressAutocompleteInput
+                    label="Endereço de Residência para Embarque"
+                    helperBadge="GPS Casa"
                     required
-                    placeholder="Ex: Rua das Flores, 123, Bairro Centro"
+                    placeholder="Digite rua, número, bairro e cidade (ou CEP)..."
                     value={studentAddress}
-                    onChange={(e) => setStudentAddress(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-yellow-400 outline-none"
+                    onChange={(val) => setStudentAddress(val)}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">
-                    Endereço da Escola (Opcional)
-                  </label>
-                  <input 
-                    type="text"
-                    placeholder="Ex: Av. Principal, 500"
+                  <AddressAutocompleteInput
+                    label="Endereço Completo da Escola"
+                    helperBadge="GPS Escola"
+                    required
+                    isSchool
+                    placeholder="Digite o endereço da escola ou CEP..."
                     value={schoolAddress}
-                    onChange={(e) => setSchoolAddress(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-yellow-400 outline-none"
+                    onChange={(val) => setSchoolAddress(val)}
                   />
                 </div>
               </div>
 
               {/* Shift & Times */}
               <div className="space-y-3 pt-2">
-                <h3 className="text-xs font-black uppercase text-gray-400 tracking-wider flex items-center gap-1.5">
-                  <Clock size={14} /> Turno e Horários
+                <h3 className="text-xs font-black uppercase text-gray-400 tracking-wider flex items-center justify-between">
+                  <span className="flex items-center gap-1.5"><Clock size={14} /> Turno Escolar & Horários *</span>
+                  <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded font-bold">Filtra Manhã / Tarde</span>
                 </h3>
 
                 <div className="grid grid-cols-3 gap-2">
@@ -277,14 +315,23 @@ export function RequestVacancyModal({ isOpen, onClose, vehicle }: RequestVacancy
                     <button
                       key={s}
                       type="button"
-                      onClick={() => setShift(s)}
-                      className={`py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                      onClick={() => {
+                        setShift(s);
+                        if (s === 'Tarde') {
+                          setEntryTime('13:00');
+                          setExitTime('18:00');
+                        } else {
+                          setEntryTime('07:00');
+                          setExitTime('12:00');
+                        }
+                      }}
+                      className={`py-2 text-xs font-black rounded-xl border transition-all cursor-pointer ${
                         shift === s 
                           ? 'bg-yellow-400 border-yellow-500 text-gray-950 shadow-sm' 
                           : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
                       }`}
                     >
-                      {s}
+                      {s === 'Manhã' ? '🌅 Manhã' : s === 'Tarde' ? '🌇 Tarde' : '☀️ Integral'}
                     </button>
                   ))}
                 </div>

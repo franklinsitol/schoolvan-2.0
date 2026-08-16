@@ -23,6 +23,17 @@ export function CheckinModal({ isOpen, onClose, students, driverId }: CheckinMod
 
   const todayStr = getTodayStr();
 
+  const activeStudents = students
+    .filter(s => s.status === 'Ativo' && !isStudentAbsentOnDate(s, todayStr))
+    .sort((a, b) => {
+      if (a.routeOrder !== undefined && b.routeOrder !== undefined) {
+        return a.routeOrder - b.routeOrder;
+      }
+      return (a.entryTime || '07:00').localeCompare(b.entryTime || '07:00');
+    });
+
+  const absentStudents = students.filter(s => s.status === 'Ativo' && isStudentAbsentOnDate(s, todayStr));
+
   const handleStatusChange = async (student: Student) => {
     const nextStatus: Record<BoardingStatus, BoardingStatus> = {
       'Casa': 'Van',
@@ -38,7 +49,7 @@ export function CheckinModal({ isOpen, onClose, students, driverId }: CheckinMod
       'Casa': '🏠 Aguardando em Casa',
       'Van': '🚌 Embarcou na Van',
       'Escola': '🏫 Entregue na Escola',
-      'A CAMINHO': '🚌 A Caminho',
+      'A CAMINHO': '🚌 A Caminho da sua casa',
       'NÃO VAI': '🚫 Não vai hoje'
     };
 
@@ -48,6 +59,23 @@ export function CheckinModal({ isOpen, onClose, students, driverId }: CheckinMod
         lastCheck: new Date().toISOString()
       });
       toast.success(`${student.name}: ${statusLabels[newStatus]}`);
+
+      // If student just boarded the van (Van), notify the NEXT student that the van is on the way!
+      if (newStatus === 'Van') {
+        const currentIndex = activeStudents.findIndex(s => s.id === student.id);
+        const nextStudent = activeStudents.slice(currentIndex + 1).find(s => !s.boardingStatus || s.boardingStatus === 'Casa');
+
+        if (nextStudent) {
+          await updateDoc(doc(db, `drivers/${driverId}/students`, nextStudent.id), {
+            boardingStatus: 'A CAMINHO',
+            lastCheck: new Date().toISOString()
+          });
+          toast(`🔔 Notificação de proximidade: ${nextStudent.name} é o próximo na rota (A Caminho)!`, {
+            icon: '🚐',
+            duration: 4000
+          });
+        }
+      }
     } catch (error) {
       toast.error('Erro ao atualizar status do passageiro');
     }
@@ -62,9 +90,6 @@ export function CheckinModal({ isOpen, onClose, students, driverId }: CheckinMod
       toast.error('Erro ao reintegrar aluno.');
     }
   };
-
-  const activeStudents = students.filter(s => s.status === 'Ativo' && !isStudentAbsentOnDate(s, todayStr));
-  const absentStudents = students.filter(s => s.status === 'Ativo' && isStudentAbsentOnDate(s, todayStr));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">

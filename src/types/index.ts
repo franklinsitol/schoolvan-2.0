@@ -88,6 +88,7 @@ export interface Student {
   seat?: number;
   boardingStatus: BoardingStatus;
   schoolName?: string;
+  shift?: 'Manhã' | 'Tarde' | 'Integral' | string;
   lastCheck?: string;
   parentPhone?: string;
   parentAccess?: boolean;
