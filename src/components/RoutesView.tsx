@@ -81,15 +81,21 @@ export function RoutesView() {
       if (s.status === 'Excluido') return false;
 
       // Filter by shift (Manhã vs Tarde vs Integral)
-      const shiftStr = (s.grade || '').toLowerCase();
+      const shiftStr = `${s.shift || ''} ${s.grade || ''}`.toLowerCase();
       const entryHour = s.entryTime ? parseInt(s.entryTime.split(':')[0], 10) : NaN;
+      const isIntegral = shiftStr.includes('integral');
+
+      if (isIntegral) {
+        // Integral students participate in both morning and afternoon routes
+        return true;
+      }
 
       if (isManha) {
-        if (shiftStr.includes('tarde')) return false;
-        if (!isNaN(entryHour) && entryHour >= 12) return false;
+        if (shiftStr.includes('tarde') && !shiftStr.includes('manhã') && !shiftStr.includes('manha')) return false;
+        if (!isNaN(entryHour) && entryHour >= 12 && !shiftStr.includes('manhã') && !shiftStr.includes('manha')) return false;
       } else if (isTarde) {
-        if (shiftStr.includes('manhã') || shiftStr.includes('manha')) return false;
-        if (!isNaN(entryHour) && entryHour < 12 && !shiftStr.includes('integral')) return false;
+        if ((shiftStr.includes('manhã') || shiftStr.includes('manha')) && !shiftStr.includes('tarde')) return false;
+        if (!isNaN(entryHour) && entryHour < 12 && !shiftStr.includes('tarde')) return false;
       }
 
       return true;
