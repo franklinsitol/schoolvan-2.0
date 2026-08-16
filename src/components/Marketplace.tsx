@@ -47,6 +47,9 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [activeDemoTab, setActiveDemoTab] = useState<'tia' | 'driver' | 'parent' | 'finance' | 'routes'>('tia');
   const [selectedVehicleForLead, setSelectedVehicleForLead] = useState<Vehicle | null>(null);
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
+  const [demoSimStep, setDemoSimStep] = useState<1 | 2 | 3>(1);
+  const [isSimulatingAudio, setIsSimulatingAudio] = useState(false);
 
   const searchSectionRef = useRef<HTMLDivElement>(null);
 
@@ -170,8 +173,8 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
                   onClick={() => onOpenAuth?.('driver')}
                   className="w-full sm:w-auto px-7 py-4 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-2xl text-sm shadow-xl hover:shadow-yellow-400/20 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <Bus size={18} />
-                  <span>EXPERIMENTAR A T.IA GRÁTIS</span>
+                  <Zap size={18} className="fill-gray-950" />
+                  <span>TESTAR GRÁTIS — SEM BAIXAR APP</span>
                   <ArrowRight size={18} />
                 </button>
 
@@ -446,91 +449,137 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
             {/* Demo Screen Preview */}
             <div className="bg-gray-900 text-white rounded-3xl p-6 md:p-8 border border-gray-800 shadow-2xl">
               {activeDemoTab === 'tia' && (
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
-                  <div className="md:col-span-5 space-y-4">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-400/20 border border-yellow-400/40 text-yellow-400 text-xs font-black uppercase tracking-wider">
-                      <Sparkles size={14} />
-                      <span>Exclusividade Mundial no Segmento</span>
-                    </div>
-                    <h3 className="text-2xl md:text-3xl font-black leading-tight">
-                      A T.IA pilota suas tarefas enquanto você foca na direção
-                    </h3>
-                    <p className="text-gray-300 text-xs leading-relaxed">
-                      Equipada com Inteligência Artificial generativa e síntese de voz nativa em português brasileiro, a <strong>T.IA</strong> monitora confirmações de falta dos pais, cobra mensalidades com educação, dá lembretes de documentos e interage por comandos de voz.
-                    </p>
-                    <ul className="space-y-2 text-xs text-gray-300">
-                      <li className="flex items-center gap-2"><CheckCircle2 size={14} className="text-yellow-400" /> Fala com você por áudio no viva-voz</li>
-                      <li className="flex items-center gap-2"><CheckCircle2 size={14} className="text-yellow-400" /> Atualiza rota sem você precisar digitar</li>
-                      <li className="flex items-center gap-2"><CheckCircle2 size={14} className="text-yellow-400" /> Gera textos de cobrança amigáveis no Zap</li>
-                    </ul>
-                  </div>
-
-                  <div className="md:col-span-7 bg-gray-950 p-5 md:p-6 rounded-2xl border border-yellow-400/30 space-y-4 shadow-2xl">
-                    <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-xl bg-yellow-400 text-gray-950 flex items-center justify-center font-black">
-                          <Bot size={20} />
+                <div className="space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
+                    <div className="md:col-span-6 space-y-4">
+                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-400/20 border border-yellow-400/40 text-yellow-400 text-xs font-black uppercase tracking-wider">
+                        <Sparkles size={14} />
+                        <span>Copiloto de Bordo • 100% Viva-Voz</span>
+                      </div>
+                      <h3 className="text-2xl md:text-3xl font-black leading-tight">
+                        A T.IA pilota sua rotina enquanto você foca na direção
+                      </h3>
+                      <p className="text-gray-300 text-xs md:text-sm leading-relaxed">
+                        Equipada com Inteligência Artificial generativa e síntese de voz nativa brasileira, a <strong>T.IA</strong> monitora ausências de alunos, cobra mensalidades no Zap, otimiza itinerários no GPS e responde por voz no viva-voz sem você tirar a mão do volante.
+                      </p>
+                      
+                      {/* Selo Mãos Livres */}
+                      <div className="bg-slate-950/80 border border-yellow-400/30 p-3 rounded-2xl flex items-center gap-3 shadow-lg">
+                        <div className="w-10 h-10 rounded-xl bg-yellow-400 text-slate-950 flex items-center justify-center font-black shrink-0">
+                          <Volume2 size={20} />
                         </div>
                         <div>
-                          <div className="font-extrabold text-sm text-white flex items-center gap-1.5">
-                            <span>T.IA Copiloto</span>
-                            <span className="bg-yellow-400 text-gray-950 text-[9px] px-1.5 py-0.5 rounded font-black">ONLINE</span>
-                          </div>
-                          <p className="text-[11px] text-gray-400">Assistente com Inteligência Artificial</p>
+                          <span className="text-yellow-400 font-black text-xs uppercase tracking-wide flex items-center gap-1">
+                            <ShieldCheck size={14} /> Selo Mãos Livres (Hands-Free)
+                          </span>
+                          <p className="text-[11px] text-slate-300">
+                            Zero digitação na direção. Áudio nítido com buzina bi-bi e comandos simplificados.
+                          </p>
                         </div>
                       </div>
-                      <span className="text-xs font-mono text-yellow-400">Clique para ouvir a voz:</span>
                     </div>
 
-                    {/* Interactive Voice Chips */}
-                    <div className="space-y-2.5">
-                      <button
-                        onClick={() => {
-                          playBusHornSound();
-                          speakTiaPrompt("Aviso de falta recebido: A mãe do Lucas confirmou ausência hoje às 06:40. Já removi o ponto da Escola Dom Bosco!");
-                        }}
-                        className="w-full p-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-yellow-400/50 rounded-xl text-left transition-all flex items-center justify-between group cursor-pointer"
-                      >
-                        <div className="space-y-0.5">
-                          <span className="text-[10px] uppercase font-black text-yellow-400">Notificação de Ausência</span>
-                          <p className="text-xs text-gray-200">"A mãe do Lucas avisou falta. Já atualizei sua rota!"</p>
+                    <div className="md:col-span-6 bg-gray-950 p-5 md:p-6 rounded-2xl border border-yellow-400/30 space-y-4 shadow-2xl">
+                      <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 rounded-xl bg-yellow-400 text-gray-950 flex items-center justify-center font-black">
+                            <Bot size={20} />
+                          </div>
+                          <div>
+                            <div className="font-extrabold text-sm text-white flex items-center gap-1.5">
+                              <span>T.IA Copiloto</span>
+                              <span className="bg-yellow-400 text-gray-950 text-[9px] px-1.5 py-0.5 rounded font-black">ONLINE</span>
+                            </div>
+                            <p className="text-[11px] text-gray-400">Simulador de 30s em Ação</p>
+                          </div>
                         </div>
-                        <Volume2 size={18} className="text-yellow-400 group-hover:scale-110 shrink-0 transition-transform" />
-                      </button>
+                        <span className="text-xs font-mono text-yellow-400 animate-pulse">● Ao Vivo</span>
+                      </div>
 
-                      <button
-                        onClick={() => {
-                          playBusHornSound();
-                          speakTiaPrompt("Tio, faltam apenas três mensalidades para fechar o mês 100 porcento pago. Quer que eu envie os lembretes com sua chave Pix?");
-                        }}
-                        className="w-full p-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-yellow-400/50 rounded-xl text-left transition-all flex items-center justify-between group cursor-pointer"
-                      >
-                        <div className="space-y-0.5">
-                          <span className="text-[10px] uppercase font-black text-emerald-400">Cobrança e Caixa</span>
-                          <p className="text-xs text-gray-200">"Faltam 3 mensalidades. Quer que eu envie lembretes no Zap?"</p>
+                      {/* Interactive Step Simulator */}
+                      <div className="space-y-3">
+                        {/* Step 1 */}
+                        <div 
+                          onClick={() => {
+                            setDemoSimStep(1);
+                            playBusHornSound();
+                            speakTiaPrompt("Aviso de falta recebido: A mãe do Lucas confirmou ausência hoje às 06:40. Rota recalculada com economia de 12 minutos!");
+                          }}
+                          className={cn(
+                            "p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between",
+                            demoSimStep === 1 
+                              ? "bg-yellow-400/15 border-yellow-400 text-yellow-300 shadow-md" 
+                              : "bg-white/5 border-white/10 hover:bg-white/10 text-gray-300"
+                          )}
+                        >
+                          <div className="space-y-1">
+                            <span className="text-[10px] uppercase font-black tracking-wider text-yellow-400 flex items-center gap-1">
+                              <span>1. Aviso de Falta por Áudio</span>
+                              <Volume2 size={12} className="animate-bounce" />
+                            </span>
+                            <p className="text-xs">"Mãe do Lucas avisou falta. Rota recalculada com 12 min a menos!"</p>
+                          </div>
+                          <span className="text-[10px] font-black bg-yellow-400 text-gray-950 px-2 py-1 rounded-lg shrink-0 ml-2">
+                            OUVIR
+                          </span>
                         </div>
-                        <Volume2 size={18} className="text-emerald-400 group-hover:scale-110 shrink-0 transition-transform" />
-                      </button>
 
-                      <button
-                        onClick={() => {
-                          playBusHornSound();
-                          speakTiaPrompt("Bom dia, Tio Carlos! Todos os vinte e dois alunos do turno da manhã estão confirmados. Tenha uma excelente rota!");
-                        }}
-                        className="w-full p-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-yellow-400/50 rounded-xl text-left transition-all flex items-center justify-between group cursor-pointer"
-                      >
-                        <div className="space-y-0.5">
-                          <span className="text-[10px] uppercase font-black text-blue-400">Bom dia & Resumo</span>
-                          <p className="text-xs text-gray-200">"Bom dia, Tio! 22 alunos confirmados na rota da manhã."</p>
+                        {/* Step 2 */}
+                        <div 
+                          onClick={() => {
+                            setDemoSimStep(2);
+                            playBusHornSound();
+                            speakTiaPrompt("Otimização concluída: Ponto da Rua das Palmeiras ignorado. Você economizou 4 quilômetros de combustível!");
+                          }}
+                          className={cn(
+                            "p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between",
+                            demoSimStep === 2 
+                              ? "bg-blue-400/15 border-blue-400 text-blue-300 shadow-md" 
+                              : "bg-white/5 border-white/10 hover:bg-white/10 text-gray-300"
+                          )}
+                        >
+                          <div className="space-y-1">
+                            <span className="text-[10px] uppercase font-black tracking-wider text-blue-400 flex items-center gap-1">
+                              <span>2. Recálculo no GPS (Google Maps / Waze)</span>
+                            </span>
+                            <p className="text-xs">Exclui paradas desnecessárias e economiza combustível.</p>
+                          </div>
+                          <span className="text-[10px] font-black bg-blue-400 text-gray-950 px-2 py-1 rounded-lg shrink-0 ml-2">
+                            TESTAR
+                          </span>
                         </div>
-                        <Volume2 size={18} className="text-blue-400 group-hover:scale-110 shrink-0 transition-transform" />
-                      </button>
-                    </div>
 
-                    <div className="bg-yellow-400/10 border border-yellow-400/30 p-2.5 rounded-xl text-center">
-                      <span className="text-[11px] text-yellow-300 font-bold">
-                        🔊 Toque em qualquer exemplo acima para ouvir a voz real e o efeito sonoro bi-bi!
-                      </span>
+                        {/* Step 3 */}
+                        <div 
+                          onClick={() => {
+                            setDemoSimStep(3);
+                            playBusHornSound();
+                            speakTiaPrompt("Mensagem de cobrança amigável com chave Pix e comprovante gerada para a mãe da Sofia no WhatsApp!");
+                          }}
+                          className={cn(
+                            "p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between",
+                            demoSimStep === 3 
+                              ? "bg-emerald-400/15 border-emerald-400 text-emerald-300 shadow-md" 
+                              : "bg-white/5 border-white/10 hover:bg-white/10 text-gray-300"
+                          )}
+                        >
+                          <div className="space-y-1">
+                            <span className="text-[10px] uppercase font-black tracking-wider text-emerald-400 flex items-center gap-1">
+                              <span>3. Lembrete Amigável Pix no WhatsApp</span>
+                            </span>
+                            <p className="text-xs">Envia o Pix no Zap dos pais com educação e sem atrito.</p>
+                          </div>
+                          <span className="text-[10px] font-black bg-emerald-400 text-gray-950 px-2 py-1 rounded-lg shrink-0 ml-2">
+                            DISPARAR
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-yellow-400/10 border border-yellow-400/20 p-2.5 rounded-xl text-center">
+                        <span className="text-[11px] text-yellow-300 font-bold">
+                          🔊 Clique nos passos acima para acionar a voz brasileira e buzininha da T.IA em tempo real!
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -816,29 +865,62 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
           </section>
 
           {/* SECTION: PRICING TIERS */}
-          <section className="space-y-12">
+          <section className="space-y-10">
             <div className="text-center max-w-2xl mx-auto space-y-3">
-              <span className="bg-green-100 text-green-900 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider">
-                Preços Justos e Acessíveis
+              <span className="bg-green-100 text-green-900 text-xs font-black px-3.5 py-1 rounded-full uppercase tracking-wider">
+                Preços Claros e Transparentes
               </span>
-              <h2 className="text-3xl font-black text-gray-900">Escolha o Plano Ideal para Sua Frota</h2>
-              <p className="text-gray-500 text-sm">Comece no plano gratuito. Troque ou cancele quando quiser sem fidelidade.</p>
+              <h2 className="text-3xl md:text-4xl font-black text-gray-900">Escolha o Plano Ideal para Sua Van</h2>
+              <p className="text-gray-500 text-sm">
+                Até 25 alunos é 100% gratuito para sempre. Acima disso, planos simples sem contrato de fidelidade ou taxa escondida.
+              </p>
+
+              {/* Monthly vs Annual Toggle */}
+              <div className="pt-3 flex items-center justify-center gap-3">
+                <div className="bg-gray-100 p-1.5 rounded-2xl flex items-center border border-gray-200 shadow-inner">
+                  <button
+                    onClick={() => setBillingPeriod('monthly')}
+                    className={cn(
+                      "px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer",
+                      billingPeriod === 'monthly'
+                        ? "bg-white text-gray-950 shadow-md"
+                        : "text-gray-500 hover:text-gray-950"
+                    )}
+                  >
+                    Faturamento Mensal
+                  </button>
+                  <button
+                    onClick={() => setBillingPeriod('yearly')}
+                    className={cn(
+                      "px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5",
+                      billingPeriod === 'yearly'
+                        ? "bg-yellow-400 text-gray-950 shadow-md"
+                        : "text-gray-500 hover:text-gray-950"
+                    )}
+                  >
+                    <span>Plano Anual</span>
+                    <span className="bg-emerald-600 text-white text-[9px] px-1.5 py-0.5 rounded font-black uppercase">
+                      20% OFF (2 meses grátis)
+                    </span>
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
               {/* PLANO GRATUITO */}
-              <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm flex flex-col justify-between space-y-6 hover:border-yellow-400 transition-all">
+              <div className="bg-white p-8 rounded-3xl border-2 border-gray-200 shadow-sm flex flex-col justify-between space-y-6 hover:border-yellow-400 transition-all">
                 <div className="space-y-4">
-                  <span className="text-xs font-black uppercase tracking-wider text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-                    Entrada
+                  <span className="text-xs font-black uppercase tracking-wider text-gray-700 bg-gray-100 px-3 py-1 rounded-full">
+                    Comece Aqui
                   </span>
                   <h3 className="text-2xl font-black text-gray-900">Plano Gratuito</h3>
                   <div className="flex items-baseline gap-1">
                     <span className="text-4xl font-black text-gray-900">R$ 0</span>
                     <span className="text-xs text-gray-400 font-bold">/para sempre</span>
                   </div>
-                  <p className="text-xs text-gray-500">
-                    Perfeito para quem tem até 1 van e quer testar a organização digital sem custo.
+                  <p className="text-xs text-gray-500 leading-relaxed">
+                    Ideal para quem tem até 1 van com até 25 alunos e quer organizar tudo sem pagar nada.
                   </p>
 
                   <ul className="space-y-3 pt-4 text-xs font-bold text-gray-700">
@@ -848,15 +930,19 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 size={16} className="text-green-500 shrink-0" />
-                      <span>Copiloto T.IA (Modo Básico)</span>
+                      <span><strong>Copiloto T.IA com Síntese de Voz & Buzina</strong></span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 size={16} className="text-green-500 shrink-0" />
-                      <span>Controle de Embarque & Chamada</span>
+                      <span>Chamada e Check-in de Embarque</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 size={16} className="text-green-500 shrink-0" />
-                      <span>Portal do Responsável</span>
+                      <span>Portal do Responsável (Aviso de Falta)</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 size={16} className="text-green-500 shrink-0" />
+                      <span>Cobrança Pix no WhatsApp dos Pais</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 size={16} className="text-green-500 shrink-0" />
@@ -876,7 +962,7 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
               {/* PLANO PRO (DESTACADO) */}
               <div className="bg-gradient-to-b from-gray-900 via-gray-950 to-black text-white p-8 rounded-3xl shadow-2xl relative flex flex-col justify-between space-y-6 border-2 border-yellow-400 transform md:-translate-y-2">
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-yellow-400 text-gray-950 text-[10px] font-black uppercase px-4 py-1 rounded-full shadow-lg flex items-center gap-1">
-                  <Sparkles size={12} /> MAIS POPULAR
+                  <Sparkles size={12} /> MAIS ESCOLHIDO
                 </div>
 
                 <div className="space-y-4">
@@ -884,34 +970,56 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
                     Profissional
                   </span>
                   <h3 className="text-2xl font-black text-white">Plano Pro</h3>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-black text-yellow-400">R$ 79</span>
-                    <span className="text-xs text-gray-400 font-bold">/mês</span>
-                  </div>
-                  <p className="text-xs text-gray-300">
-                    O tamanho ideal para cobrir até 60 alunos em 1 ou 2 vans com tranquilidade.
+                  
+                  {billingPeriod === 'monthly' ? (
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-black text-yellow-400">R$ 79</span>
+                      <span className="text-xs text-gray-400 font-bold">/mês</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-0.5">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-4xl font-black text-yellow-400">R$ 63</span>
+                        <span className="text-xs text-gray-400 font-bold">/mês no plano anual</span>
+                      </div>
+                      <span className="text-[11px] text-emerald-400 font-semibold block">
+                        R$ 758 / ano (você economiza R$ 190)
+                      </span>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-gray-300 leading-relaxed">
+                    Para o motorista autônomo com 1 van única, alunos ilimitados e cadastro de colaboradores/monitores.
                   </p>
 
                   <ul className="space-y-3 pt-4 text-xs font-bold text-gray-200">
                     <li className="flex items-center gap-2">
                       <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
-                      <span><strong>Até 60 Alunos Ativos</strong></span>
+                      <span><strong>1 Van Inclusa (Alunos Ilimitados)</strong></span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
-                      <span><strong>Copiloto T.IA Completo com Áudio</strong></span>
+                      <span><strong>Cadastro de Colaboradores & Monitores</strong></span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
-                      <span>Lembretes Automáticos WhatsApp</span>
+                      <span><strong>Copiloto T.IA Completo com Áudio & Mãos Livres</strong></span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
-                      <span>Cobrança Automatizada Pix</span>
+                      <span>Lembretes Automáticos de Mensalidades Pix no Zap</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
-                      <span>Otimização e Traçado de Rotas</span>
+                      <span>Otimização Inteligente de Rotas no GPS</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
+                      <span>Painel Financeiro com Controle de Inadimplência</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
+                      <span>Suporte VIP para o Tio da Van</span>
                     </li>
                   </ul>
                 </div>
@@ -925,40 +1033,58 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
               </div>
 
               {/* PLANO FROTA */}
-              <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm flex flex-col justify-between space-y-6 hover:border-yellow-400 transition-all">
+              <div className="bg-white p-8 rounded-3xl border-2 border-gray-200 shadow-sm flex flex-col justify-between space-y-6 hover:border-yellow-400 transition-all">
                 <div className="space-y-4">
                   <span className="text-xs font-black uppercase tracking-wider text-purple-600 bg-purple-50 px-3 py-1 rounded-full">
-                    Empresarial
+                    Empresarial & Frotas
                   </span>
                   <h3 className="text-2xl font-black text-gray-900">Plano Frota</h3>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-black text-gray-900">R$ 149</span>
-                    <span className="text-xs text-gray-400 font-bold">/mês</span>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    Para frotas maiores com múltiplos motoristas, monitores e relatórios completos.
+                  
+                  {billingPeriod === 'monthly' ? (
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-black text-gray-900">R$ 149</span>
+                      <span className="text-xs text-gray-400 font-bold">/mês (3 vans inclusas)</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-0.5">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-4xl font-black text-gray-900">R$ 119</span>
+                        <span className="text-xs text-gray-400 font-bold">/mês no plano anual</span>
+                      </div>
+                      <span className="text-[11px] text-emerald-600 font-semibold block">
+                        R$ 1.428 / ano (3 vans inclusas)
+                      </span>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-gray-500 leading-relaxed">
+                    Para frotas escolares com múltiplos motoristas, monitores e vans escaláveis (+ R$ 79,90/mês por van adicional).
                   </p>
 
                   <ul className="space-y-3 pt-4 text-xs font-bold text-gray-700">
                     <li className="flex items-center gap-2">
                       <CheckCircle2 size={16} className="text-purple-600 shrink-0" />
-                      <span><strong>Alunos e Vans Ilimitados</strong></span>
+                      <span><strong>Alunos Ilimitados & 3 Vans na Base</strong></span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 size={16} className="text-purple-600 shrink-0" />
-                      <span>Copiloto T.IA Multi-Motorista</span>
+                      <span><strong>Acesso para Monitores & Outros Motoristas</strong></span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 size={16} className="text-purple-600 shrink-0" />
-                      <span>Acesso para Monitores de Van</span>
+                      <span>Copiloto T.IA Multi-Van Centralizado</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 size={16} className="text-purple-600 shrink-0" />
-                      <span>Relatórios Financeiros DRE</span>
+                      <span>Relatórios Financeiros Consolidados DRE</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 size={16} className="text-purple-600 shrink-0" />
-                      <span>Suporte Prioritário VIP</span>
+                      <span>Vencimento Unificado no Dia 10</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 size={16} className="text-purple-600 shrink-0" />
+                      <span>Suporte VIP Prioritário 24/7</span>
                     </li>
                   </ul>
                 </div>
@@ -969,6 +1095,108 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
                 >
                   CONTRATAR PLANO FROTA
                 </button>
+              </div>
+            </div>
+          </section>
+
+          {/* SECTION: PROVA SOCIAL & DEPOIMENTOS REAIS COM SELO VERIFICADO */}
+          <section className="bg-gradient-to-b from-slate-900 to-slate-950 rounded-[40px] p-8 md:p-14 text-white border border-slate-800 shadow-2xl space-y-10">
+            <div className="text-center max-w-2xl mx-auto space-y-3">
+              <span className="bg-yellow-400/20 text-yellow-400 border border-yellow-400/30 text-xs font-black px-4 py-1.5 rounded-full uppercase tracking-wider inline-flex items-center gap-1.5">
+                <ShieldCheck size={15} /> Prova Social de Quem Usa Todo Dia
+              </span>
+              <h2 className="text-3xl md:text-4xl font-black text-white">Quem Dirige Recomenda o SchoolVan</h2>
+              <p className="text-slate-300 text-sm">
+                Veja como o SchoolVan e a T.IA transformaram a rotina real de tios e tias de vans escolares pelo Brasil.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Testimonial 1 */}
+              <div className="bg-slate-800/80 border border-slate-700/80 p-6 rounded-3xl space-y-4 shadow-lg flex flex-col justify-between">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1 text-yellow-400">
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} size={15} className="fill-yellow-400 text-yellow-400" />
+                      ))}
+                    </div>
+                    <span className="bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <ShieldCheck size={12} /> Motorista Verificado
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-200 leading-relaxed italic">
+                    "A T.IA me economiza mais de 1 hora por dia só de não precisar ficar cobrando pai por pai no WhatsApp no fim do mês. Eles recebem o lembrete com a chave Pix certinha e já pagam na hora!"
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 pt-3 border-t border-slate-700/60">
+                  <div className="w-10 h-10 rounded-full bg-yellow-400 text-slate-950 font-black flex items-center justify-center text-sm shadow">
+                    TC
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-sm text-white">Tio Carlos Roberto</h4>
+                    <p className="text-[11px] text-slate-400">Zona Norte • São Paulo/SP (42 alunos)</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Testimonial 2 */}
+              <div className="bg-slate-800/80 border border-slate-700/80 p-6 rounded-3xl space-y-4 shadow-lg flex flex-col justify-between">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1 text-yellow-400">
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} size={15} className="fill-yellow-400 text-yellow-400" />
+                      ))}
+                    </div>
+                    <span className="bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <ShieldCheck size={12} /> Motorista Verificado
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-200 leading-relaxed italic">
+                    "O aviso de falta é sensacional! Antes eu parava a van e ficava buzinando esperando a criança sair. Agora a mãe avisa pelo portal, a T.IA fala no meu viva-voz e eu pulo a casa. Economizo combustível todo dia."
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 pt-3 border-t border-slate-700/60">
+                  <div className="w-10 h-10 rounded-full bg-amber-400 text-slate-950 font-black flex items-center justify-center text-sm shadow">
+                    TB
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-sm text-white">Tia Bete & Equipe</h4>
+                    <p className="text-[11px] text-slate-400">Curitiba/PR (2 Vans • 58 alunos)</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Testimonial 3 */}
+              <div className="bg-slate-800/80 border border-slate-700/80 p-6 rounded-3xl space-y-4 shadow-lg flex flex-col justify-between">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1 text-yellow-400">
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} size={15} className="fill-yellow-400 text-yellow-400" />
+                      ))}
+                    </div>
+                    <span className="bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <ShieldCheck size={12} /> Motorista Verificado
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-200 leading-relaxed italic">
+                    "O melhor é não precisar baixar nada pesado de app store. Adicionei o ícone na tela do meu celular e uso no suporte da van. Botões grandes e fáceis de tocar mesmo com luva ou na correria."
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 pt-3 border-t border-slate-700/60">
+                  <div className="w-10 h-10 rounded-full bg-yellow-300 text-slate-950 font-black flex items-center justify-center text-sm shadow">
+                    TM
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-sm text-white">Tio Marcelo Souza</h4>
+                    <p className="text-[11px] text-slate-400">Belo Horizonte/MG (36 alunos)</p>
+                  </div>
+                </div>
               </div>
             </div>
           </section>

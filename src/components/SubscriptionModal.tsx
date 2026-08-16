@@ -698,8 +698,9 @@ export function SubscriptionModal({ isOpen, onClose, defaultPlan = 'Pro', initia
                     <span className="text-xs text-gray-600 font-bold">/mês</span>
                   </div>
                   <ul className="mt-3 space-y-1.5 text-xs text-gray-700 font-semibold">
-                    <li>✓ Alunos Ilimitados</li>
-                    <li>✓ 1 Van Principal</li>
+                    <li>✓ 1 Van Inclusa (Alunos Ilimitados)</li>
+                    <li>✓ Cadastro de Colaboradores & Monitores</li>
+                    <li>✓ Copiloto T.IA Completo com Áudio</li>
                     <li>✓ Vencimento unificado dia 10</li>
                   </ul>
                 </div>

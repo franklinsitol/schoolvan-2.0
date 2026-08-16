@@ -1,5 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Share, PlusSquare, X } from 'lucide-react';
+import { 
+  Download, 
+  Share, 
+  PlusSquare, 
+  X, 
+  Smartphone, 
+  Sparkles, 
+  CheckCircle2, 
+  MoreVertical, 
+  Compass, 
+  ExternalLink,
+  Zap,
+  ArrowRight
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { SchoolVanLogo } from './SchoolVanLogo';
 
@@ -8,9 +21,9 @@ export function PWAPrompt() {
   const [isStandalone, setIsStandalone] = useState(false);
   const [isInIframe, setIsInIframe] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
-  const [showIOSModal, setShowIOSModal] = useState(false);
+  const [showInstallModal, setShowInstallModal] = useState(false);
   const [installing, setInstalling] = useState(false);
-  const [imgError, setImgError] = useState(false);
+  const [activeTab, setActiveTab] = useState<'android' | 'ios' | 'pc'>('android');
 
   useEffect(() => {
     // 1. Detect if running inside preview iframe
@@ -18,17 +31,28 @@ export function PWAPrompt() {
     setIsInIframe(inIframe);
 
     // 2. Detect if already installed & running in standalone window
-    const standalone = window.matchMedia('(display-mode: standalone)').matches || 
-                      (navigator as any).standalone === true ||
-                      document.referrer.includes('android-app://');
-    setIsStandalone(standalone);
+    const standalone = typeof window !== 'undefined' && (
+      window.matchMedia('(display-mode: standalone)').matches || 
+      (navigator as any).standalone === true ||
+      document.referrer.includes('android-app://')
+    );
+    setIsStandalone(Boolean(standalone));
 
-    // 3. Detect iOS Safari
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    const ios = /iphone|ipad|ipod/.test(userAgent);
-    setIsIOS(ios);
+    // 3. Detect OS / Device
+    const userAgent = typeof window !== 'undefined' ? window.navigator.userAgent.toLowerCase() : '';
+    const isApple = /iphone|ipad|ipod/.test(userAgent);
+    const isAndroidDevice = /android/.test(userAgent);
+    
+    setIsIOS(isApple);
+    if (isApple) {
+      setActiveTab('ios');
+    } else if (isAndroidDevice) {
+      setActiveTab('android');
+    } else {
+      setActiveTab('android');
+    }
 
-    // 4. Capture native browser PWA installation event (Chrome, Android, Edge, Brave)
+    // 4. Capture native browser PWA installation event (Chrome, Android, Edge, Brave, Samsung)
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -36,7 +60,7 @@ export function PWAPrompt() {
     };
 
     const handleCustomOpenInstall = () => {
-      handleInstallPWA();
+      handleOpenInstallModal();
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -46,7 +70,8 @@ export function PWAPrompt() {
       setIsStandalone(true);
       setDeferredPrompt(null);
       setInstalling(false);
-      toast.success('🎉 SchoolVan foi instalado no seu dispositivo como aplicativo standalone!', { duration: 5000 });
+      setShowInstallModal(false);
+      toast.success('🎉 SchoolVan foi instalado com sucesso no seu dispositivo!', { duration: 5000 });
     });
 
     return () => {
@@ -55,42 +80,47 @@ export function PWAPrompt() {
     };
   }, []);
 
-  const handleInstallPWA = async () => {
-    // A) If inside an iframe (like AI Studio preview), open top window directly so the browser releases the native PWA prompt
+  const handleOpenInstallModal = () => {
+    // If inside an iframe (like AI Studio preview), notify and open top window
     if (isInIframe && typeof window !== 'undefined') {
-      toast('Abrindo em janela dedicada para autorizar o download nativo do aplicativo...', { icon: '🚀', duration: 3000 });
+      toast('Abrindo em nova aba para autorizar o instalador nativo do seu celular...', { icon: '🚀', duration: 3000 });
       window.open(window.location.origin, '_blank');
       return;
     }
 
-    // B) iOS Safari (Apple does not support native beforeinstallprompt API)
-    if (isIOS) {
-      setShowIOSModal(true);
-      return;
-    }
-
-    // C) Direct Native OS Install Dialog (Chrome, Android, Edge, Brave)
+    // Direct Native OS prompt if already prepared by browser
     if (deferredPrompt) {
-      setInstalling(true);
-      try {
-        await deferredPrompt.prompt();
-        const choiceResult = await deferredPrompt.userChoice;
-        if (choiceResult.outcome === 'accepted') {
-          console.log('User accepted native PWA install dialog');
-          setIsStandalone(true);
-          toast.success('Instalando o aplicativo no seu dispositivo...');
-        }
-        setDeferredPrompt(null);
-      } catch (err) {
-        console.error('Erro ao chamar o prompt nativo do PWA:', err);
-      } finally {
-        setInstalling(false);
-      }
+      tryDirectInstall();
       return;
     }
 
-    // D) Browser hasn't emitted beforeinstallprompt yet or prompt unavailable
-    toast('Aguardando acionamento do instalador nativo do seu navegador...', { icon: '📲', duration: 3000 });
+    // Always open the visual installation guide modal with steps for their device
+    setShowInstallModal(true);
+  };
+
+  const tryDirectInstall = async () => {
+    if (!deferredPrompt) {
+      setShowInstallModal(true);
+      return;
+    }
+
+    setInstalling(true);
+    try {
+      await deferredPrompt.prompt();
+      const choiceResult = await deferredPrompt.userChoice;
+      if (choiceResult.outcome === 'accepted') {
+        console.log('User accepted native PWA install dialog');
+        setIsStandalone(true);
+        setShowInstallModal(false);
+        toast.success('Instalando o SchoolVan no seu celular...');
+      }
+      setDeferredPrompt(null);
+    } catch (err) {
+      console.error('Erro ao chamar o prompt nativo:', err);
+      setShowInstallModal(true);
+    } finally {
+      setInstalling(false);
+    }
   };
 
   if (isStandalone) {
@@ -99,68 +129,213 @@ export function PWAPrompt() {
 
   return (
     <>
-      {/* 1. Modal para iOS Safari */}
-      {showIOSModal && (
-        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-slate-100 animate-scale-up relative">
+      {/* 1. Modal Completo e Interativo de Instalação / Download PWA */}
+      {showInstallModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+          <div className="bg-slate-900 border border-slate-700/80 rounded-3xl p-5 sm:p-7 max-w-md w-full shadow-2xl text-slate-100 animate-scale-up relative max-h-[90vh] overflow-y-auto">
+            
+            {/* Close Button */}
             <button
-              onClick={() => setShowIOSModal(false)}
-              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-200 rounded-full cursor-pointer"
+              onClick={() => setShowInstallModal(false)}
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-700 rounded-full transition-all cursor-pointer"
+              title="Fechar"
             >
               <X size={20} />
             </button>
 
-            <div className="text-center mb-4">
-              <div className="w-16 h-16 bg-amber-500/10 text-amber-500 rounded-2xl mx-auto flex items-center justify-center mb-3">
-                <Share size={32} />
+            {/* Header */}
+            <div className="text-center mb-5">
+              <div className="w-16 h-16 bg-yellow-400 text-slate-950 rounded-2xl mx-auto flex items-center justify-center mb-3 shadow-lg shadow-yellow-400/20">
+                <SchoolVanLogo size={36} />
               </div>
-              <h3 className="text-lg font-bold text-white">Instalar no iPhone (Safari)</h3>
-              <p className="text-xs text-slate-400 mt-1">Siga estes 2 passos no Safari do seu iPhone:</p>
+              <span className="inline-flex items-center gap-1 bg-yellow-400/20 border border-yellow-400/40 text-yellow-400 px-3 py-0.5 rounded-full font-black text-[10px] uppercase tracking-wider mb-1.5">
+                <Sparkles size={12} /> App Oficial SchoolVan
+              </span>
+              <h3 className="text-xl font-black text-white">Baixar / Instalar o App</h3>
+              <p className="text-xs text-slate-300 mt-1">
+                Instale no seu celular em segundos. <strong>Não ocupa espaço</strong> de memória e funciona offline!
+              </p>
             </div>
 
-            <div className="space-y-3 bg-slate-800/80 p-4 rounded-2xl text-xs text-slate-300 border border-slate-700/50">
-              <div className="flex items-center gap-3">
-                <span className="w-6 h-6 rounded-full bg-amber-500 text-slate-950 font-bold flex items-center justify-center shrink-0">1</span>
-                <span>Toque no botão <strong>Compartilhar</strong> <Share size={14} className="inline text-blue-400" /> na barra do Safari.</span>
+            {/* If deferred prompt is available, show 1-click install button */}
+            {deferredPrompt && (
+              <div className="mb-5 bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 p-4 rounded-2xl text-slate-950 text-center space-y-2 shadow-xl">
+                <p className="text-xs font-black uppercase tracking-wider">Seu navegador suporta instalação instantânea!</p>
+                <button
+                  onClick={tryDirectInstall}
+                  disabled={installing}
+                  className="w-full py-3 bg-slate-950 hover:bg-slate-800 text-yellow-400 font-black rounded-xl text-sm transition-all shadow-md active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <Download size={18} />
+                  <span>{installing ? 'Instalando...' : 'INSTALAR AGORA EM 1 CLIQUE'}</span>
+                </button>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="w-6 h-6 rounded-full bg-amber-500 text-slate-950 font-bold flex items-center justify-center shrink-0">2</span>
-                <span>Toque em <strong>Adicionar à Tela de Início</strong> <PlusSquare size={14} className="inline text-slate-200" />.</span>
+            )}
+
+            {/* Device Switcher Tabs */}
+            <div className="flex border-b border-slate-800 pb-2.5 mb-4 gap-1">
+              <button
+                onClick={() => setActiveTab('android')}
+                className={`flex-1 py-2 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  activeTab === 'android'
+                    ? 'bg-yellow-400 text-slate-950 shadow-md'
+                    : 'text-slate-400 hover:text-white bg-slate-800/50'
+                }`}
+              >
+                <Smartphone size={15} />
+                <span>Android / Chrome</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('ios')}
+                className={`flex-1 py-2 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  activeTab === 'ios'
+                    ? 'bg-yellow-400 text-slate-950 shadow-md'
+                    : 'text-slate-400 hover:text-white bg-slate-800/50'
+                }`}
+              >
+                <Share size={14} />
+                <span>iPhone (Safari)</span>
+              </button>
+            </div>
+
+            {/* TAB: ANDROID / CHROME / SAMSUNG */}
+            {activeTab === 'android' && (
+              <div className="space-y-3 bg-slate-800/90 p-4 rounded-2xl text-xs text-slate-200 border border-slate-700/60">
+                <div className="flex items-start gap-3">
+                  <div className="w-7 h-7 rounded-xl bg-yellow-400 text-slate-950 font-black flex items-center justify-center shrink-0 shadow-md">
+                    1
+                  </div>
+                  <div>
+                    <strong className="text-white block text-sm">Toque nos 3 pontinhos (⋮)</strong>
+                    <span className="text-slate-300">
+                      No canto superior direito da tela do seu navegador (Google Chrome, Samsung ou Brave).
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 pt-2 border-t border-slate-700/60">
+                  <div className="w-7 h-7 rounded-xl bg-yellow-400 text-slate-950 font-black flex items-center justify-center shrink-0 shadow-md">
+                    2
+                  </div>
+                  <div>
+                    <strong className="text-white block text-sm">Selecione "Instalar aplicativo"</strong>
+                    <span className="text-slate-300">
+                      Ou toque em <strong>"Adicionar à tela inicial"</strong>.
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 pt-2 border-t border-slate-700/60">
+                  <div className="w-7 h-7 rounded-xl bg-emerald-400 text-slate-950 font-black flex items-center justify-center shrink-0 shadow-md">
+                    ✓
+                  </div>
+                  <div>
+                    <strong className="text-emerald-300 block text-sm">Pronto! Ícone criado</strong>
+                    <span className="text-slate-300">
+                      O ícone do SchoolVan aparecerá na tela do seu celular com abertura instantânea!
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: IPHONE / SAFARI */}
+            {activeTab === 'ios' && (
+              <div className="space-y-3 bg-slate-800/90 p-4 rounded-2xl text-xs text-slate-200 border border-slate-700/60">
+                <div className="flex items-start gap-3">
+                  <div className="w-7 h-7 rounded-xl bg-yellow-400 text-slate-950 font-black flex items-center justify-center shrink-0 shadow-md">
+                    1
+                  </div>
+                  <div>
+                    <strong className="text-white block text-sm">Toque em Compartilhar <Share size={14} className="inline text-blue-400 ml-1" /></strong>
+                    <span className="text-slate-300">
+                      Toque no botão de compartilhar (quadrado com seta para cima) na barra inferior do Safari.
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 pt-2 border-t border-slate-700/60">
+                  <div className="w-7 h-7 rounded-xl bg-yellow-400 text-slate-950 font-black flex items-center justify-center shrink-0 shadow-md">
+                    2
+                  </div>
+                  <div>
+                    <strong className="text-white block text-sm">Toque em "Adicionar à Tela de Início" <PlusSquare size={14} className="inline text-yellow-400 ml-1" /></strong>
+                    <span className="text-slate-300">
+                      Role o menu do Safari para baixo e selecione esta opção.
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 pt-2 border-t border-slate-700/60">
+                  <div className="w-7 h-7 rounded-xl bg-emerald-400 text-slate-950 font-black flex items-center justify-center shrink-0 shadow-md">
+                    ✓
+                  </div>
+                  <div>
+                    <strong className="text-emerald-300 block text-sm">Toque em "Adicionar" no topo</strong>
+                    <span className="text-slate-300">
+                      O aplicativo SchoolVan abrirá em tela cheia sem barras de navegador.
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Benefits Badges */}
+            <div className="grid grid-cols-2 gap-2 my-4 text-[11px] font-bold text-slate-300">
+              <div className="flex items-center gap-1.5 bg-slate-800/40 p-2 rounded-xl border border-slate-800">
+                <CheckCircle2 size={14} className="text-yellow-400 shrink-0" />
+                <span>Zero MB de download</span>
+              </div>
+              <div className="flex items-center gap-1.5 bg-slate-800/40 p-2 rounded-xl border border-slate-800">
+                <CheckCircle2 size={14} className="text-yellow-400 shrink-0" />
+                <span>Notificações em tempo real</span>
               </div>
             </div>
 
-            <button
-              onClick={() => setShowIOSModal(false)}
-              className="w-full mt-5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3 rounded-2xl text-sm transition-all shadow-md active:scale-95 cursor-pointer"
-            >
-              Entendi
-            </button>
+            {/* Actions */}
+            <div className="space-y-2">
+              <button
+                onClick={() => setShowInstallModal(false)}
+                className="w-full py-3 bg-yellow-400 hover:bg-yellow-300 text-slate-950 font-black rounded-2xl text-xs transition-all shadow-lg active:scale-95 cursor-pointer uppercase tracking-wider"
+              >
+                ENTENDI, VOU INSTALAR PELO NAVEGADOR
+              </button>
+
+              <button
+                onClick={() => setShowInstallModal(false)}
+                className="w-full py-2.5 text-slate-400 hover:text-slate-200 text-xs font-semibold rounded-xl transition-all cursor-pointer text-center"
+              >
+                Continuar usando no navegador sem instalar
+              </button>
+            </div>
+
           </div>
         </div>
       )}
 
-      {/* 2. Botão Flutuante (INSTALAR APP) */}
+      {/* 2. Botão Flutuante de Alta Acessibilidade (BAIXAR / INSTALAR APP) */}
       <div className="fixed bottom-20 sm:bottom-24 right-3 sm:right-6 z-40 animate-fade-in">
         <button
-          onClick={handleInstallPWA}
+          onClick={handleOpenInstallModal}
           disabled={installing}
-          className="group relative flex items-center gap-2.5 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-gray-950 font-bold px-4 py-3 sm:px-5 sm:py-3.5 rounded-full shadow-2xl hover:shadow-amber-500/40 border-2 border-white hover:scale-105 active:scale-95 transition-all cursor-pointer disabled:opacity-75"
-          title="Instalar aplicativo SchoolVan no dispositivo"
+          className="group relative flex items-center gap-2.5 bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 text-slate-950 font-black px-4 py-3 sm:px-5 sm:py-3.5 rounded-full shadow-2xl hover:shadow-yellow-400/40 border-2 border-slate-950 hover:scale-105 active:scale-95 transition-all cursor-pointer disabled:opacity-75"
+          title="Baixar ou instalar aplicativo SchoolVan no celular"
         >
           <span className="relative flex h-3 w-3">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-900 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-gray-950"></span>
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-950 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-slate-950"></span>
           </span>
 
-          <div className="w-7 h-7 rounded-lg overflow-hidden bg-slate-950/20 p-0.5 shadow-inner shrink-0 flex items-center justify-center">
+          <div className="w-7 h-7 rounded-lg overflow-hidden bg-slate-950 p-0.5 shadow-inner shrink-0 flex items-center justify-center">
             <SchoolVanLogo size={22} />
           </div>
 
-          <span className="text-xs sm:text-sm font-extrabold tracking-wide uppercase">
-            {installing ? 'Instalando...' : 'Instalar App'}
+          <span className="text-xs sm:text-sm font-black tracking-wide uppercase">
+            {installing ? 'Instalando...' : 'Baixar App'}
           </span>
 
-          <Download size={18} className="stroke-[2.5] group-hover:translate-y-0.5 transition-transform" />
+          <Download size={18} className="stroke-[2.5] group-hover:translate-y-0.5 transition-transform text-slate-950" />
         </button>
       </div>
     </>

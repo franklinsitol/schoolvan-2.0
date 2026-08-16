@@ -1,24 +1,62 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <rect width="64" height="64" rx="16" fill="#0F172A" />
-  <ellipse cx="32" cy="54" rx="24" ry="4" fill="#000000" fill-opacity="0.3" />
-  <path d="M8 22C8 18.6863 10.6863 16 14 16H42C45.3137 16 48.2415 17.8923 49.5695 20.9328L54.6766 32.6308C55.5262 34.5779 56 36.6806 56 38.8078V48C56 49.6569 54.6569 51 53 51H51C51 46.5817 47.4183 43 43 43C38.5817 43 35 46.5817 35 51H29C29 46.5817 25.4183 43 21 43C16.5817 43 13 46.5817 13 51H11C9.34315 51 8 49.6569 8 48V22Z" fill="#FACC15" />
-  <path d="M50 34L54.6766 32.6308C55.5262 34.5779 56 36.6806 56 38.8078V48H52V38C52 36 51 34.5 50 34Z" fill="#EAB308" />
-  <path d="M40 20H13V31H42.5L40 20Z" fill="#0F172A" />
-  <path d="M16 22H24V29H16V22Z" fill="#38BDF8" fill-opacity="0.9" />
-  <path d="M26 22H34V29H26V22Z" fill="#38BDF8" fill-opacity="0.9" />
-  <path d="M36 22L38.2 29H36V22Z" fill="#38BDF8" fill-opacity="0.9" />
-  <rect x="8" y="34" width="48" height="6" fill="#1E293B" />
-  <text x="30" y="38.5" fill="#FACC15" font-size="3.8" font-weight="900" font-family="system-ui, sans-serif" letter-spacing="0.8" text-anchor="middle">ESCOLAR</text>
-  <rect x="52" y="42" width="4" height="4" rx="1.5" fill="#FEF08A" />
-  <circle cx="54" cy="44" r="1" fill="#FFFFFF" />
-  <rect x="8" y="42" width="2" height="4" rx="1" fill="#EF4444" />
-  <rect x="53" y="47" width="4" height="3" rx="1" fill="#475569" />
-  <rect x="7" y="47" width="3" height="3" rx="1" fill="#475569" />
-  <circle cx="21" cy="50" r="5" fill="#1E293B" />
-  <circle cx="43" cy="50" r="5" fill="#1E293B" />
-  <circle cx="21" cy="50" r="2.5" fill="#94A3B8" />
-  <circle cx="43" cy="50" r="2.5" fill="#94A3B8" />
-  <circle cx="21" cy="50" r="1" fill="#F8FAFC" />
-  <circle cx="43" cy="50" r="1" fill="#F8FAFC" />
-  <rect x="42" y="27" width="2.5" height="4" rx="1" fill="#1E293B" />
+  <defs>
+    <linearGradient id="yellowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE047" />
+      <stop offset="50%" stop-color="#FACC15" />
+      <stop offset="100%" stop-color="#EAB308" />
+    </linearGradient>
+    <linearGradient id="glassGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#0284C7" />
+    </linearGradient>
+    <filter id="drop" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.5" />
+    </filter>
+  </defs>
+
+  <!-- Dark Background rounded squircle -->
+  <rect width="64" height="64" rx="16" fill="#0B0F17" />
+  <rect x="1" y="1" width="62" height="62" rx="15" fill="none" stroke="#FACC15" stroke-width="1.5" stroke-opacity="0.4" />
+
+  <!-- Shadow under wheels -->
+  <ellipse cx="32" cy="54" rx="22" ry="3" fill="#000000" fill-opacity="0.6" />
+
+  <!-- Van Main Yellow Body -->
+  <path d="M7 23C7 19.5 9.5 17 13 17H43C46 17 48.8 18.8 50.2 21.6L55.5 32.5C56.2 34 56.5 35.8 56.5 37.6V46.5C56.5 48.5 55 50 53 50H51.5C51.5 45.5 48 42 43.5 42C39 42 35.5 45.5 35.5 50H28.5C28.5 45.5 25 42 20.5 42C16 42 12.5 45.5 12.5 50H10C8.3 50 7 48.7 7 47V23Z" fill="url(#yellowGrad)" filter="url(#drop)" />
+
+  <!-- Front Windshield & Windows Frame -->
+  <path d="M12 20H41.5L44 26L49.5 31.5H12V20Z" fill="#0F172A" />
+
+  <!-- Windows Glasses -->
+  <rect x="14" y="21.5" width="8" height="8" rx="1.5" fill="url(#glassGrad)" />
+  <rect x="23.5" y="21.5" width="8" height="8" rx="1.5" fill="url(#glassGrad)" />
+  <rect x="33" y="21.5" width="8" height="8" rx="1.5" fill="url(#glassGrad)" />
+  <!-- Windshield -->
+  <path d="M42.5 21.5H43.5L48 30.5H42.5V21.5Z" fill="url(#glassGrad)" />
+
+  <!-- Black Stripe with text "ESCOLAR" -->
+  <rect x="7" y="33.5" width="49" height="6" fill="#0F172A" />
+  <text x="31.5" y="38" fill="#FACC15" font-size="4.2" font-weight="900" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" letter-spacing="1" text-anchor="middle">ESCOLAR</text>
+
+  <!-- Headlights & Taillights -->
+  <rect x="52.5" y="41.5" width="4" height="3" rx="1" fill="#FEF08A" />
+  <rect x="7" y="41.5" width="2.5" height="3" rx="1" fill="#EF4444" />
+
+  <!-- Front Bumper -->
+  <rect x="53" y="45.5" width="4" height="3" rx="1" fill="#334155" />
+  <rect x="6.5" y="45.5" width="3" height="3" rx="1" fill="#334155" />
+
+  <!-- Rear Wheel -->
+  <circle cx="20.5" cy="49.5" r="5.5" fill="#0F172A" />
+  <circle cx="20.5" cy="49.5" r="3" fill="#94A3B8" />
+  <circle cx="20.5" cy="49.5" r="1.2" fill="#F8FAFC" />
+
+  <!-- Front Wheel -->
+  <circle cx="43.5" cy="49.5" r="5.5" fill="#0F172A" />
+  <circle cx="43.5" cy="49.5" r="3" fill="#94A3B8" />
+  <circle cx="43.5" cy="49.5" r="1.2" fill="#F8FAFC" />
+
+  <!-- Sparkle Icon in corner for T.IA -->
+  <circle cx="53" cy="11" r="5" fill="#FACC15" />
+  <path d="M53 7.5L54 9.8L56.5 11L54 12.2L53 14.5L52 12.2L49.5 11L52 9.8Z" fill="#0B0F17" />
 </svg>
