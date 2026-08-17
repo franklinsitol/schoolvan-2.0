@@ -48,6 +48,7 @@ export function SubscriptionModal({ isOpen, onClose, defaultPlan = 'Pro', initia
 
   const [selectedPlan, setSelectedPlan] = useState<'Pro' | 'Frota'>(defaultPlan);
   const [copied, setCopied] = useState(false);
+  const [copiedBoleto, setCopiedBoleto] = useState(false);
   const [notes, setNotes] = useState('');
   const [notifying, setNotifying] = useState(false);
   const [activatingPlan, setActivatingPlan] = useState(false);
@@ -55,6 +56,19 @@ export function SubscriptionModal({ isOpen, onClose, defaultPlan = 'Pro', initia
   const [step, setStep] = useState<'select' | 'pix' | 'notified' | 'contract' | 'contract_success'>(initialStep);
   const [activeTab, setActiveTab] = useState<'status' | 'timeline' | 'plans'>('status');
   const [viewingReceipt, setViewingReceipt] = useState<SubscriptionInvoice | null>(null);
+  
+  // Checkout Asaas State
+  const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'BOLETO' | 'CREDIT_CARD'>('PIX');
+  const [generatingAsaas, setGeneratingAsaas] = useState<boolean>(false);
+  const [asaasPaymentData, setAsaasPaymentData] = useState<{
+    invoiceUrl?: string;
+    bankSlipUrl?: string;
+    pixQrCode?: string;
+    pixCopiaECola?: string;
+    barCode?: string;
+    identificationField?: string;
+  } | null>(null);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Synchronize selectedPlan and step whenever modal opens or props change
@@ -71,6 +85,7 @@ export function SubscriptionModal({ isOpen, onClose, defaultPlan = 'Pro', initia
       setActiveTab(profile?.plan && profile.plan !== 'Gratuito' ? 'status' : 'plans');
       setViewingReceipt(null);
       setAgreedTerms(false);
+      setAsaasPaymentData(null);
     }
   }, [isOpen, defaultPlan, initialStep, profile?.plan]);
 
@@ -172,7 +187,7 @@ export function SubscriptionModal({ isOpen, onClose, defaultPlan = 'Pro', initia
 
   // SchoolVan Official Pix Code Generation (CNPJ 34.657.020/0001-51)
   const currentTxid = `SV${Date.now().toString().slice(-6)}`;
-  const pixCode = generatePixPayload({
+  const pixCode = asaasPaymentData?.pixCopiaECola || generatePixPayload({
     pixKey: '34657020000151',
     merchantName: 'SchoolVan',
     merchantCity: 'Sao Paulo',
@@ -194,15 +209,64 @@ export function SubscriptionModal({ isOpen, onClose, defaultPlan = 'Pro', initia
         if (error) console.error('QR Code render error:', error);
       });
     }
-  }, [step, pixCode]);
+  }, [step, pixCode, asaasPaymentData]);
 
   if (!isOpen || !profile) return null;
+
+  const handleGenerateAsaasPayment = async (type: 'PIX' | 'BOLETO' | 'CREDIT_CARD' = paymentMethod) => {
+    setGeneratingAsaas(true);
+    try {
+      const res = await fetch('/api/asaas/create-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerName: profile.name || 'Motorista SchoolVan',
+          customerEmail: profile.email || '',
+          customerPhone: profile.phone || '',
+          value: currentPrice,
+          dueDate: new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0],
+          description: `Assinatura SchoolVan - Plano ${selectedPlan} (${vehicles.length} van(s))`,
+          billingType: type === 'CREDIT_CARD' ? 'UNDEFINED' : type,
+          splitFee: 0 // Subscription directly to SchoolVan master account
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setAsaasPaymentData({
+          invoiceUrl: data.invoiceUrl,
+          bankSlipUrl: data.bankSlipUrl,
+          pixQrCode: data.pixQrCode,
+          pixCopiaECola: data.pixCopiaECola,
+          barCode: data.barCode,
+          identificationField: data.identificationField
+        });
+        toast.success(`Fatura gerada com sucesso via SchoolVan Pay!`);
+      } else {
+        toast.error(data.error || 'Usando Pix padrão SchoolVan.');
+      }
+    } catch (err) {
+      toast.error('Erro de conexão bancária. Usando Pix padrão.');
+    } finally {
+      setGeneratingAsaas(false);
+    }
+  };
 
   const handleCopyPix = () => {
     navigator.clipboard.writeText(pixCode);
     setCopied(true);
     toast.success('Código Pix Copia e Cola copiado!');
     setTimeout(() => setCopied(false), 3000);
+  };
+
+  const handleCopyBoleto = () => {
+    const code = asaasPaymentData?.identificationField || asaasPaymentData?.barCode;
+    if (code) {
+      navigator.clipboard.writeText(code);
+      setCopiedBoleto(true);
+      toast.success('Linha digitável do Boleto copiada!');
+      setTimeout(() => setCopiedBoleto(false), 3000);
+    }
   };
 
   const handleConfirmContract = async () => {
@@ -950,7 +1014,7 @@ export function SubscriptionModal({ isOpen, onClose, defaultPlan = 'Pro', initia
             </div>
           )}
 
-          {/* STEP: PIX CHECKOUT */}
+          {/* STEP: ASAAS MULTI-METHOD CHECKOUT */}
           {step === 'pix' && (
             <div className="space-y-4">
               <button
@@ -960,91 +1024,279 @@ export function SubscriptionModal({ isOpen, onClose, defaultPlan = 'Pro', initia
                 ← Voltar para detalhes da fatura
               </button>
 
-              {/* Pix Display Section */}
-              <div className="text-center space-y-3">
-                <div className="flex items-center justify-center gap-2">
-                  <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-black rounded-full inline-block border border-emerald-200">
-                    💰 Fatura: R$ {currentPrice.toFixed(2).replace('.', ',')}
-                  </span>
-                  <span className="px-2.5 py-1 bg-amber-100 text-amber-900 text-[11px] font-bold rounded-full border border-amber-200">
-                    Venc. Dia {BILLING_DUE_DAY}
-                  </span>
+              {/* SchoolVan Security Header Banner */}
+              <div className="bg-gradient-to-r from-gray-950 via-slate-900 to-gray-950 text-white p-4 rounded-2xl border border-yellow-400/30 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-yellow-400 text-gray-950 flex items-center justify-center shrink-0 shadow-md">
+                    <ShieldCheck size={22} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-black text-white">Checkout Seguro SchoolVan</span>
+                      <span className="text-[9px] bg-yellow-400/20 text-yellow-300 px-2 py-0.5 rounded-full font-bold uppercase border border-yellow-400/30">Baixa Automática</span>
+                    </div>
+                    <p className="text-[11px] text-gray-300 font-medium">
+                      Assinatura Plano {selectedPlan} • R$ {currentPrice.toFixed(2).replace('.', ',')}
+                    </p>
+                  </div>
                 </div>
 
-                <h3 className="text-lg font-black text-gray-950">
-                  Escaneie ou copie o Pix da Fatura SchoolVan
-                </h3>
+                <button
+                  type="button"
+                  disabled={generatingAsaas}
+                  onClick={() => handleGenerateAsaasPayment(paymentMethod)}
+                  className="px-3.5 py-2 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-xl text-xs flex items-center gap-1.5 shrink-0 transition-all cursor-pointer shadow active:scale-95 disabled:opacity-50"
+                >
+                  {generatingAsaas ? (
+                    <div className="w-3.5 h-3.5 border-2 border-gray-950 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Sparkles size={14} />
+                  )}
+                  <span>{asaasPaymentData ? 'Regerar Cobrança' : 'Gerar Fatura'}</span>
+                </button>
+              </div>
 
-                {/* QR Code Canvas */}
-                <div className="flex justify-center p-3 bg-white rounded-2xl shadow-inner border border-gray-200 w-fit mx-auto">
-                  <canvas ref={canvasRef} className="rounded-xl" />
+              {/* Payment Method Selector Tabs */}
+              <div className="grid grid-cols-3 gap-2 p-1.5 bg-gray-100 rounded-2xl border border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentMethod('PIX');
+                    if (!asaasPaymentData) handleGenerateAsaasPayment('PIX');
+                  }}
+                  className={`py-2 px-2 rounded-xl text-xs font-black transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer ${
+                    paymentMethod === 'PIX'
+                      ? 'bg-gray-950 text-yellow-400 shadow-md'
+                      : 'text-gray-600 hover:text-gray-950'
+                  }`}
+                >
+                  <QrCode size={15} />
+                  <span>Pix Oficial</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentMethod('BOLETO');
+                    if (!asaasPaymentData) handleGenerateAsaasPayment('BOLETO');
+                  }}
+                  className={`py-2 px-2 rounded-xl text-xs font-black transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer ${
+                    paymentMethod === 'BOLETO'
+                      ? 'bg-gray-950 text-yellow-400 shadow-md'
+                      : 'text-gray-600 hover:text-gray-950'
+                  }`}
+                >
+                  <FileText size={15} />
+                  <span>Boleto Bancário</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentMethod('CREDIT_CARD');
+                    if (!asaasPaymentData) handleGenerateAsaasPayment('CREDIT_CARD');
+                  }}
+                  className={`py-2 px-2 rounded-xl text-xs font-black transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer ${
+                    paymentMethod === 'CREDIT_CARD'
+                      ? 'bg-gray-950 text-yellow-400 shadow-md'
+                      : 'text-gray-600 hover:text-gray-950'
+                  }`}
+                >
+                  <CreditCard size={15} />
+                  <span>Cartão / Link</span>
+                </button>
+              </div>
+
+              {/* METHOD 1: PIX */}
+              {paymentMethod === 'PIX' && (
+                <div className="text-center space-y-3">
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-black rounded-full inline-block border border-emerald-200">
+                      💰 Fatura: R$ {currentPrice.toFixed(2).replace('.', ',')}
+                    </span>
+                    <span className="px-2.5 py-1 bg-yellow-100 text-yellow-900 text-[11px] font-bold rounded-full border border-yellow-200">
+                      {asaasPaymentData?.pixCopiaECola ? '⚡ Pix Dinâmico SchoolVan' : 'Pix CNPJ Oficial'}
+                    </span>
+                  </div>
+
+                  {/* QR Code Canvas */}
+                  <div className="flex justify-center p-3 bg-white rounded-2xl shadow-inner border border-gray-200 w-fit mx-auto">
+                    <canvas ref={canvasRef} className="rounded-xl" />
+                  </div>
+
+                  {/* Favorecido Data Box */}
+                  <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 text-xs text-gray-800 space-y-1 text-left">
+                    <p><strong>Favorecido:</strong> SchoolVan (CNPJ 34.657.020/0001-51)</p>
+                    <p><strong>Cidade:</strong> São Paulo - SP</p>
+                    <p><strong>Referência:</strong> Assinatura Plano {selectedPlan} ({vehicles.length} van(s))</p>
+                  </div>
+
+                  {/* Copy Code Box */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={pixCode}
+                      className="flex-1 px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono text-gray-700 outline-none select-all"
+                    />
+                    <button
+                      onClick={handleCopyPix}
+                      className={`px-4 py-2.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow ${
+                        copied 
+                          ? 'bg-emerald-600 text-white' 
+                          : 'bg-yellow-400 text-gray-950 hover:bg-yellow-300'
+                      }`}
+                    >
+                      {copied ? <Check size={14} /> : <Copy size={14} />}
+                      {copied ? 'Copiado!' : 'Copiar Pix'}
+                    </button>
+                  </div>
                 </div>
+              )}
 
-                {/* Favorecido Data Box */}
-                <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 text-xs text-gray-800 space-y-1 text-left">
-                  <p><strong>Favorecido:</strong> SchoolVan (CNPJ 34.657.020/0001-51)</p>
-                  <p><strong>Cidade:</strong> São Paulo - SP</p>
-                  <p><strong>Referência:</strong> Fatura Plano {selectedPlan} {selectedPlan === 'Frota' && extraVansCount > 0 ? `(${vehicles.length} vans)` : ''}</p>
+              {/* METHOD 2: BOLETO BANCÁRIO */}
+              {paymentMethod === 'BOLETO' && (
+                <div className="space-y-3">
+                  <div className="bg-amber-50/60 p-4 rounded-2xl border border-amber-200 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-amber-950 flex items-center gap-1.5">
+                        <FileText size={16} /> Boleto Registrado SchoolVan
+                      </span>
+                      <span className="text-xs font-black text-gray-900">
+                        R$ {currentPrice.toFixed(2).replace('.', ',')}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-gray-700 font-medium leading-relaxed">
+                      O boleto registrado pode ser pago em qualquer banco, lotérica ou aplicativo bancário até o vencimento.
+                    </p>
+
+                    {asaasPaymentData?.identificationField || asaasPaymentData?.barCode ? (
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-wider text-gray-500 block">
+                          Linha Digitável / Código de Barras
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            readOnly
+                            value={asaasPaymentData.identificationField || asaasPaymentData.barCode || ''}
+                            className="flex-1 px-3.5 py-2.5 bg-white border border-gray-300 rounded-xl text-[11px] font-mono text-gray-800 outline-none select-all"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleCopyBoleto}
+                            className="px-3.5 py-2.5 bg-gray-950 hover:bg-gray-800 text-yellow-400 font-black rounded-xl text-xs flex items-center gap-1 shrink-0 transition-all cursor-pointer"
+                          >
+                            {copiedBoleto ? <Check size={14} /> : <Copy size={14} />}
+                            <span>{copiedBoleto ? 'Copiado!' : 'Copiar'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-white rounded-xl border border-dashed border-gray-300 text-center">
+                        <p className="text-xs text-gray-600 font-medium">Clique no botão "Gerar Fatura" no topo para emitir a linha digitável e o PDF do boleto.</p>
+                      </div>
+                    )}
+
+                    {asaasPaymentData?.bankSlipUrl && (
+                      <a
+                        href={asaasPaymentData.bankSlipUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-gray-950 font-black rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all shadow cursor-pointer"
+                      >
+                        <Download size={14} />
+                        <span>Abrir / Baixar PDF Oficial do Boleto SchoolVan</span>
+                      </a>
+                    )}
+                  </div>
                 </div>
+              )}
 
-                {/* Copy Code Box */}
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={pixCode}
-                    className="flex-1 px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono text-gray-700 outline-none select-all"
-                  />
-                  <button
-                    onClick={handleCopyPix}
-                    className={`px-4 py-2.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow ${
-                      copied 
-                        ? 'bg-emerald-600 text-white' 
-                        : 'bg-yellow-400 text-gray-950 hover:bg-yellow-300'
-                    }`}
-                  >
-                    {copied ? <Check size={14} /> : <Copy size={14} />}
-                    {copied ? 'Copiado!' : 'Copiar Pix'}
-                  </button>
+              {/* METHOD 3: CARTÃO DE CRÉDITO / FATURA ONLINE */}
+              {paymentMethod === 'CREDIT_CARD' && (
+                <div className="space-y-3">
+                  <div className="bg-gradient-to-br from-yellow-500/10 to-amber-500/10 p-4 rounded-2xl border border-yellow-300/80 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-gray-950 flex items-center gap-1.5">
+                        <CreditCard size={16} /> Cartão de Crédito & Fatura Online
+                      </span>
+                      <span className="text-xs font-black text-gray-900">
+                        R$ {currentPrice.toFixed(2).replace('.', ',')}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-gray-700 font-medium leading-relaxed">
+                      Pague online de forma segura pela Fatura Digital SchoolVan com Cartão de Crédito (com opção de parcelamento) ou Pix.
+                    </p>
+
+                    {asaasPaymentData?.invoiceUrl ? (
+                      <a
+                        href={asaasPaymentData.invoiceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="w-full py-3.5 bg-gray-950 hover:bg-gray-800 text-yellow-400 font-black rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-lg cursor-pointer"
+                      >
+                        <CreditCard size={16} />
+                        <span>Abrir Fatura Digital para Pagar no Cartão</span>
+                      </a>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={generatingAsaas}
+                        onClick={() => handleGenerateAsaasPayment('CREDIT_CARD')}
+                        className="w-full py-3 bg-gray-950 hover:bg-gray-800 text-yellow-400 font-black rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all shadow cursor-pointer disabled:opacity-50"
+                      >
+                        {generatingAsaas ? (
+                          <div className="w-4 h-4 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Sparkles size={14} />
+                        )}
+                        <span>Gerar Link da Fatura para Cartão de Crédito</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
+              )}
 
-                {/* User Notice */}
-                <div className="bg-amber-50 p-3.5 rounded-2xl border border-amber-200 text-left flex items-start gap-3">
-                  <AlertCircle size={20} className="text-amber-700 shrink-0 mt-0.5" />
-                  <p className="text-xs text-amber-950 font-medium leading-relaxed">
-                    Pagamento via Pix direcionado para <strong>SchoolVan</strong>. Após realizar a transferência pelo seu banco, clique no botão abaixo. Suas vans e alunos continuam <strong>100% liberados</strong> sem interrupções!
+              {/* Informative Notes / Confirmation */}
+              <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-200 text-left space-y-2">
+                <div className="flex items-start gap-2.5">
+                  <ShieldCheck size={18} className="text-emerald-600 shrink-0 mt-0.5" />
+                  <p className="text-xs text-gray-700 font-medium leading-relaxed">
+                    Pagamentos processados com <strong>baixa automática instantânea</strong> e segurança SchoolVan.
                   </p>
                 </div>
 
-                {/* Notes Input */}
-                <div className="text-left space-y-1">
-                  <label className="text-[11px] font-black text-gray-600 uppercase tracking-wider">
-                    Observações / Comprovante (Opcional)
+                <div className="text-left space-y-1 pt-1 border-t border-gray-200">
+                  <label className="text-[10px] font-black text-gray-600 uppercase tracking-wider">
+                    Observações / Comprovante (Opcional se já pago)
                   </label>
                   <input
                     type="text"
                     placeholder="Ex: Pix feito da conta Nubank / Tio Carlos"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-900 focus:ring-2 focus:ring-yellow-400 outline-none"
+                    className="w-full px-3.5 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-900 focus:ring-2 focus:ring-yellow-400 outline-none"
                   />
                 </div>
-
-                {/* Confirm Action Button */}
-                <button
-                  onClick={handleNotifyPayment}
-                  disabled={notifying}
-                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl text-sm shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
-                >
-                  {notifying ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      <CheckCircle2 size={16} /> Já realizei o Pix! Notificar Sistema
-                    </>
-                  )}
-                </button>
               </div>
+
+              {/* Confirm Action Button */}
+              <button
+                onClick={handleNotifyPayment}
+                disabled={notifying}
+                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl text-sm shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
+              >
+                {notifying ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <CheckCircle2 size={16} /> Já realizei o Pagamento! Notificar Sistema
+                  </>
+                )}
+              </button>
             </div>
           )}
 

@@ -222,18 +222,23 @@ export function FinanceView({ onNavigateToProfile }: { onNavigateToProfile?: () 
             </div>
           </div>
 
-          {/* Quick Banner to explore Billing Rule */}
+          {/* Quick Banner to explore Billing Rule & SchoolVan Pay */}
           <div className="bg-gradient-to-r from-yellow-500/10 via-amber-500/10 to-yellow-500/5 p-4 sm:p-5 rounded-3xl border border-yellow-300/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-yellow-400 text-gray-950 flex items-center justify-center shrink-0 shadow-sm">
                 <Bot size={20} className="fill-gray-950" />
               </div>
               <div>
-                <h4 className="text-xs sm:text-sm font-black text-gray-950 flex items-center gap-1.5">
-                  Régua de Comunicação da T.IA Ativa (Hoje é dia {currentDay})
-                </h4>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="text-xs sm:text-sm font-black text-gray-950">
+                    Régua de Cobrança T.IA + SchoolVan Pay (Hoje é dia {currentDay})
+                  </h4>
+                  <span className="px-2 py-0.5 bg-yellow-400 text-gray-950 font-black text-[10px] rounded-full uppercase tracking-wider">
+                    ⚡ Baixa Automática
+                  </span>
+                </div>
                 <p className="text-xs text-gray-700 font-medium mt-0.5">
-                  A T.IA calcula a data de cada aluno e gera o Pix Copia e Cola bancário com texto personalizado para WhatsApp.
+                  A T.IA calcula a data de cada aluno e gera o Pix Copia e Cola bancário ou Boleto registrado SchoolVan com texto personalizado para WhatsApp.
                 </p>
               </div>
             </div>
@@ -358,7 +363,7 @@ export function FinanceView({ onNavigateToProfile }: { onNavigateToProfile?: () 
                               status: item.status
                             })}
                             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 transition-all shadow-sm active:scale-95 cursor-pointer"
-                            title="Abrir opções de cobrança da T.IA com WhatsApp e Pix Copia e Cola"
+                            title="Abrir opções de cobrança da T.IA com Pix Copia e Cola, Boleto Bancário ou Link Digital"
                           >
                             <MessageCircle size={14} />
                             <span>Cobrar com T.IA</span>

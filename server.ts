@@ -216,7 +216,7 @@ Se for apenas uma dúvida, responda normalmente de forma concisa e útil.`;
       // Step 4: If PIX, fetch QR Code payload
       let pixQrCode = null;
       let pixCopiaECola = null;
-      if (billingType === "PIX" || !billingType) {
+      if (billingType === "PIX" || !billingType || billingType === "UNDEFINED") {
         try {
           const pixRes = await fetch(`${baseUrl}/payments/${paymentData.id}/pixQrCode`, {
             headers: { 'access_token': apiKey }
@@ -229,14 +229,33 @@ Se for apenas uma dúvida, responda normalmente de forma concisa e útil.`;
         }
       }
 
+      // Step 5: If Boleto or general, fetch barcode / linha digitavel if available
+      let barCode = null;
+      let identificationField = null;
+      if (billingType === "BOLETO" || paymentData.bankSlipUrl) {
+        try {
+          const barcodeRes = await fetch(`${baseUrl}/payments/${paymentData.id}/identificationField`, {
+            headers: { 'access_token': apiKey }
+          });
+          const barcodeData = await barcodeRes.json();
+          barCode = barcodeData.barCode;
+          identificationField = barcodeData.identificationField;
+        } catch (err) {
+          console.warn("Failed to get Asaas barcode:", err);
+        }
+      }
+
       return res.json({
         success: true,
         paymentId: paymentData.id,
         status: paymentData.status,
         invoiceUrl: paymentData.invoiceUrl,
         bankSlipUrl: paymentData.bankSlipUrl,
+        invoiceNumber: paymentData.invoiceNumber,
         pixQrCode,
         pixCopiaECola,
+        barCode,
+        identificationField,
         value: paymentData.value,
         dueDate: paymentData.dueDate
       });
