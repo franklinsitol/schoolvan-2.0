@@ -21,13 +21,20 @@ import {
   School,
   Calendar,
   CalendarX,
-  Trash2
+  Trash2,
+  BellRing,
+  Radio,
+  CheckCircle2,
+  AlertTriangle,
+  Clock,
+  Smartphone,
+  PhoneCall
 } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
 import { usePWAShellIntegration } from './hooks/usePWAShellIntegration';
 import { cn } from './lib/utils';
 import { useFirestore, useCollectionGroup } from './hooks/useFirestore';
-import { Student, Vehicle, Driver } from './types';
+import { Student, Vehicle, Driver, RouteIncident } from './types';
 import { 
   isStudentAbsentOnDate, 
   getTodayStr, 
@@ -36,11 +43,18 @@ import {
   reintegrateStudentToRoute 
 } from './lib/absence';
 import { playBusHornSound, speakTioIAPrompt } from './lib/sound';
+import { 
+  showIncidentPushNotification, 
+  playIncidentAlertChime, 
+  isPushNotificationSupported, 
+  getPushNotificationPermission, 
+  requestPushNotificationPermission 
+} from './lib/pushNotifications';
 import { checkCanAddStudent } from './lib/plans';
 
 import { auth, db } from './lib/firebase';
 import { signOut } from 'firebase/auth';
-import { where, doc, updateDoc, collection, addDoc } from 'firebase/firestore';
+import { where, doc, updateDoc, collection, addDoc, arrayUnion } from 'firebase/firestore';
 import { SchoolVanLogo } from './components/SchoolVanLogo';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import toast from 'react-hot-toast';
@@ -82,9 +96,73 @@ const ParentView = () => {
     constraints
   );
 
+  const { data: allIncidents } = useCollectionGroup<RouteIncident>(
+    userEmail ? 'incidents' : ''
+  );
+
   const [scheduleDates, setScheduleDates] = useState<Record<string, string>>({});
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [pushStatus, setPushStatus] = useState<string>(() => getPushNotificationPermission());
+  const notifiedIncidentsRef = React.useRef<Set<string>>(new Set());
+
+  const driverIds = React.useMemo(() => {
+    return Array.from(new Set(students.map(s => s.driverId).filter(Boolean)));
+  }, [students]);
+
+  const relevantIncidents = React.useMemo(() => {
+    return allIncidents.filter(inc => 
+      driverIds.includes(inc.driverId) || 
+      (inc.targetStudentEmails && inc.targetStudentEmails.includes(userEmail))
+    );
+  }, [allIncidents, driverIds, userEmail]);
+
+  const activeIncidents = React.useMemo(() => {
+    return relevantIncidents.filter(inc => inc.status === 'active');
+  }, [relevantIncidents]);
+
+  const recentResolvedIncidents = React.useMemo(() => {
+    return relevantIncidents.filter(inc => 
+      inc.status === 'resolved' && 
+      inc.resolvedAt && 
+      (Date.now() - new Date(inc.resolvedAt).getTime() < 3 * 60 * 60 * 1000)
+    );
+  }, [relevantIncidents]);
+
+  // Trigger push and sound when an active incident arrives
+  useEffect(() => {
+    activeIncidents.forEach(inc => {
+      if (inc.id && !notifiedIncidentsRef.current.has(inc.id)) {
+        notifiedIncidentsRef.current.add(inc.id);
+        playIncidentAlertChime();
+        showIncidentPushNotification(inc);
+      }
+    });
+  }, [activeIncidents]);
+
+  const handleEnablePush = async () => {
+    const perm = await requestPushNotificationPermission();
+    setPushStatus(perm);
+    if (perm === 'granted') {
+      playIncidentAlertChime();
+      toast.success('🔔 Notificações push ativadas com sucesso neste aparelho!');
+    } else if (perm === 'denied') {
+      toast.error('Permissão de notificação negada no navegador.');
+    }
+  };
+
+  const handleAcknowledgeIncident = async (incident: RouteIncident) => {
+    if (!incident.id || !incident.driverId) return;
+    try {
+      await updateDoc(doc(db, 'drivers', incident.driverId, 'incidents', incident.id), {
+        acknowledgedByParentEmails: arrayUnion(userEmail)
+      });
+      toast.success('Leitura confirmada! O motorista foi informado que você está ciente.');
+    } catch (err: any) {
+      console.error('Erro ao confirmar leitura:', err);
+      toast.error('Erro ao registrar confirmação.');
+    }
+  };
 
   if (loading && students.length === 0) {
     return <div className="p-8 text-center font-bold text-gray-500">Carregando dados do aluno...</div>;
@@ -194,6 +272,150 @@ const ParentView = () => {
           Sair
         </button>
       </div>
+
+      {/* 🔔 PUSH NOTIFICATION PERMISSION BANNER */}
+      {isPushNotificationSupported() && pushStatus !== 'granted' && (
+        <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-5 rounded-[32px] shadow-lg border border-blue-400/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fade-in">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-yellow-400 text-gray-950 flex items-center justify-center font-black shrink-0 shadow-md">
+              <BellRing size={24} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black uppercase tracking-wider text-yellow-400">
+                  Alertas em Tempo Real no Celular
+                </span>
+                <span className="text-[10px] bg-yellow-400/20 text-yellow-300 font-bold px-2 py-0.5 rounded-full">
+                  Recomendado
+                </span>
+              </div>
+              <h4 className="font-extrabold text-white text-sm mt-0.5">
+                Ativar Notificações Push no Aparelho
+              </h4>
+              <p className="text-xs text-gray-300">
+                Receba avisos instantâneos com som na tela quando a van estiver próxima ou houver algum imprevisto.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleEnablePush}
+            className="w-full sm:w-auto px-5 py-3 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black text-xs rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 shrink-0"
+          >
+            <Smartphone size={16} />
+            <span>Ativar Notificações Push</span>
+          </button>
+        </div>
+      )}
+
+      {/* 🚨 LIVE ACTIVE INCIDENTS BROADCAST DISPLAY FOR PARENTS */}
+      {activeIncidents.length > 0 && (
+        <div className="space-y-4 animate-fade-in">
+          {activeIncidents.map(incident => {
+            const isAcknowledged = incident.acknowledgedByParentEmails?.includes(userEmail);
+            const isEmergencia = incident.incidentType === 'emergencia';
+
+            return (
+              <div 
+                key={incident.id}
+                className={`p-6 rounded-[36px] shadow-2xl border-2 transition-all space-y-4 ${
+                  isEmergencia
+                    ? 'bg-gradient-to-br from-red-900 via-rose-900 to-red-950 text-white border-red-500 ring-4 ring-red-500/30 animate-pulse'
+                    : 'bg-gradient-to-br from-amber-500/15 via-yellow-500/10 to-amber-500/5 text-gray-950 border-yellow-400 ring-4 ring-yellow-400/20'
+                }`}
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4 border-current/10">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black shrink-0 shadow-lg ${
+                      isEmergencia ? 'bg-white text-red-700' : 'bg-yellow-400 text-gray-950'
+                    }`}>
+                      <AlertTriangle size={26} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1.5 ${
+                          isEmergencia ? 'bg-red-500 text-white' : 'bg-yellow-400 text-gray-950'
+                        }`}>
+                          <Radio size={12} className="animate-pulse" /> Comunicado de Rota em Tempo Real
+                        </span>
+                        {incident.estimatedDelay && (
+                          <span className="text-xs font-black bg-black/10 dark:bg-white/10 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                            <Clock size={12} /> Previsão: +{incident.estimatedDelay} min
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="text-xl font-black mt-1">
+                        {incident.title}
+                      </h3>
+                    </div>
+                  </div>
+
+                  <div className="text-xs font-semibold opacity-80 text-right shrink-0">
+                    Enviado às {new Date(incident.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+
+                {/* Message Body */}
+                <div className="p-4 bg-white/70 backdrop-blur-md rounded-2xl border border-current/10 text-xs sm:text-sm font-medium leading-relaxed whitespace-pre-line text-gray-900 shadow-sm">
+                  {incident.message}
+                </div>
+
+                {/* Action Row */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
+                  <div className="flex items-center gap-2">
+                    {isAcknowledged ? (
+                      <span className="px-4 py-2.5 bg-emerald-100 text-emerald-800 rounded-2xl font-black text-xs flex items-center gap-2 shadow-xs border border-emerald-300">
+                        <CheckCircle2 size={16} className="text-emerald-600" />
+                        <span>Você confirmou leitura deste comunicado</span>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleAcknowledgeIncident(incident)}
+                        className="px-5 py-3 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black text-xs rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                      >
+                        <CheckCircle2 size={16} />
+                        <span>✓ Confirmar Leitura / Estou Ciente</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {students.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => contactDriver(students[0], `Olá! Recebi o comunicado de imprevisto (${incident.title}) sobre a rota.`)}
+                        className="px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                      >
+                        <Phone size={14} />
+                        <span>Falar com o Motorista</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ✅ RECENTLY RESOLVED INCIDENTS BANNER */}
+      {activeIncidents.length === 0 && recentResolvedIncidents.length > 0 && (
+        <div className="p-4 bg-emerald-50 border-2 border-emerald-300 rounded-[28px] shadow-sm flex items-center gap-3 text-emerald-900 animate-fade-in">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-black shrink-0">
+            <CheckCircle2 size={20} />
+          </div>
+          <div className="space-y-0.5">
+            <h4 className="text-xs font-black uppercase tracking-wider text-emerald-800">
+              Rota Normalizada & Sem Imprevistos
+            </h4>
+            <p className="text-xs text-emerald-700">
+              {recentResolvedIncidents[0].resolvedMessage || 'O imprevisto anterior foi totalmente resolvido pelo motorista e a van segue a rota com segurança.'}
+            </p>
+          </div>
+        </div>
+      )}
       
       <div className="grid grid-cols-1 gap-8">
         {students.map(student => {

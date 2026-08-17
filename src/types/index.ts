@@ -233,3 +233,20 @@ export interface SubscriptionInvoice {
   receiptUrl?: string;
 }
 
+export interface RouteIncident {
+  id?: string;
+  driverId: string;
+  driverName?: string;
+  vehicleName?: string;
+  incidentType: 'pneu' | 'transito' | 'chuva' | 'emergencia' | 'custom' | string;
+  title: string;
+  message: string;
+  estimatedDelay?: string;
+  status: 'active' | 'resolved';
+  createdAt: string;
+  resolvedAt?: string;
+  resolvedMessage?: string;
+  targetStudentEmails?: string[];
+  acknowledgedByParentEmails?: string[];
+}
+

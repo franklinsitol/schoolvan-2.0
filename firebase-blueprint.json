@@ -136,6 +136,27 @@
       },
       "required": ["studentId", "date"]
     },
+    "Incident": {
+      "title": "Route Incident",
+      "description": "Driver broadcast incident and push alert for parents",
+      "type": "object",
+      "properties": {
+        "driverId": { "type": "string" },
+        "driverName": { "type": "string" },
+        "vehicleName": { "type": "string" },
+        "incidentType": { "type": "string", "enum": ["pneu", "transito", "chuva", "emergencia", "custom"] },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "estimatedDelay": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "resolved"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "resolvedAt": { "type": "string", "format": "date-time" },
+        "resolvedMessage": { "type": "string" },
+        "targetStudentEmails": { "type": "array" },
+        "acknowledgedByParentEmails": { "type": "array" }
+      },
+      "required": ["driverId", "title", "message", "status"]
+    },
     "Ticket": {
       "title": "Ticket",
       "description": "Support ticket (Chamados)",
@@ -192,6 +213,7 @@
     "/drivers/{driverId}/finance/{financeId}": { "schema": "Finance", "description": "Finance records" },
     "/drivers/{driverId}/leads/{leadId}": { "schema": "Lead", "description": "Leads" },
     "/drivers/{driverId}/absences/{absenceId}": { "schema": "Absence", "description": "Absences" },
+    "/drivers/{driverId}/incidents/{incidentId}": { "schema": "Incident", "description": "Route incidents and push alerts" },
     "/users/{userId}": { "schema": "User", "description": "User / Parent accounts" },
     "/tickets/{ticketId}": { "schema": "Ticket", "description": "Support tickets" },
     "/adminConfig/global": { "schema": "AdminConfig", "description": "Global settings" }

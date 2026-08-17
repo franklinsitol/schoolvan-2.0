@@ -137,6 +137,13 @@ service cloud.firestore {
         allow create: if isDriver(driverId) || canTeamMemberEdit(driverId) || isSuperAdmin() || isAuthenticated();
         allow update, delete: if isDriver(driverId) || canTeamMemberEdit(driverId) || isSuperAdmin();
       }
+
+      match /incidents/{incidentId} {
+        allow read: if isAuthenticated() || isDriver(driverId) || isTeamMember(driverId) || isSuperAdmin();
+        allow create: if isDriver(driverId) || canTeamMemberEdit(driverId) || isSuperAdmin();
+        allow update: if isDriver(driverId) || canTeamMemberEdit(driverId) || isSuperAdmin() || isAuthenticated(); // isAuthenticated for parent acknowledgment
+        allow delete: if isDriver(driverId) || isSuperAdmin();
+      }
     }
 
     match /users/{userId} {
@@ -167,6 +174,10 @@ service cloud.firestore {
         isSuperAdmin() || 
         resource.data.parentEmail == request.auth.token.email
       );
+    }
+
+    match /{path=**}/incidents/{incidentId} {
+      allow list: if isAuthenticated();
     }
   }
 }

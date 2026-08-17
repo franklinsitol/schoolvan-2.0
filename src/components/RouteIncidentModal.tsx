@@ -13,10 +13,18 @@ import {
   ShieldAlert, 
   Users, 
   PhoneCall,
-  Volume2
+  Volume2,
+  BellRing,
+  Radio,
+  CheckCircle2,
+  Share2
 } from 'lucide-react';
-import { Student } from '../types';
+import { Student, RouteIncident } from '../types';
 import { playBusHornSound, speakTiaPrompt } from '../lib/sound';
+import { showIncidentPushNotification, playIncidentAlertChime } from '../lib/pushNotifications';
+import { useAuth } from '../hooks/useAuth';
+import { db } from '../lib/firebase';
+import { collection, addDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 
 export type IncidentType = 'pneu' | 'transito' | 'chuva' | 'emergencia';
@@ -27,6 +35,7 @@ interface RouteIncidentModalProps {
   initialType?: IncidentType;
   students: Student[];
   onOpenTioIAWithPrompt?: (prompt: string) => void;
+  onIncidentCreated?: (incidentId: string) => void;
 }
 
 export function RouteIncidentModal({
@@ -34,17 +43,22 @@ export function RouteIncidentModal({
   onClose,
   initialType = 'pneu',
   students,
-  onOpenTioIAWithPrompt
+  onOpenTioIAWithPrompt,
+  onIncidentCreated
 }: RouteIncidentModalProps) {
+  const { profile, user } = useAuth();
   const [incidentType, setIncidentType] = useState<IncidentType>(initialType);
   const [estimatedDelay, setEstimatedDelay] = useState('20');
   const [customMessage, setCustomMessage] = useState('');
   const [copied, setCopied] = useState(false);
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const [broadcastSuccess, setBroadcastSuccess] = useState(false);
 
   // Sync initialType when opened
   useEffect(() => {
     setIncidentType(initialType);
-  }, [initialType]);
+    setBroadcastSuccess(false);
+  }, [initialType, isOpen]);
 
   // Generate message based on type and delay
   useEffect(() => {
@@ -89,7 +103,59 @@ export function RouteIncidentModal({
 
   if (!isOpen) return null;
 
-  const validStudents = students.filter(s => s.status !== 'Excluido' && (s.parentPhone || s.tel1 || s.tel2));
+  const validStudents = students.filter(s => s.status !== 'Excluido');
+  const targetEmails = Array.from(new Set(validStudents.map(s => s.parentEmail).filter(Boolean)));
+  const driverId = profile?.id || user?.uid;
+
+  const handleBroadcastPushToParents = async () => {
+    if (!driverId) {
+      toast.error('Erro de autenticação do motorista.');
+      return;
+    }
+
+    setIsBroadcasting(true);
+    try {
+      const typeTitle = 
+        incidentType === 'pneu' ? 'Pneu Furado / Imprevisto Mecânico' :
+        incidentType === 'transito' ? 'Trânsito Intenso na Região' :
+        incidentType === 'chuva' ? 'Chuva Forte & Lentidão' :
+        'Alerta de Emergência Operacional';
+
+      const incidentData: RouteIncident = {
+        driverId,
+        driverName: profile?.name || 'Tio(a) da Van',
+        incidentType,
+        title: typeTitle,
+        message: customMessage,
+        estimatedDelay: incidentType !== 'emergencia' ? estimatedDelay : undefined,
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        targetStudentEmails: targetEmails,
+        acknowledgedByParentEmails: []
+      };
+
+      const docRef = await addDoc(collection(db, 'drivers', driverId, 'incidents'), incidentData);
+
+      // Play local sound and trigger test push
+      playIncidentAlertChime();
+      showIncidentPushNotification({ ...incidentData, id: docRef.id });
+
+      setBroadcastSuccess(true);
+      if (onIncidentCreated) {
+        onIncidentCreated(docRef.id);
+      }
+
+      toast.success(
+        `📡 Comunicado transmitido com sucesso! Notificação Push e banner na tela enviados aos responsáveis.`,
+        { duration: 5000 }
+      );
+    } catch (err: any) {
+      console.error('Erro ao transmitir incidente:', err);
+      toast.error(err?.message ? `Erro ao transmitir: ${err.message}` : 'Erro ao salvar e transmitir alerta.');
+    } finally {
+      setIsBroadcasting(false);
+    }
+  };
 
   const handleCopyMessage = () => {
     navigator.clipboard.writeText(customMessage);
@@ -140,8 +206,8 @@ export function RouteIncidentModal({
               <AlertTriangle size={26} />
             </div>
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full">
-                Alertas Rápidos em Rota
+              <span className="text-[10px] font-black uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full flex items-center gap-1.5 w-fit">
+                <Radio size={12} className="animate-pulse" /> Alerta Push & Painel em Tempo Real
               </span>
               <h3 className="text-xl font-black text-white mt-0.5">
                 {incidentType === 'emergencia' ? 'Central de Emergência & Apoio' : 'Avisar Pais sobre Imprevisto'}
@@ -159,6 +225,60 @@ export function RouteIncidentModal({
 
         <div className="p-6 md:p-8 overflow-y-auto space-y-6">
           
+          {/* Main Push Broadcast Call-to-Action Card */}
+          <div className="p-5 bg-gradient-to-br from-amber-500/15 via-yellow-500/10 to-transparent border-2 border-yellow-400 rounded-3xl space-y-3 shadow-md">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 bg-yellow-400 text-gray-950 rounded-xl">
+                    <BellRing size={16} />
+                  </span>
+                  <h4 className="font-black text-gray-950 text-sm">
+                    Disparo Automático por Push & Tela do Responsável
+                  </h4>
+                </div>
+                <p className="text-xs text-gray-600">
+                  Transmita este imprevisto instantaneamente para todos os <strong>{validStudents.length} responsáveis</strong> vinculados aos alunos desta rota.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                disabled={isBroadcasting}
+                onClick={handleBroadcastPushToParents}
+                className={`px-5 py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer shrink-0 active:scale-95 ${
+                  broadcastSuccess
+                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                    : 'bg-yellow-400 hover:bg-yellow-300 text-gray-950 ring-2 ring-yellow-500/50'
+                }`}
+              >
+                {isBroadcasting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-gray-950 border-t-transparent rounded-full animate-spin" />
+                    <span>Transmitindo...</span>
+                  </>
+                ) : broadcastSuccess ? (
+                  <>
+                    <CheckCircle2 size={16} />
+                    <span>Alerta Transmitido!</span>
+                  </>
+                ) : (
+                  <>
+                    <Radio size={16} className="text-gray-950 animate-pulse" />
+                    <span>Disparar Push e Alerta na Tela</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {broadcastSuccess && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-800 font-bold flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                <span>O alerta está ATIVO na tela dos pais e a notificação push foi enviada aos dispositivos conectados!</span>
+              </div>
+            )}
+          </div>
+
           {/* Incident Selector Pills */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <button
@@ -281,7 +401,7 @@ export function RouteIncidentModal({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-xs font-black uppercase tracking-wider text-gray-700">
-                Texto do Comunicado para os Pais
+                Texto do Comunicado (Exibido na tela dos Pais & WhatsApp)
               </label>
               <button
                 type="button"
@@ -331,7 +451,7 @@ export function RouteIncidentModal({
           <div className="space-y-3 pt-2 border-t border-gray-100">
             <div className="flex items-center justify-between">
               <span className="text-xs font-black uppercase tracking-wider text-gray-900 flex items-center gap-1.5">
-                <Users size={15} className="text-yellow-500" /> Responsáveis na Rota ({validStudents.length})
+                <Users size={15} className="text-yellow-500" /> Envio Complementar via WhatsApp ({validStudents.length})
               </span>
               <span className="text-[11px] text-gray-500 font-semibold">
                 Disparo individual com 1 toque
@@ -384,11 +504,12 @@ export function RouteIncidentModal({
             </button>
             <button
               type="button"
-              onClick={handleCopyMessage}
+              disabled={isBroadcasting}
+              onClick={handleBroadcastPushToParents}
               className="px-6 py-3 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-2xl text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer active:scale-95"
             >
-              <Copy size={16} />
-              <span>Copiar Comunicado</span>
+              <Radio size={16} className={isBroadcasting ? 'animate-spin' : 'animate-pulse'} />
+              <span>{isBroadcasting ? 'Transmitindo...' : 'Disparar Push & Alerta na Tela'}</span>
             </button>
           </div>
 
@@ -397,3 +518,4 @@ export function RouteIncidentModal({
     </div>
   );
 }
+

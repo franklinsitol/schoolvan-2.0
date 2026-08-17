@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useFirestore } from '../hooks/useFirestore';
-import { Student, Vehicle } from '../types';
+import { Student, Vehicle, RouteIncident } from '../types';
 import { cn } from '../lib/utils';
 import { 
   isStudentAbsentOnDate, 
@@ -39,6 +39,8 @@ import {
 } from '../lib/absence';
 import { RouteIncidentModal, IncidentType } from './RouteIncidentModal';
 import { playBusHornSound } from '../lib/sound';
+import { db } from '../lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 
 export interface RouteStop {
@@ -60,6 +62,7 @@ export function RoutesView() {
   const [turno, setTurno] = useState('Manha_Ida');
   const { data: students } = useFirestore<Student>(`drivers/${profile?.id}/students`);
   const { data: vehicles } = useFirestore<Vehicle>(`drivers/${profile?.id}/vehicles`);
+  const { data: incidents } = useFirestore<RouteIncident>(`drivers/${profile?.id}/incidents`);
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [orderedStudents, setOrderedStudents] = useState<Student[]>([]);
   const [customStops, setCustomStops] = useState<RouteStop[] | null>(null);
@@ -68,6 +71,27 @@ export function RoutesView() {
   const [isOverAbsentZone, setIsOverAbsentZone] = useState(false);
   const [isIncidentModalOpen, setIsIncidentModalOpen] = useState(false);
   const [activeIncidentType, setActiveIncidentType] = useState<IncidentType>('pneu');
+  const [isResolvingIncident, setIsResolvingIncident] = useState(false);
+
+  const activeIncident = incidents.find(inc => inc.status === 'active');
+
+  const handleResolveIncident = async (incidentId: string) => {
+    if (!profile?.id) return;
+    setIsResolvingIncident(true);
+    try {
+      await updateDoc(doc(db, 'drivers', profile.id, 'incidents', incidentId), {
+        status: 'resolved',
+        resolvedAt: new Date().toISOString(),
+        resolvedMessage: 'Imprevisto resolvido com sucesso! A van escolar retornou ao fluxo normal da rota.'
+      });
+      toast.success('Rota normalizada! Alerta de resolução transmitido aos pais.');
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Erro ao normalizar rota.');
+    } finally {
+      setIsResolvingIncident(false);
+    }
+  };
 
   const handleOpenIncident = (type: IncidentType) => {
     setActiveIncidentType(type);
@@ -473,6 +497,49 @@ export function RoutesView() {
           </select>
         </div>
       </div>
+
+      {/* 🚨 ACTIVE INCIDENT BROADCAST STATUS IF ANY */}
+      {activeIncident && (
+        <div className="bg-gradient-to-r from-amber-500/20 via-yellow-500/15 to-transparent border-2 border-yellow-400 p-5 rounded-[32px] shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-fade-in">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-yellow-400 text-gray-950 flex items-center justify-center font-black shrink-0 shadow-md animate-bounce">
+              <AlertTriangle size={24} />
+            </div>
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wider bg-yellow-400 text-gray-950 px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-red-600 animate-ping" /> Alerta Ativo na Tela dos Pais
+                </span>
+                <span className="text-xs font-extrabold text-gray-900">
+                  {activeIncident.title} {activeIncident.estimatedDelay ? `(+${activeIncident.estimatedDelay} min)` : ''}
+                </span>
+              </div>
+              <p className="text-xs text-gray-700 font-medium line-clamp-1">
+                "{activeIncident.message.split('\n')[0]}"
+              </p>
+              <div className="text-[11px] text-gray-600 flex items-center gap-3 font-semibold">
+                <span>⏱️ Transmitido às {new Date(activeIncident.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                <span>•</span>
+                <span className="text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md font-bold">
+                  👥 {activeIncident.acknowledgedByParentEmails?.length || 0} responsáveis confirmaram leitura
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <button
+              type="button"
+              disabled={isResolvingIncident}
+              onClick={() => handleResolveIncident(activeIncident.id!)}
+              className="w-full md:w-auto px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+            >
+              <CheckCircle2 size={16} />
+              <span>{isResolvingIncident ? 'Normalizando...' : '✅ Resolver / Normalizar Rota'}</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 🚨 QUICK INCIDENT & REALTIME ALERT BAR FOR DRIVERS */}
       <div className="bg-gradient-to-r from-gray-950 via-slate-900 to-gray-900 text-white p-4 sm:p-5 rounded-[32px] shadow-lg border border-yellow-400/20 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
