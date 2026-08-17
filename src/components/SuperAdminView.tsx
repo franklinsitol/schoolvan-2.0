@@ -41,7 +41,7 @@ interface SuperAdminViewProps {
 }
 
 export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
-  const [activeTab, setActiveTab] = useState<'drivers' | 'tickets' | 'config'>('drivers');
+  const [activeTab, setActiveTab] = useState<'drivers' | 'tickets' | 'asaas' | 'config'>('drivers');
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [config, setConfig] = useState<AdminConfig>({
@@ -58,7 +58,11 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
     popupActive: false,
     popupMsg: '',
     termsText: 'Termos de uso do sistema...',
-    lgpdText: 'Política de privacidade LGPD...'
+    lgpdText: 'Política de privacidade LGPD...',
+    asaasEnvironment: 'sandbox',
+    asaasPlatformSplitFee: 1.50,
+    asaasSplitType: 'FIXED',
+    asaasAutoSync: true
   });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -404,6 +408,17 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
               )}
             >
               Chamados ({tickets.filter(t => t.status === 'Aberto').length})
+            </button>
+            <button
+              onClick={() => setActiveTab('asaas')}
+              className={cn(
+                "px-5 py-2.5 rounded-2xl text-sm font-bold transition-all flex items-center gap-1.5",
+                activeTab === 'asaas' ? "bg-yellow-400 text-gray-900 shadow-lg" : "bg-white/10 text-white hover:bg-white/20"
+              )}
+            >
+              <CreditCard size={15} />
+              <span>Gateway Asaas</span>
+              {config.asaasApiKey && <span className="w-2 h-2 rounded-full bg-emerald-400" />}
             </button>
             <button
               onClick={() => setActiveTab('config')}
@@ -986,7 +1001,168 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
         </div>
       )}
 
-      {/* TAB 3: GLOBAL CONFIG */}
+      {/* TAB 3: ASAAS GATEWAY CONFIGURATION */}
+      {activeTab === 'asaas' && (
+        <form onSubmit={handleSaveConfig} className="bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm space-y-8 animate-fadeIn">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 pb-6">
+            <div>
+              <div className="flex items-center gap-2">
+                <div className="p-2.5 bg-blue-50 text-blue-600 rounded-2xl">
+                  <CreditCard size={24} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Integração Asaas Gateway</h2>
+                  <p className="text-xs text-gray-500">
+                    Gerencie a chave de API, split de comissão automática por cobrança e webhook.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={cn(
+                "px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5",
+                config.asaasApiKey ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+              )}>
+                <span className={cn("w-2 h-2 rounded-full", config.asaasApiKey ? "bg-emerald-500 animate-pulse" : "bg-amber-500")} />
+                {config.asaasApiKey ? "API Conectada" : "Aguardando Chave"}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Ambiente */}
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
+                Ambiente de Execução
+              </label>
+              <select
+                value={config.asaasEnvironment || 'sandbox'}
+                onChange={(e) => setConfig({ ...config, asaasEnvironment: e.target.value as any })}
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-yellow-400 text-sm font-bold text-gray-800"
+              >
+                <option value="sandbox">Sandbox (Ambiente de Testes Gratuito - sandbox.asaas.com)</option>
+                <option value="production">Produção (Ambiente Real Oficial - asaas.com)</option>
+              </select>
+              <p className="text-[11px] text-gray-400 ml-1">
+                Use Sandbox para testar a emissão de cobranças fictícias antes de ir para produção.
+              </p>
+            </div>
+
+            {/* Taxa de Split SchoolVan */}
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
+                Sua Comissão SchoolVan por Cobrança (Split)
+              </label>
+              <div className="relative">
+                <span className="absolute left-4 top-3.5 text-sm font-bold text-gray-400">R$</span>
+                <input
+                  type="number"
+                  step="0.10"
+                  min="0"
+                  value={config.asaasPlatformSplitFee ?? 1.50}
+                  onChange={(e) => setConfig({ ...config, asaasPlatformSplitFee: Number(e.target.value) })}
+                  className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-yellow-400 text-sm font-bold text-gray-800"
+                  placeholder="1.50"
+                />
+              </div>
+              <p className="text-[11px] text-gray-400 ml-1">
+                Valor líquido que a SchoolVan retém automaticamente de cada mensalidade paga pelos pais (Ex: R$ 1,50).
+              </p>
+            </div>
+
+            {/* API Key do Asaas */}
+            <div className="md:col-span-2 space-y-1">
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
+                Chave de API do Asaas (Access Token)
+              </label>
+              <input
+                type="password"
+                value={config.asaasApiKey || ''}
+                onChange={(e) => setConfig({ ...config, asaasApiKey: e.target.value })}
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-yellow-400 text-sm font-mono text-gray-800 tracking-wider"
+                placeholder="$aact_YTU5YTE0M2M6N2Zl..."
+              />
+              <p className="text-[11px] text-gray-400 ml-1">
+                Copie no painel do Asaas em: <strong>Configurações da Conta &gt; Integrações &gt; Chaves de API</strong>.
+              </p>
+            </div>
+
+            {/* Webhook Secret Token */}
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
+                Token de Autenticação do Webhook (Opcional)
+              </label>
+              <input
+                type="password"
+                value={config.asaasWebhookSecret || ''}
+                onChange={(e) => setConfig({ ...config, asaasWebhookSecret: e.target.value })}
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-yellow-400 text-sm font-mono text-gray-800"
+                placeholder="Token de segurança do Webhook"
+              />
+            </div>
+
+            {/* URL do Webhook da SchoolVan */}
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
+                URL do Webhook para cadastrar no Asaas
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={`${window.location.origin}/api/asaas/webhook`}
+                  className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-2xl text-xs font-mono text-gray-600 select-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/api/asaas/webhook`);
+                    alert('URL do Webhook copiada!');
+                  }}
+                  className="px-4 py-3 bg-gray-900 text-yellow-400 font-bold rounded-2xl text-xs whitespace-nowrap hover:bg-gray-800"
+                >
+                  Copiar
+                </button>
+              </div>
+            </div>
+
+            {/* Sincronização Automática */}
+            <div className="md:col-span-2 bg-blue-50/50 p-5 rounded-2xl border border-blue-100 flex items-start gap-4">
+              <input
+                type="checkbox"
+                id="asaasAutoSync"
+                checked={config.asaasAutoSync ?? true}
+                onChange={(e) => setConfig({ ...config, asaasAutoSync: e.target.checked })}
+                className="w-5 h-5 mt-0.5 accent-yellow-400 rounded cursor-pointer"
+              />
+              <div>
+                <label htmlFor="asaasAutoSync" className="text-sm font-bold text-gray-900 cursor-pointer block">
+                  Ativar Baixa Automática e Notificação via T.IA
+                </label>
+                <p className="text-xs text-gray-600 mt-0.5">
+                  Quando o Asaas confirmar um pagamento de PIX ou Boleto, a SchoolVan atualiza o status para <strong>Pago</strong> em tempo real e dispara a mensagem de confirmação para o responsável e para o motorista.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={savingConfig}
+            className="w-full py-4 bg-gray-900 text-yellow-400 font-bold rounded-2xl hover:bg-gray-800 transition-all shadow-xl flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {savingConfig ? (
+              <div className="w-5 h-5 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <>
+                <Save size={20} /> SALVAR CONFIGURAÇÕES DO ASAAS GATEWAY
+              </>
+            )}
+          </button>
+        </form>
+      )}
+
+      {/* TAB 4: GLOBAL CONFIG */}
       {activeTab === 'config' && (
         <form onSubmit={handleSaveConfig} className="bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm space-y-8">
           <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">

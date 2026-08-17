@@ -102,6 +102,178 @@ Se for apenas uma dúvida, responda normalmente de forma concisa e útil.`;
     }
   });
 
+  // ==========================================
+  // ASAAS PAYMENT GATEWAY INTEGRATION ENDPOINTS
+  // ==========================================
+
+  // Endpoint to create Asaas Payment (PIX / Boleto) with automatic Platform Split
+  app.post("/api/asaas/create-payment", async (req, res) => {
+    try {
+      const {
+        customerName,
+        customerCpfCnpj,
+        customerEmail,
+        customerPhone,
+        value,
+        dueDate,
+        description,
+        billingType, // 'PIX' | 'BOLETO' | 'UNDEFINED'
+        splitFee, // R$ 1.50 (SchoolVan take-rate)
+        subaccountWalletId,
+        customApiKey,
+        customEnvironment
+      } = req.body;
+
+      const apiKey = customApiKey || process.env.ASAAS_API_KEY;
+      const environment = customEnvironment || process.env.ASAAS_ENVIRONMENT || "sandbox";
+      const baseUrl = environment === "production" 
+        ? "https://api.asaas.com/v3" 
+        : "https://sandbox.asaas.com/api/v3";
+
+      if (!apiKey) {
+        return res.status(400).json({ 
+          error: "Chave de API do Asaas não configurada. Configure no painel do Super Admin ou no arquivo .env." 
+        });
+      }
+
+      // Step 1: Create or find Asaas Customer
+      let customerId: string | null = null;
+      try {
+        const customerSearchRes = await fetch(`${baseUrl}/customers?cpfCnpj=${customerCpfCnpj || ''}&email=${customerEmail || ''}`, {
+          headers: { 'access_token': apiKey }
+        });
+        const customerSearchData = await customerSearchRes.json();
+        if (customerSearchData?.data && customerSearchData.data.length > 0) {
+          customerId = customerSearchData.data[0].id;
+        }
+      } catch (err) {
+        console.warn("Asaas customer search failed:", err);
+      }
+
+      if (!customerId) {
+        const createCustomerRes = await fetch(`${baseUrl}/customers`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "access_token": apiKey
+          },
+          body: JSON.stringify({
+            name: customerName || "Responsável Aluno",
+            cpfCnpj: customerCpfCnpj,
+            email: customerEmail,
+            mobilePhone: customerPhone
+          })
+        });
+        const newCustomer = await createCustomerRes.json();
+        if (newCustomer.id) {
+          customerId = newCustomer.id;
+        } else {
+          return res.status(400).json({ 
+            error: newCustomer.errors?.[0]?.description || "Erro ao cadastrar cliente no Asaas" 
+          });
+        }
+      }
+
+      // Step 2: Build Split configuration if subaccount exists
+      const splits = [];
+      if (subaccountWalletId && splitFee && Number(splitFee) > 0) {
+        splits.push({
+          walletId: subaccountWalletId,
+          fixedValue: Math.max(0, Number(value) - Number(splitFee))
+        });
+      }
+
+      // Step 3: Create Payment
+      const paymentPayload: any = {
+        customer: customerId,
+        billingType: billingType || "PIX",
+        value: Number(value),
+        dueDate: dueDate || new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+        description: description || "Mensalidade de Transporte Escolar - SchoolVan",
+        postalService: false
+      };
+
+      if (splits.length > 0) {
+        paymentPayload.split = splits;
+      }
+
+      const paymentRes = await fetch(`${baseUrl}/payments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "access_token": apiKey
+        },
+        body: JSON.stringify(paymentPayload)
+      });
+      const paymentData = await paymentRes.json();
+
+      if (!paymentData.id) {
+        return res.status(400).json({ 
+          error: paymentData.errors?.[0]?.description || "Erro ao criar cobrança no Asaas" 
+        });
+      }
+
+      // Step 4: If PIX, fetch QR Code payload
+      let pixQrCode = null;
+      let pixCopiaECola = null;
+      if (billingType === "PIX" || !billingType) {
+        try {
+          const pixRes = await fetch(`${baseUrl}/payments/${paymentData.id}/pixQrCode`, {
+            headers: { 'access_token': apiKey }
+          });
+          const pixData = await pixRes.json();
+          pixQrCode = pixData.encodedImage;
+          pixCopiaECola = pixData.payload;
+        } catch (err) {
+          console.warn("Failed to get Asaas PIX QR code:", err);
+        }
+      }
+
+      return res.json({
+        success: true,
+        paymentId: paymentData.id,
+        status: paymentData.status,
+        invoiceUrl: paymentData.invoiceUrl,
+        bankSlipUrl: paymentData.bankSlipUrl,
+        pixQrCode,
+        pixCopiaECola,
+        value: paymentData.value,
+        dueDate: paymentData.dueDate
+      });
+    } catch (error: any) {
+      console.error("Asaas create payment error:", error);
+      return res.status(500).json({ error: error.message || "Falha na comunicação com Asaas" });
+    }
+  });
+
+  // Asaas Webhook receiver (Payment confirmed / received)
+  app.post("/api/asaas/webhook", async (req, res) => {
+    try {
+      const event = req.body;
+      console.log(`[ASAAS WEBHOOK RECEIVED] Event: ${event?.event}, Payment ID: ${event?.payment?.id}`);
+
+      // Handle Events: PAYMENT_RECEIVED, PAYMENT_CONFIRMED, PAYMENT_OVERDUE
+      const eventType = event?.event;
+      const payment = event?.payment;
+
+      if (!payment || !payment.id) {
+        return res.status(200).json({ received: true });
+      }
+
+      return res.status(200).json({
+        received: true,
+        event: eventType,
+        paymentId: payment.id,
+        status: payment.status,
+        value: payment.value,
+        confirmedAt: new Date().toISOString()
+      });
+    } catch (error: any) {
+      console.error("Asaas webhook handler error:", error);
+      return res.status(200).json({ received: true, error: error.message });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

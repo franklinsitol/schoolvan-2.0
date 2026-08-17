@@ -9,7 +9,10 @@ import {
   Calendar, 
   MessageCircle, 
   Sparkles,
-  AlertCircle
+  AlertCircle,
+  CreditCard,
+  FileText,
+  ExternalLink
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { Student, InvoiceStatus } from '../types';
@@ -43,11 +46,21 @@ export function BillingRuleModal({ isOpen, onClose, student, financeStatus = 'Em
   const [selectedStageKey, setSelectedStageKey] = useState<BillingStageKey>(recommendedStage);
   const [copiedKey, setCopiedKey] = useState<boolean>(false);
   const [copiedText, setCopiedText] = useState<boolean>(false);
+  
+  // Asaas Instant Generation State
+  const [generatingAsaas, setGeneratingAsaas] = useState<boolean>(false);
+  const [asaasData, setAsaasData] = useState<{
+    invoiceUrl?: string;
+    bankSlipUrl?: string;
+    pixQrCode?: string;
+    pixCopiaECola?: string;
+  } | null>(null);
 
   // Sync selected stage when modal opens or recommendation changes
   React.useEffect(() => {
     if (isOpen) {
       setSelectedStageKey(recommendedStage);
+      setAsaasData(null);
     }
   }, [isOpen, recommendedStage]);
 
@@ -56,26 +69,75 @@ export function BillingRuleModal({ isOpen, onClose, student, financeStatus = 'Em
       return { messageText: '', pixCopiaECola: '' };
     }
 
-    return formatBillingMessage({
+    const baseData = formatBillingMessage({
       stageKey: selectedStageKey,
       studentName: student.name,
       parentName: student.parentName || 'Responsável',
       driverName: profile?.name || 'Tio da Van',
       value: student.value || 350,
       paymentDay: student.paymentDay || 10,
-      pixKey: profile?.pixKey || '',
+      pixKey: asaasData?.pixCopiaECola || profile?.pixKey || '',
       driverCity: profile?.city || 'São Paulo'
     });
-  }, [student, selectedStageKey, profile]);
+
+    if (asaasData?.invoiceUrl) {
+      baseData.messageText += `\n\n📄 *Link da Fatura Digital / Boleto:* ${asaasData.invoiceUrl}`;
+    }
+
+    return baseData;
+  }, [student, selectedStageKey, profile, asaasData]);
 
   if (!isOpen || !student) return null;
 
+  const handleGenerateAsaasCharge = async () => {
+    setGeneratingAsaas(true);
+    try {
+      const dueDate = new Date();
+      dueDate.setDate(paymentDay);
+      if (dueDate.getDate() < currentDay) {
+        dueDate.setMonth(dueDate.getMonth() + 1);
+      }
+
+      const res = await fetch('/api/asaas/create-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerName: student.parentName || `Responsável de ${student.name}`,
+          customerPhone: student.parentPhone || student.tel1 || '',
+          value: student.value || 350,
+          dueDate: dueDate.toISOString().split('T')[0],
+          description: `Mensalidade Transporte Escolar - ${student.name}`,
+          billingType: 'PIX',
+          splitFee: 1.50
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setAsaasData({
+          invoiceUrl: data.invoiceUrl,
+          bankSlipUrl: data.bankSlipUrl,
+          pixQrCode: data.pixQrCode,
+          pixCopiaECola: data.pixCopiaECola
+        });
+        toast.success('Cobrança Asaas com Pix gerada com sucesso!');
+      } else {
+        toast.error(data.error || 'Não foi possível gerar no Asaas. Usando Pix manual.');
+      }
+    } catch (err) {
+      toast.error('Erro de conexão com Asaas. Usando Pix manual.');
+    } finally {
+      setGeneratingAsaas(false);
+    }
+  };
+
   const handleCopyPix = () => {
-    if (!profile?.pixKey) {
+    const codeToCopy = asaasData?.pixCopiaECola || formattedData.pixCopiaECola;
+    if (!codeToCopy && !profile?.pixKey) {
       toast.error('Cadastre sua chave Pix em "Meu Perfil" primeiro.');
       return;
     }
-    navigator.clipboard.writeText(formattedData.pixCopiaECola);
+    navigator.clipboard.writeText(codeToCopy);
     setCopiedKey(true);
     toast.success('Pix Copia e Cola copiado!');
     setTimeout(() => setCopiedKey(false), 2000);
@@ -192,6 +254,32 @@ export function BillingRuleModal({ isOpen, onClose, student, financeStatus = 'Em
             </div>
           </div>
 
+          {/* Asaas Integration Callout & Trigger */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50/50 p-3.5 rounded-2xl border border-blue-200/80 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <CreditCard size={16} />
+              </div>
+              <div>
+                <span className="text-[11px] font-black text-blue-950 block">Cobrança Registrada Asaas (Pix + Boleto)</span>
+                <span className="text-[10px] text-blue-700">Gera link de pagamento oficial com baixa automática via Webhook</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              disabled={generatingAsaas}
+              onClick={handleGenerateAsaasCharge}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl text-[11px] flex items-center gap-1.5 shrink-0 transition-all cursor-pointer disabled:opacity-50"
+            >
+              {generatingAsaas ? (
+                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Sparkles size={13} />
+              )}
+              <span>{asaasData ? 'Regerar no Asaas' : 'Gerar com Asaas'}</span>
+            </button>
+          </div>
+
           {/* WhatsApp Balloon Preview */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-[11px] font-bold text-gray-700">
@@ -216,7 +304,7 @@ export function BillingRuleModal({ isOpen, onClose, student, financeStatus = 'Em
           <div className="bg-gray-950 text-white p-3.5 rounded-2xl border border-yellow-400/30 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-black text-yellow-400 uppercase tracking-wider flex items-center gap-1">
-                <QrCode size={13} /> Pix Copia e Cola Gerado Automaticamente
+                <QrCode size={13} /> {asaasData ? 'Pix Oficial Asaas (Baixa Automática)' : 'Pix Copia e Cola Gerado Automaticamente'}
               </span>
               <button
                 onClick={handleCopyPix}
@@ -228,8 +316,23 @@ export function BillingRuleModal({ isOpen, onClose, student, financeStatus = 'Em
             </div>
             
             <div className="p-2 bg-gray-900 rounded-lg font-mono text-[10px] text-emerald-400 break-all select-all">
-              {formattedData.pixCopiaECola}
+              {asaasData?.pixCopiaECola || formattedData.pixCopiaECola}
             </div>
+
+            {asaasData?.invoiceUrl && (
+              <div className="pt-2 border-t border-gray-800 flex items-center justify-between text-[11px]">
+                <span className="text-gray-300">Fatura Digital / Boleto Online:</span>
+                <a 
+                  href={asaasData.invoiceUrl} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="text-yellow-400 hover:underline font-bold flex items-center gap-1"
+                >
+                  <span>Abrir Fatura</span>
+                  <ExternalLink size={12} />
+                </a>
+              </div>
+            )}
           </div>
 
         </div>

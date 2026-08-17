@@ -117,7 +117,7 @@ export function showIncidentPushNotification(incident: RouteIncident) {
             url: window.location.href,
             incidentId: incident.id
           }
-        });
+        } as NotificationOptions & { renotify?: boolean });
       }).catch(() => {
         // Fallback to standard Notification constructor
         const notif = new Notification(title, {

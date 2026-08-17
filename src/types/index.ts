@@ -33,6 +33,11 @@ export interface Driver {
   paymentProofUrl?: string;
   paymentProofNotes?: string;
   paymentProofSubmittedAt?: string;
+  // Asaas Subaccount Integration
+  asaasAccountId?: string;
+  asaasApiKey?: string;
+  asaasWalletId?: string;
+  asaasStatus?: 'pending' | 'active' | 'disabled';
   // Professional Accreditation & Verification (Pro / Frota)
   verificationStatus?: 'nao_enviado' | 'em_analise' | 'verificado' | 'rejeitado' | 'pending' | 'verified' | 'unverified' | 'rejected';
   isVerified?: boolean;
@@ -154,6 +159,13 @@ export interface Finance {
   status: InvoiceStatus;
   ref?: string;
   type: 'Receita' | 'Despesa';
+  asaasPaymentId?: string;
+  asaasInvoiceUrl?: string;
+  asaasBankSlipUrl?: string;
+  asaasPixQrCode?: string;
+  asaasPixCopiaECola?: string;
+  paymentMethod?: 'PIX' | 'BOLETO' | 'CREDIT_CARD' | 'MANUAL';
+  splitFeeApplied?: number;
 }
 
 export interface Lead {
@@ -215,6 +227,13 @@ export interface AdminConfig {
   termsText?: string;
   lgpdText?: string;
   masterPass?: string;
+  // Asaas Gateway Configuration
+  asaasApiKey?: string;
+  asaasEnvironment?: 'sandbox' | 'production';
+  asaasWebhookSecret?: string;
+  asaasPlatformSplitFee?: number; // Ex: 1.50 (R$ 1,50 por cobrança)
+  asaasSplitType?: 'FIXED' | 'PERCENTAGE';
+  asaasAutoSync?: boolean;
 }
 
 export interface SubscriptionInvoice {
