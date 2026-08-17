@@ -33,6 +33,33 @@ export interface Driver {
   paymentProofUrl?: string;
   paymentProofNotes?: string;
   paymentProofSubmittedAt?: string;
+  // Professional Accreditation & Verification (Pro / Frota)
+  verificationStatus?: 'nao_enviado' | 'em_analise' | 'verificado' | 'rejeitado' | 'pending' | 'verified' | 'unverified' | 'rejected';
+  isVerified?: boolean;
+  verificationSubmittedAt?: string;
+  verificationApprovedAt?: string;
+  verificationNotes?: string;
+  verificationDocs?: {
+    cnhEarFile?: string;
+    cnhEarValidUntil?: string;
+    schoolCourseFile?: string;
+    schoolCourseValidUntil?: string;
+    municipalLicenseFile?: string;
+    municipalLicenseNumber?: string;
+  };
+  cnhCategory?: string;
+  cnhNumber?: string;
+  cnhValidUntil?: string;
+  cnhEar?: boolean;
+  schoolCourseNumber?: string;
+  schoolCourseValidUntil?: string;
+  municipalLicenseNumber?: string;
+  municipalLicenseValidUntil?: string;
+  documentFiles?: Array<{
+    type: 'cnh' | 'course' | 'alvara' | 'other';
+    name: string;
+    date: string;
+  }>;
 }
 
 export interface TeamMember {
@@ -60,6 +87,7 @@ export interface Vehicle {
   name: string;
   model?: string;
   plate?: string;
+  renavam?: string;
   capacity: number;
   about?: string;
   iconType?: string;
@@ -69,6 +97,10 @@ export interface Vehicle {
   neighborhood?: string;
   garageAddress?: string;
   value?: number;
+  // Inspection & Regulation fields (CTB Art. 136)
+  lastInspectionDate?: string;
+  nextInspectionDate?: string;
+  tacografoValidUntil?: string;
 }
 
 export interface Student {

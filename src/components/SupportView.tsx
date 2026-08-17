@@ -16,7 +16,12 @@ import {
   ArrowRight, 
   Percent, 
   DollarSign,
-  AlertTriangle
+  AlertTriangle,
+  ShieldCheck,
+  FileText,
+  Lock,
+  Baby,
+  Scale
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
@@ -24,6 +29,7 @@ import { db } from '../lib/firebase';
 import { collection, addDoc, onSnapshot, query, where, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { Ticket, AdminConfig } from '../types';
 import { PWAShellDocsModal } from './PWAShellDocsModal';
+import { LegalTermsModal } from './LegalTermsModal';
 import { Layers } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -31,6 +37,8 @@ export function SupportView() {
   const { profile } = useAuth();
   const [activeTab, setActiveTab] = useState<'tickets' | 'financial' | 'cancellation'>('tickets');
   const [showPwaModal, setShowPwaModal] = useState(false);
+  const [showLegalModal, setShowLegalModal] = useState(false);
+  const [legalModalTab, setLegalModalTab] = useState<'adhesion' | 'privacy' | 'security' | 'rights'>('adhesion');
 
   // Ticket Form States
   const [ticketProfile, setTicketProfile] = useState('Motorista');
@@ -94,8 +102,21 @@ export function SupportView() {
   }, [profile]);
 
   const subjects: Record<string, string[]> = {
-    Motorista: ['Suporte Geral', 'Dúvida no Financeiro', 'Envio de Comprovante', 'Problema em Rota/Alunos', 'Cancelamento / Recompensa'],
-    Responsavel: ['Acesso ao App', 'Aviso de Ausência', 'Reportar Erro', 'Sugestão'],
+    Motorista: [
+      'Suporte Geral', 
+      'Dúvida no Financeiro', 
+      'Envio de Comprovante', 
+      'Problema em Rota/Alunos', 
+      'Privacidade / Exclusão de Dados (LGPD)',
+      'Cancelamento / Recompensa'
+    ],
+    Responsavel: [
+      'Acesso ao App', 
+      'Aviso de Ausência', 
+      'Reportar Erro', 
+      'Privacidade / Exclusão de Dados (LGPD)',
+      'Sugestão'
+    ],
   };
 
   // Submit Ticket to Firestore
@@ -284,10 +305,21 @@ export function SupportView() {
           >
             <Layers size={16} /> Documentação PWA Shell
           </button>
+
+          <button
+            onClick={() => {
+              setLegalModalTab('adhesion');
+              setShowLegalModal(true);
+            }}
+            className="inline-flex items-center gap-2 bg-slate-900 text-emerald-300 border border-emerald-500/40 px-4 py-2.5 rounded-full font-extrabold text-xs uppercase tracking-wider hover:bg-slate-800 transition-all cursor-pointer shadow-md hover:scale-105"
+          >
+            <ShieldCheck size={16} className="text-emerald-400" /> Termos, LGPD & Segurança
+          </button>
         </div>
       </div>
 
       <PWAShellDocsModal isOpen={showPwaModal} onClose={() => setShowPwaModal(false)} />
+      <LegalTermsModal isOpen={showLegalModal} onClose={() => setShowLegalModal(false)} defaultTab={legalModalTab} />
 
       {/* Tabs */}
       {!isParent && (

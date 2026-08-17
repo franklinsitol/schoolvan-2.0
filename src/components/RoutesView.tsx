@@ -37,6 +37,7 @@ import {
   markStudentAbsent, 
   reintegrateStudentToRoute 
 } from '../lib/absence';
+import { RouteIncidentModal, IncidentType } from './RouteIncidentModal';
 import { playBusHornSound } from '../lib/sound';
 import toast from 'react-hot-toast';
 
@@ -65,6 +66,13 @@ export function RoutesView() {
   const [draggedItem, setDraggedItem] = useState<{ type: 'stop' | 'student'; id: string; index?: number } | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [isOverAbsentZone, setIsOverAbsentZone] = useState(false);
+  const [isIncidentModalOpen, setIsIncidentModalOpen] = useState(false);
+  const [activeIncidentType, setActiveIncidentType] = useState<IncidentType>('pneu');
+
+  const handleOpenIncident = (type: IncidentType) => {
+    setActiveIncidentType(type);
+    setIsIncidentModalOpen(true);
+  };
 
   useEffect(() => {
     if (vehicles.length > 0 && !selectedVehicleId) {
@@ -393,6 +401,8 @@ export function RoutesView() {
     return `${year}-${month}-${day}`;
   })();
 
+  const studentsInTurno = orderedStudents.length > 0 ? orderedStudents : students;
+
   return (
     <div className="p-4 md:p-8 space-y-8">
       {/* Header */}
@@ -461,6 +471,66 @@ export function RoutesView() {
             <option value="Manha_Volta">Manhã (Volta - Para Casa)</option>
             <option value="Tarde_Volta">Tarde (Volta - Para Casa)</option>
           </select>
+        </div>
+      </div>
+
+      {/* 🚨 QUICK INCIDENT & REALTIME ALERT BAR FOR DRIVERS */}
+      <div className="bg-gradient-to-r from-gray-950 via-slate-900 to-gray-900 text-white p-4 sm:p-5 rounded-[32px] shadow-lg border border-yellow-400/20 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-yellow-400 text-gray-950 flex items-center justify-center font-black shrink-0 shadow-md">
+            <AlertTriangle size={20} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black text-yellow-400 uppercase tracking-wider">
+                Avisos Rápidos aos Pais & Emergência
+              </span>
+              <span className="text-[10px] bg-red-500/20 text-red-400 font-bold px-2 py-0.2 rounded-full border border-red-500/30">
+                1 Toque
+              </span>
+            </div>
+            <p className="text-xs text-gray-300 mt-0.5">
+              Notifique atrasos por pneu furado, trânsito ou acione apoio para os {studentsInTurno.length} alunos deste turno.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto">
+          <button
+            type="button"
+            onClick={() => handleOpenIncident('pneu')}
+            className="flex-1 sm:flex-none px-3.5 py-2.5 bg-white/10 hover:bg-yellow-400 hover:text-gray-950 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-white/10 active:scale-95"
+          >
+            <span>🛞</span>
+            <span>Pneu Furado</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleOpenIncident('transito')}
+            className="flex-1 sm:flex-none px-3.5 py-2.5 bg-white/10 hover:bg-yellow-400 hover:text-gray-950 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-white/10 active:scale-95"
+          >
+            <span>🚦</span>
+            <span>Trânsito Intenso</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleOpenIncident('chuva')}
+            className="flex-1 sm:flex-none px-3.5 py-2.5 bg-white/10 hover:bg-yellow-400 hover:text-gray-950 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-white/10 active:scale-95"
+          >
+            <span>🌧️</span>
+            <span>Chuva Forte</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleOpenIncident('emergencia')}
+            className="flex-1 sm:flex-none px-3.5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md active:scale-95 animate-pulse"
+          >
+            <span>🚨</span>
+            <span>Emergência 190</span>
+          </button>
         </div>
       </div>
 
@@ -902,6 +972,14 @@ export function RoutesView() {
           </div>
         </div>
       </div>
+
+      {/* Incident & Fast Alert Modal */}
+      <RouteIncidentModal 
+        isOpen={isIncidentModalOpen}
+        onClose={() => setIsIncidentModalOpen(false)}
+        initialType={activeIncidentType}
+        students={studentsInTurno}
+      />
     </div>
   );
 }

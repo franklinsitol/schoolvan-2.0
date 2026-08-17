@@ -11,7 +11,8 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../lib/firebase';
-import { X, Mail, Lock, User, Phone, MapPin, CheckSquare, Square } from 'lucide-react';
+import { X, Mail, Lock, User, Phone, MapPin, CheckSquare, Square, ShieldCheck, ExternalLink } from 'lucide-react';
+import { LegalTermsModal } from './LegalTermsModal';
 import toast from 'react-hot-toast';
 
 interface AuthModalProps {
@@ -28,6 +29,8 @@ export function AuthModal({ isOpen, onClose, type }: AuthModalProps) {
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
+  const [termsAgreed, setTermsAgreed] = useState(true);
+  const [isLegalModalOpen, setIsLegalModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
 
@@ -75,10 +78,24 @@ export function AuthModal({ isOpen, onClose, type }: AuthModalProps) {
         await signInWithEmailAndPassword(auth, cleanEmail, password);
         toast.success('Bem-vindo de volta!');
       } else {
+        if (!termsAgreed) {
+          toast.error('É necessário aceitar os Termos de Adesão e a Política de Privacidade (LGPD) para prosseguir.');
+          setLoading(false);
+          return;
+        }
+
         const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
         const user = userCredential.user;
 
         await updateProfile(user, { displayName: name });
+
+        const consentMeta = {
+          termsAccepted: true,
+          termsAcceptedAt: new Date().toISOString(),
+          termsVersion: '2026.1',
+          privacyAccepted: true,
+          privacyAcceptedAt: new Date().toISOString()
+        };
 
         if (type === 'driver') {
           await setDoc(doc(db, 'drivers', user.uid), {
@@ -90,7 +107,8 @@ export function AuthModal({ isOpen, onClose, type }: AuthModalProps) {
             role: 'admin',
             plan: 'Básico',
             pricePerStudent: 7.90,
-            invoiceStatus: 'Em Dia'
+            invoiceStatus: 'Em Dia',
+            ...consentMeta
           });
           
           // Create default vehicle
@@ -113,7 +131,8 @@ export function AuthModal({ isOpen, onClose, type }: AuthModalProps) {
             city,
             role: 'parent',
             status: 'Ativo',
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            ...consentMeta
           });
         }
         
@@ -314,10 +333,41 @@ export function AuthModal({ isOpen, onClose, type }: AuthModalProps) {
               </div>
             )}
 
+            {!isLogin && (
+              <div className="pt-1">
+                <div 
+                  onClick={() => setTermsAgreed(!termsAgreed)}
+                  className="flex items-start gap-2.5 p-3 rounded-xl bg-gray-50 border border-gray-200 cursor-pointer select-none"
+                >
+                  <div className="mt-0.5 shrink-0 text-yellow-500">
+                    {termsAgreed ? (
+                      <CheckSquare size={18} className="fill-yellow-400/20 text-yellow-500" />
+                    ) : (
+                      <Square size={18} className="text-gray-400" />
+                    )}
+                  </div>
+                  <div className="text-[11px] text-gray-700 leading-tight">
+                    <span>Li e concordo com os </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsLegalModalOpen(true);
+                      }}
+                      className="font-bold text-yellow-700 hover:text-yellow-800 underline inline-flex items-center gap-0.5"
+                    >
+                      Termos de Adesão, Política de Privacidade (LGPD) e Segurança
+                    </button>
+                    <span>.</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <button 
               type="submit"
               disabled={loading}
-              className="w-full py-4 bg-gray-900 text-yellow-400 font-bold rounded-xl hover:bg-gray-800 transition-all shadow-lg active:scale-95 disabled:opacity-50"
+              className="w-full py-4 bg-gray-900 text-yellow-400 font-bold rounded-xl hover:bg-gray-800 transition-all shadow-lg active:scale-95 disabled:opacity-50 cursor-pointer"
             >
               {loading ? 'Processando...' : isLogin ? 'ENTRAR' : 'CADASTRAR'}
             </button>
@@ -331,22 +381,38 @@ export function AuthModal({ isOpen, onClose, type }: AuthModalProps) {
 
           <button 
             onClick={handleGoogleLogin}
-            className="w-full mt-6 py-3 border border-gray-200 rounded-xl flex items-center justify-center gap-2 font-bold text-gray-600 hover:bg-gray-50 transition-colors"
+            className="w-full mt-6 py-3 border border-gray-200 rounded-xl flex items-center justify-center gap-2 font-bold text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer"
           >
             <img src="https://www.google.com/favicon.ico" className="w-4 h-4" alt="Google" />
             Entrar com Google
           </button>
 
-          <div className="mt-8 text-center">
+          <div className="mt-6 text-center space-y-2">
             <button 
               onClick={() => setIsLogin(!isLogin)}
-              className="text-sm text-gray-500 hover:text-yellow-600 font-medium"
+              className="text-sm text-gray-500 hover:text-yellow-600 font-medium cursor-pointer"
             >
               {isLogin ? 'Não tem uma conta? Cadastre-se' : 'Já tem uma conta? Entre'}
             </button>
+
+            <div>
+              <button
+                type="button"
+                onClick={() => setIsLegalModalOpen(true)}
+                className="text-[11px] text-gray-400 hover:text-gray-600 flex items-center gap-1 mx-auto underline font-medium cursor-pointer"
+              >
+                <ShieldCheck size={12} className="text-emerald-600" />
+                <span>Termos de Uso, Privacidade e Segurança LGPD</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      <LegalTermsModal
+        isOpen={isLegalModalOpen}
+        onClose={() => setIsLegalModalOpen(false)}
+      />
     </div>
   );
 }

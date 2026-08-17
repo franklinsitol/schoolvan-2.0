@@ -24,7 +24,10 @@ import {
   EyeOff,
   KeyRound,
   UserCheck,
-  Clock
+  Clock,
+  FileText,
+  Award,
+  X
 } from 'lucide-react';
 import { db, auth } from '../lib/firebase';
 import { sendPasswordResetEmail } from 'firebase/auth';
@@ -63,6 +66,8 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
   const [invoiceFilter, setInvoiceFilter] = useState<'todos' | 'Em Dia' | 'Em Atraso' | 'Pendente'>('todos');
   const [marketplaceFilter, setMarketplaceFilter] = useState<'todos' | 'visivel' | 'oculto'>('todos');
   const [planFilter, setPlanFilter] = useState<'todos' | 'Gratuito' | 'Pro' | 'Frota'>('todos');
+  const [verificationFilter, setVerificationFilter] = useState<'todos' | 'pending' | 'verified' | 'unverified'>('todos');
+  const [viewingVerificationDriver, setViewingVerificationDriver] = useState<Driver | null>(null);
   const [savingConfig, setSavingConfig] = useState(false);
   const isInitialTicketsRef = useRef(true);
 
@@ -284,6 +289,35 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
     }
   };
 
+  const handleApproveVerification = async (driver: Driver) => {
+    try {
+      await updateDoc(doc(db, 'drivers', driver.id), {
+        verificationStatus: 'verified',
+        isVerified: true,
+        verifiedAt: new Date().toISOString()
+      });
+      toast.success(`Selo de Verificado CONCEDIDO para ${driver.name || 'Motorista'}!`);
+      setViewingVerificationDriver(null);
+    } catch (e) {
+      console.error(e);
+      toast.error("Erro ao aprovar verificação");
+    }
+  };
+
+  const handleRejectVerification = async (driver: Driver) => {
+    try {
+      await updateDoc(doc(db, 'drivers', driver.id), {
+        verificationStatus: 'rejected',
+        isVerified: false
+      });
+      toast.error(`Verificação reprovada para ${driver.name || 'Motorista'}. Solicitado reenvio de documentos.`);
+      setViewingVerificationDriver(null);
+    } catch (e) {
+      console.error(e);
+      toast.error("Erro ao reprovar verificação");
+    }
+  };
+
   const handleSaveConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingConfig(true);
@@ -309,8 +343,16 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
       (marketplaceFilter === 'visivel' && !d.hiddenInMarketplace) ||
       (marketplaceFilter === 'oculto' && !!d.hiddenInMarketplace);
     const matchesPlan = planFilter === 'todos' || (d.plan || 'Gratuito') === planFilter;
+    const isPending = d.verificationStatus === 'pending' || d.verificationStatus === 'em_analise';
+    const isVerified = Boolean(d.isVerified || d.verificationStatus === 'verified' || d.verificationStatus === 'verificado');
+    const isUnverified = !d.verificationStatus || d.verificationStatus === 'unverified' || d.verificationStatus === 'nao_enviado';
 
-    return matchesSearch && matchesStatus && matchesInvoice && matchesMarketplace && matchesPlan;
+    const matchesVerification = verificationFilter === 'todos' ||
+      (verificationFilter === 'pending' && isPending) ||
+      (verificationFilter === 'verified' && isVerified) ||
+      (verificationFilter === 'unverified' && isUnverified);
+
+    return matchesSearch && matchesStatus && matchesInvoice && matchesMarketplace && matchesPlan && matchesVerification;
   });
 
   const resetFilters = () => {
@@ -319,13 +361,15 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
     setInvoiceFilter('todos');
     setMarketplaceFilter('todos');
     setPlanFilter('todos');
+    setVerificationFilter('todos');
   };
 
-  const hasActiveFilters = searchTerm !== '' || statusFilter !== 'todos' || invoiceFilter !== 'todos' || marketplaceFilter !== 'todos' || planFilter !== 'todos';
+  const hasActiveFilters = searchTerm !== '' || statusFilter !== 'todos' || invoiceFilter !== 'todos' || marketplaceFilter !== 'todos' || planFilter !== 'todos' || verificationFilter !== 'todos';
 
   const totalRevenue = drivers.reduce((acc, d) => acc + (d.pricePerStudent || 150), 0);
   const activeCount = drivers.filter(d => d.status === 'Ativo').length;
   const blockedCount = drivers.filter(d => d.status === 'Bloqueado').length;
+  const pendingVerificationCount = drivers.filter(d => d.verificationStatus === 'pending' || d.verificationStatus === 'em_analise').length;
 
   const pendingPixDrivers = drivers.filter(d => d.invoiceStatus === 'Aguardando Pagamento');
   const pendingPixCount = pendingPixDrivers.length;
@@ -461,6 +505,31 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
             </div>
           )}
 
+          {/* 🌟 Pending Verification Review Banner (SLA 3-5 days) */}
+          {pendingVerificationCount > 0 && (
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 p-5 rounded-3xl shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-600 text-white rounded-2xl flex items-center justify-center font-black shrink-0 shadow">
+                  📑
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-blue-950">
+                    {pendingVerificationCount} {pendingVerificationCount === 1 ? 'Motorista enviou documentos para Selo Verificado' : 'Motoristas enviaram documentos para Selo Verificado'} (SLA 3 a 5 dias)
+                  </h3>
+                  <p className="text-xs text-blue-800 font-medium">
+                    Analise CNH (com EAR), Curso de Transporte Escolar e Alvará Municipal para homologar o selo oficial.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => { resetFilters(); setVerificationFilter('pending'); }}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl text-xs shadow transition-all cursor-pointer shrink-0"
+              >
+                Analisar Pendentes ({pendingVerificationCount})
+              </button>
+            </div>
+          )}
+
           {/* Smart Filters Toolbar */}
           <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm space-y-4">
             <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
@@ -539,6 +608,20 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
                   <option value="Gratuito">Gratuito</option>
                   <option value="Pro">Pro (R$79)</option>
                   <option value="Frota">Frota (R$149)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Selo Verificado</label>
+                <select
+                  value={verificationFilter}
+                  onChange={(e) => setVerificationFilter(e.target.value as any)}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none font-bold text-gray-700 cursor-pointer"
+                >
+                  <option value="todos">Todos Selos</option>
+                  <option value="pending">⏳ Em Análise (SLA)</option>
+                  <option value="verified">✓ Aprovados</option>
+                  <option value="unverified">Não Solicitado</option>
                 </select>
               </div>
             </div>
@@ -700,12 +783,58 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
                               {driver.hiddenInMarketplace ? <EyeOff size={10} /> : <Eye size={10} />}
                               {driver.hiddenInMarketplace ? 'Oculto Mkt' : 'Visível Mkt'}
                             </span>
+
+                            {/* Verification Badge / Action */}
+                            {driver.verificationStatus === 'pending' && (
+                              <button
+                                onClick={() => setViewingVerificationDriver(driver)}
+                                className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 border border-blue-300 animate-pulse flex items-center gap-1 cursor-pointer hover:bg-blue-200 shadow-sm"
+                                title="Analisar documentos e validar Selo Verificado (SLA 3-5 dias)"
+                              >
+                                ⏳ Docs Pendentes
+                              </button>
+                            )}
+
+                            {(driver.isVerified || driver.verificationStatus === 'verified') && (
+                              <button
+                                onClick={() => setViewingVerificationDriver(driver)}
+                                className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1 cursor-pointer hover:bg-emerald-200"
+                                title="Selo Verificado Ativo - Clique para ver documentos"
+                              >
+                                ✓ Verificado
+                              </button>
+                            )}
+
+                            {driver.verificationStatus === 'rejected' && (
+                              <button
+                                onClick={() => setViewingVerificationDriver(driver)}
+                                className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-200 flex items-center gap-1 cursor-pointer hover:bg-red-100"
+                                title="Documentos reprovados - Clique para ver histórico"
+                              >
+                                ✕ Docs Reprovados
+                              </button>
+                            )}
                           </div>
                         </td>
 
                         {/* Ações em 1 Linha */}
                         <td className="px-5 py-3 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1.5">
+                            {/* Document Review Button */}
+                            <button
+                              onClick={() => setViewingVerificationDriver(driver)}
+                              title="Vistoriar Documentos e Selo Verificado"
+                              className={cn(
+                                "px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1 cursor-pointer shrink-0",
+                                driver.verificationStatus === 'pending'
+                                  ? "bg-blue-600 text-white hover:bg-blue-700 border-blue-600 shadow-sm animate-pulse"
+                                  : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+                              )}
+                            >
+                              <FileText size={13} />
+                              <span>{driver.verificationStatus === 'pending' ? 'Vistoriar' : 'Docs'}</span>
+                            </button>
+
                             {/* Lock/Unlock Button */}
                             <button
                               onClick={() => handleToggleDriverStatus(driver)}
@@ -974,6 +1103,223 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
             )}
           </button>
         </form>
+      )}
+
+      {/* 🌟 Modal de Vistoria de Documentos e Selo Verificado */}
+      {viewingVerificationDriver && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden border border-gray-100 flex flex-col max-h-[90vh]">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-gray-950 via-gray-900 to-black text-white p-6 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-yellow-400 text-gray-950 rounded-2xl flex items-center justify-center font-black shadow-md">
+                  <Award size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black">
+                    Vistoria de Documentos Profissionais
+                  </h3>
+                  <p className="text-xs text-gray-300">
+                    {viewingVerificationDriver.name || 'Motorista'} • {viewingVerificationDriver.email}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewingVerificationDriver(null)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-5 overflow-y-auto">
+              <div className="bg-amber-50 border border-yellow-200 p-4 rounded-2xl flex items-start gap-3">
+                <ShieldAlert className="text-amber-700 shrink-0 mt-0.5" size={18} />
+                <div className="text-xs text-amber-950 leading-relaxed font-medium">
+                  <strong>Protocolo de Homologação (SLA 3-5 dias):</strong> Valide se a CNH possui anotação EAR (Exerce Atividade Remunerada) com validade em dia, se o curso de Condutor Escolar está dentro dos 5 anos e se o Alvará Municipal está vigente.
+                </div>
+              </div>
+
+              {/* Status Atual */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Status Atual do Selo:</span>
+                <span className={cn(
+                  "px-3 py-1 text-xs font-black rounded-full border",
+                  viewingVerificationDriver.isVerified || viewingVerificationDriver.verificationStatus === 'verified' || viewingVerificationDriver.verificationStatus === 'verificado'
+                    ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                    : viewingVerificationDriver.verificationStatus === 'pending' || viewingVerificationDriver.verificationStatus === 'em_analise'
+                    ? "bg-blue-100 text-blue-800 border-blue-300 animate-pulse"
+                    : "bg-gray-200 text-gray-800 border-gray-300"
+                )}>
+                  {viewingVerificationDriver.isVerified || viewingVerificationDriver.verificationStatus === 'verified' || viewingVerificationDriver.verificationStatus === 'verificado'
+                    ? '✓ Selo Verificado Concedido'
+                    : viewingVerificationDriver.verificationStatus === 'pending' || viewingVerificationDriver.verificationStatus === 'em_analise'
+                    ? '⏳ Análise Pendente'
+                    : viewingVerificationDriver.verificationStatus === 'rejected' || viewingVerificationDriver.verificationStatus === 'rejeitado'
+                    ? '✕ Reprovado / Ajuste Solicitado'
+                    : 'Não Solicitado'}
+                </span>
+              </div>
+
+              {/* Documentos Enviados */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-black text-gray-900 uppercase tracking-wider">
+                  Documentos Submetidos pelo Motorista
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* CNH com EAR */}
+                  <div className="p-4 bg-white border border-gray-200 rounded-2xl space-y-2 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                        <FileText size={14} className="text-blue-600" /> CNH com EAR
+                      </span>
+                      {viewingVerificationDriver.cnhNumber || viewingVerificationDriver.verificationDocs?.cnhEarFile ? (
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                          Preenchido / Anexado
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-gray-400">Pendente</span>
+                      )}
+                    </div>
+                    {viewingVerificationDriver.cnhNumber && (
+                      <div className="text-xs text-gray-700">
+                        Nº CNH: <strong>{viewingVerificationDriver.cnhNumber}</strong> (Cat. {viewingVerificationDriver.cnhCategory || 'D'})
+                      </div>
+                    )}
+                    {viewingVerificationDriver.cnhValidUntil && (
+                      <div className="text-[11px] text-gray-500">
+                        Validade CNH: <strong>{new Date(viewingVerificationDriver.cnhValidUntil).toLocaleDateString('pt-BR')}</strong>
+                      </div>
+                    )}
+                    {viewingVerificationDriver.verificationDocs?.cnhEarFile && (
+                      <a
+                        href={viewingVerificationDriver.verificationDocs.cnhEarFile}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-black text-blue-600 hover:underline pt-1"
+                      >
+                        <ExternalLink size={12} /> Abrir Documento CNH
+                      </a>
+                    )}
+                  </div>
+
+                  {/* Curso de Transporte Escolar */}
+                  <div className="p-4 bg-white border border-gray-200 rounded-2xl space-y-2 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                        <FileText size={14} className="text-purple-600" /> Curso de Condutor Escolar
+                      </span>
+                      {viewingVerificationDriver.schoolCourseNumber || viewingVerificationDriver.verificationDocs?.schoolCourseFile ? (
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                          Preenchido / Anexado
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-gray-400">Pendente</span>
+                      )}
+                    </div>
+                    {viewingVerificationDriver.schoolCourseNumber && (
+                      <div className="text-xs text-gray-700">
+                        Certificado nº: <strong>{viewingVerificationDriver.schoolCourseNumber}</strong>
+                      </div>
+                    )}
+                    {viewingVerificationDriver.schoolCourseValidUntil && (
+                      <div className="text-[11px] text-gray-500">
+                        Validade Curso: <strong>{new Date(viewingVerificationDriver.schoolCourseValidUntil).toLocaleDateString('pt-BR')}</strong>
+                      </div>
+                    )}
+                    {viewingVerificationDriver.verificationDocs?.schoolCourseFile && (
+                      <a
+                        href={viewingVerificationDriver.verificationDocs.schoolCourseFile}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-black text-purple-600 hover:underline pt-1"
+                      >
+                        <ExternalLink size={12} /> Abrir Certificado Curso
+                      </a>
+                    )}
+                  </div>
+
+                  {/* Alvará Municipal */}
+                  <div className="p-4 bg-white border border-gray-200 rounded-2xl space-y-2 shadow-sm sm:col-span-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                        <Building size={14} className="text-amber-600" /> Alvará / Autorização da Prefeitura
+                      </span>
+                      {viewingVerificationDriver.municipalLicenseNumber || viewingVerificationDriver.verificationDocs?.municipalLicenseFile ? (
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                          Preenchido / Anexado
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-gray-400">Pendente</span>
+                      )}
+                    </div>
+                    {viewingVerificationDriver.municipalLicenseNumber && (
+                      <div className="text-xs text-gray-700">
+                        Nº do Alvará/Licença: <strong>{viewingVerificationDriver.municipalLicenseNumber}</strong>
+                      </div>
+                    )}
+                    {viewingVerificationDriver.municipalLicenseValidUntil && (
+                      <div className="text-[11px] text-gray-500">
+                        Validade Alvará: <strong>{new Date(viewingVerificationDriver.municipalLicenseValidUntil).toLocaleDateString('pt-BR')}</strong>
+                      </div>
+                    )}
+                    {viewingVerificationDriver.verificationDocs?.municipalLicenseFile && (
+                      <a
+                        href={viewingVerificationDriver.verificationDocs.municipalLicenseFile}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-black text-amber-700 hover:underline pt-1"
+                      >
+                        <ExternalLink size={12} /> Abrir Alvará Municipal
+                      </a>
+                    )}
+                  </div>
+
+                  {/* Document Files Lista */}
+                  {viewingVerificationDriver.documentFiles && viewingVerificationDriver.documentFiles.length > 0 && (
+                    <div className="sm:col-span-2 p-4 bg-gray-50 border border-gray-200 rounded-2xl space-y-2">
+                      <div className="text-xs font-black text-gray-900 uppercase">Arquivos Anexados:</div>
+                      <div className="space-y-1">
+                        {viewingVerificationDriver.documentFiles.map((docItem, idx) => (
+                          <div key={idx} className="flex items-center justify-between text-xs bg-white p-2.5 rounded-xl border border-gray-100">
+                            <span className="font-medium text-gray-800 flex items-center gap-1.5">
+                              <FileText size={13} className="text-yellow-600" />
+                              {docItem.name}
+                            </span>
+                            <span className="text-[10px] text-gray-400">
+                              {new Date(docItem.date).toLocaleDateString('pt-BR')}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="p-6 bg-gray-50 border-t border-gray-100 flex flex-col sm:flex-row gap-3">
+              <button
+                type="button"
+                onClick={() => handleRejectVerification(viewingVerificationDriver)}
+                className="flex-1 py-3 px-4 bg-red-100 hover:bg-red-200 text-red-800 font-bold rounded-2xl text-xs transition-colors cursor-pointer"
+              >
+                Reprovar / Solicitar Ajustes
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleApproveVerification(viewingVerificationDriver)}
+                className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+              >
+                <CheckCircle2 size={16} /> APROVAR SELO VERIFICADO
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

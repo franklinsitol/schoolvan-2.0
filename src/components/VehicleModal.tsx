@@ -1,5 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Bus, Users, MapPin, Info, User, DollarSign, Home, AlertCircle, Sparkles, Trash2 } from 'lucide-react';
+import { 
+  X, 
+  Save, 
+  Bus, 
+  Users, 
+  MapPin, 
+  Info, 
+  User, 
+  DollarSign, 
+  Home, 
+  AlertCircle, 
+  Sparkles, 
+  Trash2,
+  ShieldCheck,
+  Calendar,
+  FileText
+} from 'lucide-react';
 import { db } from '../lib/firebase';
 import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { Vehicle } from '../types';
@@ -26,6 +42,9 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<{
     name: string;
+    model: string;
+    plate: string;
+    renavam: string;
     capacity: number | string;
     uncleName: string;
     city: string;
@@ -35,8 +54,14 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
     value: number | string;
     iconType: string;
     about: string;
+    lastInspectionDate: string;
+    nextInspectionDate: string;
+    tacografoValidUntil: string;
   }>({
     name: '',
+    model: '',
+    plate: '',
+    renavam: '',
     capacity: 15,
     uncleName: '',
     city: '',
@@ -46,6 +71,9 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
     value: '',
     iconType: 'fa-shuttle-van',
     about: '',
+    lastInspectionDate: '',
+    nextInspectionDate: '',
+    tacografoValidUntil: '',
   });
 
   const rawPlan = profile?.plan || 'Gratuito';
@@ -58,6 +86,9 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
     if (vehicle) {
       setFormData({
         name: vehicle.name || '',
+        model: vehicle.model || '',
+        plate: vehicle.plate || '',
+        renavam: vehicle.renavam || '',
         capacity: vehicle.capacity !== undefined ? vehicle.capacity : 15,
         uncleName: vehicle.uncleName || '',
         city: vehicle.city || '',
@@ -67,10 +98,16 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
         value: vehicle.value !== undefined && vehicle.value !== null ? vehicle.value : '',
         iconType: vehicle.iconType || 'fa-shuttle-van',
         about: vehicle.about || '',
+        lastInspectionDate: vehicle.lastInspectionDate || '',
+        nextInspectionDate: vehicle.nextInspectionDate || '',
+        tacografoValidUntil: vehicle.tacografoValidUntil || '',
       });
     } else {
       setFormData({
         name: '',
+        model: '',
+        plate: '',
+        renavam: '',
         capacity: 15,
         uncleName: '',
         city: '',
@@ -80,9 +117,28 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
         value: '',
         iconType: 'fa-shuttle-van',
         about: '',
+        lastInspectionDate: '',
+        nextInspectionDate: '',
+        tacografoValidUntil: '',
       });
     }
   }, [vehicle]);
+
+  const handleLastInspectionChange = (lastDate: string) => {
+    if (lastDate) {
+      // Calculate +6 months (semiannual inspection requirement)
+      const d = new Date(lastDate);
+      d.setMonth(d.getMonth() + 6);
+      const nextDateStr = d.toISOString().split('T')[0];
+      setFormData(prev => ({
+        ...prev,
+        lastInspectionDate: lastDate,
+        nextInspectionDate: prev.nextInspectionDate ? prev.nextInspectionDate : nextDateStr
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, lastInspectionDate: lastDate }));
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -291,6 +347,78 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
                 value={formData.about || ''}
                 onChange={e => setFormData({ ...formData, about: e.target.value })}
               />
+            </div>
+
+            {/* 🛡️ INSPECTION & REGULATION CONTROL (CTB Art. 136) */}
+            <div className="p-4 bg-yellow-50/70 border border-yellow-200 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between border-b border-yellow-200/60 pb-2">
+                <span className="text-xs font-black uppercase tracking-wider text-yellow-950 flex items-center gap-1.5">
+                  <ShieldCheck size={16} className="text-yellow-600" /> Controle de Vistorias & Tacógrafo (CTB Art. 136)
+                </span>
+                <span className="text-[10px] font-bold text-yellow-800 bg-yellow-200/60 px-2 py-0.5 rounded-md">
+                  Semestral Obrigatória
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-gray-700 block">Placa do Veículo (Mercosul)</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: ABC1D23"
+                    value={formData.plate}
+                    onChange={e => setFormData({ ...formData, plate: e.target.value.toUpperCase() })}
+                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-900 uppercase focus:ring-2 focus:ring-yellow-400 outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-gray-700 block">Código RENAVAM</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: 00123456789"
+                    value={formData.renavam}
+                    onChange={e => setFormData({ ...formData, renavam: e.target.value })}
+                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-900 focus:ring-2 focus:ring-yellow-400 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-gray-700 block">Data Última Vistoria</label>
+                  <input
+                    type="date"
+                    value={formData.lastInspectionDate}
+                    onChange={e => handleLastInspectionChange(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-900 focus:ring-2 focus:ring-yellow-400 outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-gray-700 block">Próxima Vistoria (Validade)</label>
+                  <input
+                    type="date"
+                    value={formData.nextInspectionDate}
+                    onChange={e => setFormData({ ...formData, nextInspectionDate: e.target.value })}
+                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-900 focus:ring-2 focus:ring-yellow-400 outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-gray-700 block">Validade Tacógrafo</label>
+                  <input
+                    type="date"
+                    value={formData.tacografoValidUntil}
+                    onChange={e => setFormData({ ...formData, tacografoValidUntil: e.target.value })}
+                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-900 focus:ring-2 focus:ring-yellow-400 outline-none"
+                  />
+                </div>
+              </div>
+
+              <p className="text-[11px] text-yellow-900 leading-snug">
+                💡 <em>O sistema alerta automaticamente quando a vistoria semestral ou o laudo do cronotacógrafo estiver a menos de 30 dias do vencimento.</em>
+              </p>
             </div>
           </div>
 
