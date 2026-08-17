@@ -229,7 +229,7 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
                   className="w-full sm:w-auto px-7 py-4 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-2xl text-sm shadow-xl hover:shadow-yellow-400/20 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Zap size={18} className="fill-gray-950" />
-                  <span>TESTAR GRÁTIS — SEM BAIXAR APP</span>
+                  <span>CADASTRAR MINHA VAN GRÁTIS</span>
                   <ArrowRight size={18} />
                 </button>
 
@@ -254,11 +254,11 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
-                  <span>Grátis até 25 alunos</span>
+                  <span>Grátis para sempre (até 25 alunos)</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
-                  <span>Sem baixar app de loja</span>
+                  <Smartphone size={16} className="text-yellow-400 shrink-0" />
+                  <span>Instale direto sem loja (App PWA Leve)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 size={16} className="text-yellow-400 shrink-0" />
@@ -540,7 +540,7 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
                           className="px-6 py-3.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-2xl text-xs transition-all shadow-xl active:scale-95 cursor-pointer flex items-center gap-2"
                         >
                           <Zap size={16} className="fill-gray-950" />
-                          <span>QUERO TESTAR NA MINHA VAN (GRÁTIS)</span>
+                          <span>CRIAR MINHA CONTA GRÁTIS</span>
                           <ArrowRight size={16} />
                         </button>
                       </div>
@@ -933,9 +933,12 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
                 <div className="w-12 h-12 bg-yellow-100 text-yellow-900 rounded-2xl flex items-center justify-center font-bold">
                   <Smartphone size={24} />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900">App PWA Nativo</h3>
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-lg font-bold text-gray-900">App PWA Sem Loja</h3>
+                  <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-black">INOVAÇÃO</span>
+                </div>
                 <p className="text-xs text-gray-500 leading-relaxed">
-                  Não ocupa memória do celular e funciona direto no navegador no Android ou iPhone com 1 toque.
+                  Baixe direto na sua tela inicial em 1 clique sem precisar entrar na Google Play ou App Store. Ultraleve, não trava e não consome a memória do seu celular!
                 </p>
               </div>
 
