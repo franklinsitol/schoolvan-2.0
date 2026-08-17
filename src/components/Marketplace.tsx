@@ -532,6 +532,18 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
                           </p>
                         </div>
                       </div>
+
+                      {/* Immediate CTA in Demo Tab */}
+                      <div className="pt-2">
+                        <button
+                          onClick={() => onOpenAuth?.('driver')}
+                          className="px-6 py-3.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-2xl text-xs transition-all shadow-xl active:scale-95 cursor-pointer flex items-center gap-2"
+                        >
+                          <Zap size={16} className="fill-gray-950" />
+                          <span>QUERO TESTAR NA MINHA VAN (GRÁTIS)</span>
+                          <ArrowRight size={16} />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="md:col-span-6 bg-gray-950 p-5 md:p-6 rounded-2xl border border-yellow-400/30 space-y-4 shadow-2xl">
@@ -545,10 +557,15 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
                               <span>T.IA Copiloto</span>
                               <span className="bg-yellow-400 text-gray-950 text-[9px] px-1.5 py-0.5 rounded font-black">ONLINE</span>
                             </div>
-                            <p className="text-[11px] text-gray-400">Simulador de 30s em Ação</p>
+                            <p className="text-[11px] text-gray-400">Simulador Interativo com Voz e Buzina</p>
                           </div>
                         </div>
-                        <span className="text-xs font-mono text-yellow-400 animate-pulse">● Ao Vivo</span>
+                        <span className={cn(
+                          "text-xs font-mono transition-colors",
+                          isSimulatingAudio ? "text-emerald-400 animate-bounce" : "text-yellow-400 animate-pulse"
+                        )}>
+                          {isSimulatingAudio ? "🔊 Falando Agora..." : "● Ao Vivo"}
+                        </span>
                       </div>
 
                       {/* Interactive Step Simulator */}
@@ -557,24 +574,29 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
                         <div 
                           onClick={() => {
                             setDemoSimStep(1);
+                            setIsSimulatingAudio(true);
                             playBusHornSound();
-                            speakTiaPrompt("Aviso de falta recebido: A mãe do Lucas confirmou ausência hoje às 06:40. Rota recalculada com economia de 12 minutos!");
+                            speakTiaPrompt(
+                              "Aviso de falta recebido: A mãe do Lucas confirmou ausência hoje às 06:40. Rota recalculada com economia de 12 minutos!",
+                              () => setIsSimulatingAudio(false)
+                            );
                           }}
                           className={cn(
                             "p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between",
                             demoSimStep === 1 
-                              ? "bg-yellow-400/15 border-yellow-400 text-yellow-300 shadow-md" 
+                              ? "bg-yellow-400/20 border-yellow-400 text-yellow-300 shadow-md ring-2 ring-yellow-400/40" 
                               : "bg-white/5 border-white/10 hover:bg-white/10 text-gray-300"
                           )}
                         >
                           <div className="space-y-1">
                             <span className="text-[10px] uppercase font-black tracking-wider text-yellow-400 flex items-center gap-1">
                               <span>1. Aviso de Falta por Áudio</span>
-                              <Volume2 size={12} className="animate-bounce" />
+                              <Volume2 size={12} className={demoSimStep === 1 ? "animate-pulse text-yellow-400" : ""} />
                             </span>
                             <p className="text-xs">"Mãe do Lucas avisou falta. Rota recalculada com 12 min a menos!"</p>
                           </div>
-                          <span className="text-[10px] font-black bg-yellow-400 text-gray-950 px-2 py-1 rounded-lg shrink-0 ml-2">
+                          <span className="text-[10px] font-black bg-yellow-400 text-gray-950 px-2.5 py-1.5 rounded-lg shrink-0 ml-2 shadow flex items-center gap-1 hover:scale-105 transition-transform">
+                            <Volume2 size={12} />
                             OUVIR
                           </span>
                         </div>
@@ -583,13 +605,17 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
                         <div 
                           onClick={() => {
                             setDemoSimStep(2);
+                            setIsSimulatingAudio(true);
                             playBusHornSound();
-                            speakTiaPrompt("Otimização concluída: Ponto da Rua das Palmeiras ignorado. Você economizou 4 quilômetros de combustível!");
+                            speakTiaPrompt(
+                              "Otimização concluída: Ponto da Rua das Palmeiras ignorado. Você economizou 4 quilômetros de combustível hoje!",
+                              () => setIsSimulatingAudio(false)
+                            );
                           }}
                           className={cn(
                             "p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between",
                             demoSimStep === 2 
-                              ? "bg-blue-400/15 border-blue-400 text-blue-300 shadow-md" 
+                              ? "bg-blue-400/20 border-blue-400 text-blue-300 shadow-md ring-2 ring-blue-400/40" 
                               : "bg-white/5 border-white/10 hover:bg-white/10 text-gray-300"
                           )}
                         >
@@ -599,7 +625,8 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
                             </span>
                             <p className="text-xs">Exclui paradas desnecessárias e economiza combustível.</p>
                           </div>
-                          <span className="text-[10px] font-black bg-blue-400 text-gray-950 px-2 py-1 rounded-lg shrink-0 ml-2">
+                          <span className="text-[10px] font-black bg-blue-400 text-gray-950 px-2.5 py-1.5 rounded-lg shrink-0 ml-2 shadow flex items-center gap-1 hover:scale-105 transition-transform">
+                            <Volume2 size={12} />
                             TESTAR
                           </span>
                         </div>
@@ -608,13 +635,17 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
                         <div 
                           onClick={() => {
                             setDemoSimStep(3);
+                            setIsSimulatingAudio(true);
                             playBusHornSound();
-                            speakTiaPrompt("Mensagem de cobrança amigável com chave Pix e comprovante gerada para a mãe da Sofia no WhatsApp!");
+                            speakTiaPrompt(
+                              "Mensagem de cobrança amigável com chave Pix e comprovante gerada para a mãe da Sofia no WhatsApp com sucesso!",
+                              () => setIsSimulatingAudio(false)
+                            );
                           }}
                           className={cn(
                             "p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between",
                             demoSimStep === 3 
-                              ? "bg-emerald-400/15 border-emerald-400 text-emerald-300 shadow-md" 
+                              ? "bg-emerald-400/20 border-emerald-400 text-emerald-300 shadow-md ring-2 ring-emerald-400/40" 
                               : "bg-white/5 border-white/10 hover:bg-white/10 text-gray-300"
                           )}
                         >
@@ -622,18 +653,29 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
                             <span className="text-[10px] uppercase font-black tracking-wider text-emerald-400 flex items-center gap-1">
                               <span>3. Lembrete Amigável Pix no WhatsApp</span>
                             </span>
-                            <p className="text-xs">Envia o Pix no Zap dos pais com educação e sem atrito.</p>
+                            <p className="text-xs">Envia o Pix no Zap dos pais com educação e sem constrangimento.</p>
                           </div>
-                          <span className="text-[10px] font-black bg-emerald-400 text-gray-950 px-2 py-1 rounded-lg shrink-0 ml-2">
+                          <span className="text-[10px] font-black bg-emerald-400 text-gray-950 px-2.5 py-1.5 rounded-lg shrink-0 ml-2 shadow flex items-center gap-1 hover:scale-105 transition-transform">
+                            <Volume2 size={12} />
                             DISPARAR
                           </span>
                         </div>
                       </div>
 
-                      <div className="bg-yellow-400/10 border border-yellow-400/20 p-2.5 rounded-xl text-center">
-                        <span className="text-[11px] text-yellow-300 font-bold">
-                          🔊 Clique nos passos acima para acionar a voz brasileira e buzininha da T.IA em tempo real!
+                      <div className="bg-yellow-400/10 border border-yellow-400/30 p-3 rounded-xl flex items-center justify-between text-xs">
+                        <span className="text-[11px] text-yellow-300 font-bold flex items-center gap-1.5">
+                          <Volume2 size={14} className="text-yellow-400 shrink-0" />
+                          Toque em OUVIR, TESTAR ou DISPARAR para escutar a T.IA!
                         </span>
+                        <button
+                          onClick={() => {
+                            playBusHornSound();
+                            speakTiaPrompt("Bi-bi! Olá Tio! O SchoolVan está funcionando 100%!");
+                          }}
+                          className="text-[10px] bg-yellow-400/20 hover:bg-yellow-400/30 text-yellow-300 px-2 py-1 rounded font-bold transition-colors cursor-pointer"
+                        >
+                          Testar Buzina 🎺
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -922,12 +964,12 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
           {/* SECTION: PRICING TIERS */}
           <section id="section-pricing" ref={pricingSectionRef} className="space-y-10 scroll-mt-24">
             <div className="text-center max-w-2xl mx-auto space-y-3">
-              <span className="bg-green-100 text-green-900 text-xs font-black px-3.5 py-1 rounded-full uppercase tracking-wider">
-                Preços Claros e Transparentes
+              <span className="bg-emerald-100 text-emerald-900 text-xs font-black px-3.5 py-1 rounded-full uppercase tracking-wider">
+                Preços Claros & 100% Transparentes
               </span>
               <h2 className="text-3xl md:text-4xl font-black text-gray-900">Escolha o Plano Ideal para Sua Van</h2>
-              <p className="text-gray-500 text-sm">
-                Até 25 alunos é 100% gratuito para sempre. Acima disso, planos simples sem contrato de fidelidade ou taxa escondida.
+              <p className="text-gray-600 text-sm">
+                <strong>Plano 100% Gratuito</strong> para vans com até <strong>25 alunos</strong>, sem prazo de expiração e sem pedir cartão de crédito. Para frotas maiores ou vans com mais de 25 alunos, confira nossos planos Pro e Frota sem contrato de fidelidade.
               </p>
 
               {/* Monthly vs Annual Toggle */}
@@ -964,24 +1006,27 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
               {/* PLANO GRATUITO */}
-              <div className="bg-white p-8 rounded-3xl border-2 border-gray-200 shadow-sm flex flex-col justify-between space-y-6 hover:border-yellow-400 transition-all">
+              <div className="bg-white p-8 rounded-3xl border-2 border-emerald-400 shadow-sm flex flex-col justify-between space-y-6 hover:border-emerald-500 transition-all">
                 <div className="space-y-4">
-                  <span className="text-xs font-black uppercase tracking-wider text-gray-700 bg-gray-100 px-3 py-1 rounded-full">
-                    Comece Aqui
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full">
+                      Grátis até 25 alunos
+                    </span>
+                    <span className="text-[10px] text-emerald-600 font-bold">Sem Cartão de Crédito</span>
+                  </div>
                   <h3 className="text-2xl font-black text-gray-900">Plano Gratuito</h3>
                   <div className="flex items-baseline gap-1">
                     <span className="text-4xl font-black text-gray-900">R$ 0</span>
-                    <span className="text-xs text-gray-400 font-bold">/para sempre</span>
+                    <span className="text-xs text-gray-400 font-bold">/para sempre (até 25 alunos)</span>
                   </div>
                   <p className="text-xs text-gray-500 leading-relaxed">
-                    Ideal para quem tem até 1 van com até 25 alunos e quer organizar tudo sem pagar nada.
+                    Perfeito para quem tem 1 van com até 25 alunos cadastrados. Acesso total a todas as ferramentas essenciais sem pagar nada.
                   </p>
 
                   <ul className="space-y-3 pt-4 text-xs font-bold text-gray-700">
                     <li className="flex items-center gap-2">
                       <CheckCircle2 size={16} className="text-green-500 shrink-0" />
-                      <span><strong>Até 25 Alunos Ativos</strong></span>
+                      <span><strong>Até 25 Alunos Ativos Inclusos</strong></span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 size={16} className="text-green-500 shrink-0" />
@@ -1008,9 +1053,10 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
 
                 <button
                   onClick={() => onOpenAuth?.('driver')}
-                  className="w-full py-3.5 bg-gray-900 hover:bg-gray-800 text-yellow-400 font-extrabold rounded-2xl text-xs transition-all cursor-pointer shadow-md"
+                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-2xl text-xs transition-all cursor-pointer shadow-md flex items-center justify-center gap-2"
                 >
-                  CRIAR CONTA GRÁTIS
+                  <Zap size={15} />
+                  <span>COMEÇAR GRÁTIS AGORA</span>
                 </button>
               </div>
 
@@ -1022,7 +1068,7 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
 
                 <div className="space-y-4">
                   <span className="text-xs font-black uppercase tracking-wider text-yellow-400 bg-yellow-400/10 px-3 py-1 rounded-full">
-                    Profissional
+                    Profissional (+25 Alunos)
                   </span>
                   <h3 className="text-2xl font-black text-white">Plano Pro</h3>
                   
@@ -1044,7 +1090,7 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
                   )}
 
                   <p className="text-xs text-gray-300 leading-relaxed">
-                    Para o motorista autônomo com 1 van única, alunos ilimitados e cadastro de colaboradores/monitores.
+                    Para o motorista autônomo com 1 van única, <strong>alunos ilimitados</strong> e cadastro de colaboradores/monitores.
                   </p>
 
                   <ul className="space-y-3 pt-4 text-xs font-bold text-gray-200">
@@ -1081,9 +1127,10 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
 
                 <button
                   onClick={() => onOpenAuth?.('driver')}
-                  className="w-full py-4 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-2xl text-xs transition-all shadow-xl cursor-pointer"
+                  className="w-full py-4 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-2xl text-xs transition-all shadow-xl cursor-pointer flex items-center justify-center gap-2"
                 >
-                  EXPERIMENTAR PLANO PRO
+                  <Zap size={16} className="fill-gray-950" />
+                  <span>ASSINAR PLANO PRO</span>
                 </button>
               </div>
 
@@ -1123,19 +1170,19 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 size={16} className="text-purple-600 shrink-0" />
-                      <span><strong>Acesso para Monitores & Outros Motoristas</strong></span>
+                      <span><strong>Monitores & Ajudantes Ilimitados</strong></span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 size={16} className="text-purple-600 shrink-0" />
-                      <span>Copiloto T.IA Multi-Van Centralizado</span>
+                      <span>Painel Gestor com Visão Centralizada da Frota</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 size={16} className="text-purple-600 shrink-0" />
-                      <span>Relatórios Financeiros Consolidados DRE</span>
+                      <span>Acesso Individualizado para Cada Motorista</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 size={16} className="text-purple-600 shrink-0" />
-                      <span>Vencimento Unificado no Dia 10</span>
+                      <span>Relatórios Consolidados de Faturamento</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 size={16} className="text-purple-600 shrink-0" />
@@ -1146,9 +1193,10 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
 
                 <button
                   onClick={() => onOpenAuth?.('driver')}
-                  className="w-full py-3.5 bg-gray-900 hover:bg-gray-800 text-white font-extrabold rounded-2xl text-xs transition-all cursor-pointer"
+                  className="w-full py-3.5 bg-gray-900 hover:bg-gray-800 text-white font-extrabold rounded-2xl text-xs transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
-                  CONTRATAR PLANO FROTA
+                  <Bus size={15} />
+                  <span>CONTRATAR PLANO FROTA</span>
                 </button>
               </div>
             </div>
