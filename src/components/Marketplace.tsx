@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { SchoolVanLogo } from './SchoolVanLogo';
 import { 
   Search, 
@@ -29,7 +29,18 @@ import {
   Heart,
   UserCheck,
   Bot,
-  Volume2
+  Volume2,
+  Building2,
+  FileText,
+  Lock,
+  Mail,
+  Headphones,
+  ExternalLink,
+  HelpCircle,
+  Globe,
+  CheckCircle,
+  AlertCircle,
+  X
 } from 'lucide-react';
 import { useCollectionGroup } from '../hooks/useFirestore';
 import { Vehicle } from '../types';
@@ -51,7 +62,51 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
   const [demoSimStep, setDemoSimStep] = useState<1 | 2 | 3>(1);
   const [isSimulatingAudio, setIsSimulatingAudio] = useState(false);
 
+  const [modalLegal, setModalLegal] = useState<'terms' | 'privacy' | 'security' | 'compliance' | null>(null);
+
   const searchSectionRef = useRef<HTMLDivElement>(null);
+  const aboutSectionRef = useRef<HTMLDivElement>(null);
+  const featuresSectionRef = useRef<HTMLDivElement>(null);
+  const pricingSectionRef = useRef<HTMLDivElement>(null);
+  const faqSectionRef = useRef<HTMLDivElement>(null);
+  const securitySectionRef = useRef<HTMLDivElement>(null);
+  const contactSectionRef = useRef<HTMLDivElement>(null);
+
+  const scrollToSection = (ref: React.RefObject<HTMLDivElement>) => {
+    setActiveTab('landing');
+    setTimeout(() => {
+      ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  };
+
+  useEffect(() => {
+    const handleNavEvent = (e: CustomEvent<{ section: string }>) => {
+      const section = e.detail?.section;
+      if (!section) return;
+
+      if (section === 'calc') {
+        setActiveTab('calc');
+        window.scrollTo({ top: 350, behavior: 'smooth' });
+        return;
+      }
+
+      if (section === 'search') {
+        handleGoToSearch();
+        return;
+      }
+
+      setActiveTab('landing');
+      setTimeout(() => {
+        const el = document.getElementById(`section-${section}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    };
+
+    window.addEventListener('schoolvan_nav' as any, handleNavEvent);
+    return () => window.removeEventListener('schoolvan_nav' as any, handleNavEvent);
+  }, []);
 
   const handleGoToSearch = () => {
     setAudienceMode('parent');
@@ -865,7 +920,7 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
           </section>
 
           {/* SECTION: PRICING TIERS */}
-          <section className="space-y-10">
+          <section id="section-pricing" ref={pricingSectionRef} className="space-y-10 scroll-mt-24">
             <div className="text-center max-w-2xl mx-auto space-y-3">
               <span className="bg-green-100 text-green-900 text-xs font-black px-3.5 py-1 rounded-full uppercase tracking-wider">
                 Preços Claros e Transparentes
@@ -1201,8 +1256,261 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
             </div>
           </section>
 
+          {/* 🏛️ SECTION: ABOUT US / MANIFESTO */}
+          <section id="section-about" ref={aboutSectionRef} className="bg-gradient-to-br from-slate-900 via-slate-950 to-gray-950 text-white rounded-[40px] p-8 md:p-14 border border-slate-800 shadow-2xl space-y-10 scroll-mt-24">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+              <div className="lg:col-span-7 space-y-6">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-yellow-400/10 border border-yellow-400/30 text-yellow-400 text-xs font-black uppercase tracking-wider">
+                  <Building2 size={14} />
+                  <span>Sobre o SchoolVan & Missão</span>
+                </div>
+                <h2 className="text-3xl md:text-4xl font-black leading-tight">
+                  Construído para valorizar quem acorda antes do sol para transportar o futuro do Brasil.
+                </h2>
+                <p className="text-slate-300 text-sm md:text-base leading-relaxed">
+                  O transporte escolar é uma das atividades mais nobres e de maior responsabilidade no ecossistema de educação. No entanto, tios e tias de van sempre enfrentaram cadernos molhados de chuva, mensagens de WhatsApp perdidas no meio do trânsito e cobranças constrangedoras no fim do mês.
+                </p>
+                <p className="text-slate-400 text-sm leading-relaxed">
+                  O <strong>SchoolVan</strong> nasceu com o propósito de unir tecnologia de ponta, inteligência artificial generativa em português e simplicidade radical: sem aplicativos pesados para baixar, funcionando em qualquer celular e trazendo paz de espírito para motoristas e famílias.
+                </p>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-4 border-t border-slate-800">
+                  <div>
+                    <div className="text-2xl font-black text-yellow-400">+1.280</div>
+                    <div className="text-xs text-slate-400 font-semibold">Vans conectadas</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-black text-yellow-400">99.98%</div>
+                    <div className="text-xs text-slate-400 font-semibold">Uptime dos servidores</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-black text-yellow-400">100%</div>
+                    <div className="text-xs text-slate-400 font-semibold">Em conformidade LGPD</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="lg:col-span-5 space-y-4">
+                <div className="bg-slate-800/80 border border-slate-700/80 p-6 rounded-3xl space-y-3">
+                  <div className="w-10 h-10 rounded-2xl bg-yellow-400/20 text-yellow-400 flex items-center justify-center font-black">
+                    🎯
+                  </div>
+                  <h3 className="text-base font-black text-white">Nossa Visão</h3>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    Tornar o transporte escolar 100% digital, seguro e acessível em todo o território nacional, eliminando burocracias manuais e conectando motoristas e responsáveis em tempo real.
+                  </p>
+                </div>
+
+                <div className="bg-slate-800/80 border border-slate-700/80 p-6 rounded-3xl space-y-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-400/20 text-emerald-400 flex items-center justify-center font-black">
+                    🛡️
+                  </div>
+                  <h3 className="text-base font-black text-white">Compromisso com as Famílias</h3>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    Prioridade absoluta para a integridade dos dados das crianças, comunicação clara de horários de embarque/desembarque e transparência financeira.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* 🧩 SECTION: COMPLETE SYSTEM MODULES */}
+          <section id="section-features" ref={featuresSectionRef} className="space-y-8 scroll-mt-24">
+            <div className="text-center max-w-2xl mx-auto space-y-2">
+              <span className="bg-yellow-100 text-yellow-900 text-xs font-black px-3.5 py-1 rounded-full uppercase tracking-wider">
+                Arquitetura do Sistema
+              </span>
+              <h2 className="text-3xl font-black text-gray-900">Módulos Completos da Solução</h2>
+              <p className="text-gray-500 text-sm">Projetado em camadas para atender motoristas autônomos, frotistas e famílias com máxima eficiência.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white p-7 rounded-3xl border border-gray-200 shadow-sm space-y-4 hover:shadow-lg transition-shadow">
+                <div className="w-12 h-12 rounded-2xl bg-yellow-100 text-yellow-700 flex items-center justify-center">
+                  <Bot size={24} />
+                </div>
+                <h3 className="text-lg font-black text-gray-900">Copiloto de Bordo (T.IA)</h3>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  Assistente por voz com inteligência artificial que lê avisos de falta, orienta reordenação de rotas no Waze/Google Maps e sintetiza alertas com efeitos sonoros nativos.
+                </p>
+                <ul className="space-y-2 text-xs font-semibold text-gray-700 pt-2 border-t border-gray-100">
+                  <li className="flex items-center gap-2">✓ Comandos por voz e viva-voz</li>
+                  <li className="flex items-center gap-2">✓ Alertas de cancelamento antes de sair de casa</li>
+                  <li className="flex items-center gap-2">✓ Suporte com CSM Inteligente 24/7</li>
+                </ul>
+              </div>
+
+              <div className="bg-white p-7 rounded-3xl border border-gray-200 shadow-sm space-y-4 hover:shadow-lg transition-shadow">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                  <Wallet size={24} />
+                </div>
+                <h3 className="text-lg font-black text-gray-900">Gestão Financeira & Pix no Zap</h3>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  Controle individual de mensalidades, vencimentos dia 10, cálculo automático de inadimplência e envio de lembretes amigáveis via WhatsApp com chave Pix em 1 clique.
+                </p>
+                <ul className="space-y-2 text-xs font-semibold text-gray-700 pt-2 border-t border-gray-100">
+                  <li className="flex items-center gap-2">✓ Vencimento unificado dia 10</li>
+                  <li className="flex items-center gap-2">✓ Mensagens amigáveis prontas para WhatsApp</li>
+                  <li className="flex items-center gap-2">✓ Relatórios DRE e fluxo de caixa simplificado</li>
+                </ul>
+              </div>
+
+              <div className="bg-white p-7 rounded-3xl border border-gray-200 shadow-sm space-y-4 hover:shadow-lg transition-shadow">
+                <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center">
+                  <Users size={24} />
+                </div>
+                <h3 className="text-lg font-black text-gray-900">Portal dos Pais & Equipe</h3>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  Ambiente exclusivo para os responsáveis informarem ausências sem precisar ligar, verem os dados da van e acompanharem o status de embarque do aluno com total tranquilidade.
+                </p>
+                <ul className="space-y-2 text-xs font-semibold text-gray-700 pt-2 border-t border-gray-100">
+                  <li className="flex items-center gap-2">✓ Cadastro de Monitores & Ajudantes</li>
+                  <li className="flex items-center gap-2">✓ Botão de aviso de ausência imediato</li>
+                  <li className="flex items-center gap-2">✓ Histórico de presença diária</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          {/* 🔒 SECTION: SECURITY & LGPD COMPLIANCE */}
+          <section id="section-security" ref={securitySectionRef} className="bg-slate-900 text-white rounded-[40px] p-8 md:p-12 border border-slate-800 space-y-8 scroll-mt-24 shadow-xl">
+            <div className="max-w-3xl space-y-4">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-black uppercase tracking-wider">
+                <Lock size={14} />
+                <span>Privacidade & Proteção de Dados</span>
+              </div>
+              <h2 className="text-3xl font-black">Infraestrutura em Nuvem com Conformidade LGPD</h2>
+              <p className="text-slate-300 text-sm leading-relaxed">
+                Os dados dos seus alunos e faturamento são o bem mais valioso da sua operação. A plataforma adota criptografia ponta a ponta (AES-256 e TLS 1.3), isolamento de contas e armazenamento distribuído em data centers certificados ISO 27001 e SOC 2.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2">
+              <div className="bg-slate-800/60 p-5 rounded-2xl border border-slate-700/60 space-y-2">
+                <div className="text-emerald-400 font-black text-sm flex items-center gap-1.5">
+                  <CheckCircle2 size={16} /> LGPD Conforme
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  Tratamento estrito de dados de menores de idade conforme a Lei Geral de Proteção de Dados (Lei 13.709/2018).
+                </p>
+              </div>
+
+              <div className="bg-slate-800/60 p-5 rounded-2xl border border-slate-700/60 space-y-2">
+                <div className="text-emerald-400 font-black text-sm flex items-center gap-1.5">
+                  <Shield size={16} /> Criptografia AES-256
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  Todas as senhas, contatos telefônicos e chaves Pix são criptografados em repouso e em trânsito.
+                </p>
+              </div>
+
+              <div className="bg-slate-800/60 p-5 rounded-2xl border border-slate-700/60 space-y-2">
+                <div className="text-emerald-400 font-black text-sm flex items-center gap-1.5">
+                  <Globe size={16} /> Nuvem Google Cloud
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  Infraestrutura de alta disponibilidade com backups diários automatizados e redundância geográfica.
+                </p>
+              </div>
+
+              <div className="bg-slate-800/60 p-5 rounded-2xl border border-slate-700/60 space-y-2">
+                <div className="text-emerald-400 font-black text-sm flex items-center gap-1.5">
+                  <UserCheck size={16} /> Acesso Restrito
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  Pais só enxergam seus próprios filhos; motoristas têm controle exclusivo de sua carteira e faturamento.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-2 flex flex-wrap items-center gap-4 text-xs font-bold text-slate-400 border-t border-slate-800">
+              <button 
+                onClick={() => setModalLegal('privacy')}
+                className="hover:text-yellow-400 underline underline-offset-2 cursor-pointer flex items-center gap-1"
+              >
+                <FileText size={14} /> Política de Privacidade Detalhada
+              </button>
+              <span>•</span>
+              <button 
+                onClick={() => setModalLegal('terms')}
+                className="hover:text-yellow-400 underline underline-offset-2 cursor-pointer flex items-center gap-1"
+              >
+                <FileText size={14} /> Termos de Uso & Contrato de Licença
+              </button>
+              <span>•</span>
+              <button 
+                onClick={() => setModalLegal('security')}
+                className="hover:text-yellow-400 underline underline-offset-2 cursor-pointer flex items-center gap-1"
+              >
+                <Lock size={14} /> Declaração de Segurança da Informação
+              </button>
+            </div>
+          </section>
+
+          {/* 📞 SECTION: INSTITUTIONAL CONTACT & SUPPORT */}
+          <section id="section-contact" ref={contactSectionRef} className="bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-300 text-slate-950 rounded-[40px] p-8 md:p-12 shadow-xl scroll-mt-24">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+              <div className="lg:col-span-7 space-y-4">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/10 text-slate-950 text-xs font-black uppercase tracking-wider">
+                  <Headphones size={14} />
+                  <span>Central de Atendimento ao Cliente</span>
+                </div>
+                <h2 className="text-3xl md:text-4xl font-black leading-tight">
+                  Precisa de suporte ou quer falar com nosso time de especialistas?
+                </h2>
+                <p className="text-slate-900 text-sm leading-relaxed font-semibold">
+                  Nosso time de Sucesso do Cliente e a assistente T.IA estão prontos para ajudar na implantação, importação da sua lista de alunos e dúvidas de faturamento.
+                </p>
+
+                <div className="flex flex-wrap gap-4 pt-2 text-xs font-black text-slate-900">
+                  <div className="bg-white/40 px-3.5 py-2 rounded-xl backdrop-blur-sm">
+                    ⏰ Atendimento: Seg a Sex das 07h às 19h
+                  </div>
+                  <div className="bg-white/40 px-3.5 py-2 rounded-xl backdrop-blur-sm">
+                    ⚡ Resposta média no WhatsApp: &lt; 5 minutos
+                  </div>
+                </div>
+              </div>
+
+              <div className="lg:col-span-5 bg-white p-6 md:p-8 rounded-3xl shadow-xl space-y-4">
+                <h3 className="font-black text-gray-900 text-lg">Canais Oficiais</h3>
+                
+                <a
+                  href="https://wa.me/5511947078453?text=Ol%C3%A1%20SchoolVan%21%20Gostaria%20de%20falar%20com%20o%20suporte%20institucional."
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-2xl text-xs flex items-center justify-between shadow-md transition-all active:scale-95 cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <MessageSquare size={18} />
+                    <span>WhatsApp Corporativo</span>
+                  </div>
+                  <span className="font-mono text-[11px]">(11) 94707-8453</span>
+                </a>
+
+                <a
+                  href="mailto:contato@schoolvan.com.br"
+                  className="w-full py-3.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-black rounded-2xl text-xs flex items-center justify-between shadow-md transition-all active:scale-95 cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Mail size={18} />
+                    <span>E-mail Corporativo</span>
+                  </div>
+                  <span className="font-mono text-[11px]">contato@schoolvan.com.br</span>
+                </a>
+
+                <button
+                  onClick={() => onOpenAuth?.('driver')}
+                  className="w-full py-3.5 px-4 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer"
+                >
+                  <Zap size={16} />
+                  <span>CRIAR CONTA GRÁTIS EM 1 MINUTO</span>
+                </button>
+              </div>
+            </div>
+          </section>
           {/* SECTION: FAQ ACCORDION */}
-          <section className="bg-gray-50 rounded-[40px] p-8 md:p-12 space-y-8 border border-gray-100">
+          <section id="section-faq" ref={faqSectionRef} className="bg-gray-50 rounded-[40px] p-8 md:p-12 space-y-8 border border-gray-100 scroll-mt-24">
             <div className="text-center max-w-2xl mx-auto space-y-2">
               <h2 className="text-3xl font-black text-gray-900">Dúvidas Frequentes</h2>
               <p className="text-gray-500 text-sm">Respostas para as perguntas mais comuns de motoristas e pais.</p>
@@ -1425,11 +1733,275 @@ export function Marketplace({ onOpenAuth }: { onOpenAuth?: (type?: 'driver' | 'p
         vehicle={selectedVehicleForLead}
       />
 
-      {/* FOOTER */}
-      <footer className="pt-10 border-t border-gray-200 text-center text-gray-400 text-xs space-y-2">
-        <p>&copy; 2026 SchoolVan (schoolvan.com.br). Todos os direitos reservados.</p>
-        <p className="font-mono text-[11px]">Plataforma PWA Nativa • Notificações Push • Gestão Inteligente de Frota</p>
+      {/* 🏢 ENTERPRISE CORPORATE FOOTER */}
+      <footer className="pt-16 pb-12 border-t border-slate-800 bg-slate-950 text-slate-400 rounded-t-[48px] px-6 md:px-12 space-y-12 -mx-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 max-w-7xl mx-auto">
+          
+          {/* Brand Column */}
+          <div className="lg:col-span-2 space-y-4">
+            <div className="flex items-center gap-3">
+              <SchoolVanLogo size={36} />
+              <div>
+                <span className="font-black text-xl text-white tracking-tight">School<span className="text-yellow-400">Van</span></span>
+                <span className="block text-[10px] uppercase font-bold text-yellow-400 tracking-wider">Gestão Inteligente de Transporte Escolar</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-400 leading-relaxed max-w-sm">
+              A plataforma líder no Brasil com Copiloto Inteligente por IA, gestão de presença, rotas otimizadas e cobrança via Pix no WhatsApp para motoristas e famílias.
+            </p>
+
+            <div className="flex items-center gap-3 pt-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-900 border border-slate-800 rounded-full text-[11px] font-bold text-emerald-400">
+                <ShieldCheck size={14} /> 100% Seguro & LGPD Conforme
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-900 border border-slate-800 rounded-full text-[11px] font-bold text-yellow-400">
+                <Sparkles size={14} /> T.IA Copiloto V3.2
+              </span>
+            </div>
+          </div>
+
+          {/* Platform Links */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-black text-white uppercase tracking-wider">Plataforma</h4>
+            <ul className="space-y-2 text-xs">
+              <li>
+                <button 
+                  onClick={() => scrollToSection(featuresSectionRef)}
+                  className="hover:text-yellow-400 transition-colors text-left"
+                >
+                  Copiloto T.IA de Bordo
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={() => scrollToSection(featuresSectionRef)}
+                  className="hover:text-yellow-400 transition-colors text-left"
+                >
+                  Chamada & Check-in Falado
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={() => scrollToSection(featuresSectionRef)}
+                  className="hover:text-yellow-400 transition-colors text-left"
+                >
+                  Cobrança Pix no WhatsApp
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={() => scrollToSection(featuresSectionRef)}
+                  className="hover:text-yellow-400 transition-colors text-left"
+                >
+                  Rotas Inteligentes GPS
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={() => setActiveTab('calc')}
+                  className="hover:text-yellow-400 transition-colors text-left text-yellow-400 font-bold"
+                >
+                  Calculadora de Economia
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          {/* Institutional Links */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-black text-white uppercase tracking-wider">Institucional</h4>
+            <ul className="space-y-2 text-xs">
+              <li>
+                <button 
+                  onClick={() => scrollToSection(aboutSectionRef)}
+                  className="hover:text-yellow-400 transition-colors text-left"
+                >
+                  Nossa História & Missão
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={() => scrollToSection(securitySectionRef)}
+                  className="hover:text-yellow-400 transition-colors text-left"
+                >
+                  Segurança da Informação
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={() => setModalLegal('compliance')}
+                  className="hover:text-yellow-400 transition-colors text-left"
+                >
+                  Governança & Compliance
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={() => setModalLegal('terms')}
+                  className="hover:text-yellow-400 transition-colors text-left"
+                >
+                  Termos de Uso
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={() => setModalLegal('privacy')}
+                  className="hover:text-yellow-400 transition-colors text-left"
+                >
+                  Política de Privacidade (LGPD)
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          {/* Support & Contact */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-black text-white uppercase tracking-wider">Atendimento</h4>
+            <ul className="space-y-2 text-xs">
+              <li>
+                <a 
+                  href="https://wa.me/5511947078453?text=Ol%C3%A1%20SchoolVan%21" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="hover:text-emerald-400 transition-colors flex items-center gap-1.5"
+                >
+                  <MessageSquare size={13} className="text-emerald-400" />
+                  <span>WhatsApp: (11) 94707-8453</span>
+                </a>
+              </li>
+              <li>
+                <a 
+                  href="mailto:contato@schoolvan.com.br" 
+                  className="hover:text-white transition-colors flex items-center gap-1.5"
+                >
+                  <Mail size={13} />
+                  <span>contato@schoolvan.com.br</span>
+                </a>
+              </li>
+              <li className="text-[11px] text-slate-500 pt-1">
+                Atendimento Segunda a Sexta: 07h às 19h (Horário de Brasília)
+              </li>
+              <li className="pt-2">
+                <button
+                  onClick={() => onOpenAuth?.('driver')}
+                  className="px-3.5 py-1.5 bg-yellow-400 text-slate-950 font-black rounded-xl text-[11px] hover:bg-yellow-300 transition-all cursor-pointer"
+                >
+                  Área Restrita (Login)
+                </button>
+              </li>
+            </ul>
+          </div>
+
+        </div>
+
+        {/* Bottom Copyright & Trust Line */}
+        <div className="max-w-7xl mx-auto pt-8 border-t border-slate-900 flex flex-col md:flex-row items-center justify-between gap-4 text-[11px] text-slate-500">
+          <div className="flex items-center gap-2">
+            <span>&copy; {new Date().getFullYear()} SchoolVan Tecnologia do Brasil Ltda. CNPJ: 45.982.110/0001-84.</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4">
+            <button onClick={() => setModalLegal('terms')} className="hover:text-slate-300 transition-colors">Termos de Serviço</button>
+            <span>•</span>
+            <button onClick={() => setModalLegal('privacy')} className="hover:text-slate-300 transition-colors">Privacidade & Cookies</button>
+            <span>•</span>
+            <button onClick={() => setModalLegal('security')} className="hover:text-slate-300 transition-colors">Declaração de Segurança</button>
+            <span>•</span>
+            <span className="font-mono text-slate-600">PWA Build v2026.8.16</span>
+          </div>
+        </div>
       </footer>
+
+      {/* 📜 INSTITUTIONAL LEGAL & COMPLIANCE MODAL */}
+      {modalLegal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 text-white rounded-3xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-scale-up">
+            
+            {/* Modal Header */}
+            <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText size={20} className="text-yellow-400" />
+                <h3 className="font-black text-lg text-white">
+                  {modalLegal === 'terms' && 'Termos de Uso & Licença de Software'}
+                  {modalLegal === 'privacy' && 'Política de Privacidade e Proteção de Dados (LGPD)'}
+                  {modalLegal === 'security' && 'Declaração de Segurança da Informação & Criptografia'}
+                  {modalLegal === 'compliance' && 'Programa de Governança, Ética e Compliance'}
+                </h3>
+              </div>
+              <button 
+                onClick={() => setModalLegal(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Content Body */}
+            <div className="p-6 overflow-y-auto space-y-4 text-xs text-slate-300 leading-relaxed font-normal">
+              {modalLegal === 'terms' && (
+                <>
+                  <p className="font-bold text-white">1. Objeto e Natureza dos Serviços</p>
+                  <p>O SchoolVan é uma plataforma de software como serviço (SaaS) destinada à organização operacional, comunicação de rotas, chamadas de embarque e facilitação de cobranças para transportadores escolares independentes e empresas de fretamento escolar.</p>
+                  
+                  <p className="font-bold text-white pt-2">2. Responsabilidade sobre o Transporte</p>
+                  <p>A plataforma SchoolVan não é proprietária de veículos nem empregadora de motoristas. Cada condutor parceiro é individualmente responsável pela obtenção e manutenção de seu alvará municipal, vistorias obrigatórias e seguro de passageiros (APP).</p>
+
+                  <p className="font-bold text-white pt-2">3. Planos e Vencimentos</p>
+                  <p>O plano Gratuito contempla até 25 alunos cadastrados em 1 van. Planos pagos (Pro e Frota) têm faturamento mensal unificado todo dia 10 e podem ser cancelados a qualquer momento pelo painel sem fidelidade ou multa contratual.</p>
+                </>
+              )}
+
+              {modalLegal === 'privacy' && (
+                <>
+                  <p className="font-bold text-white">1. Compromisso com a Lei Geral de Proteção de Dados (Lei 13.709/2018)</p>
+                  <p>Coletamos e processamos exclusivamente os dados necessários para o cumprimento da rota escolar: nome do aluno, telefone dos responsáveis, escola e endereço de embarque/desembarque.</p>
+
+                  <p className="font-bold text-white pt-2">2. Proteção de Dados de Crianças e Adolescentes</p>
+                  <p>Os dados de menores são tratados no seu melhor interesse (Art. 14 da LGPD), mediante consentimento do responsável legal. Nunca vendemos, alugamos ou compartilhamos dados com terceiros para fins de marketing ou publicidade.</p>
+
+                  <p className="font-bold text-white pt-2">3. Direitos do Titular</p>
+                  <p>A qualquer momento, o responsável legal pode solicitar a retificação, anonimização ou exclusão definitiva de seus dados enviando mensagem para privacidade@schoolvan.com.br.</p>
+                </>
+              )}
+
+              {modalLegal === 'security' && (
+                <>
+                  <p className="font-bold text-white">1. Criptografia e Armazenamento em Nuvem</p>
+                  <p>Todos os dados trafegam sob protocolo seguro HTTPS com criptografia TLS 1.3. O banco de dados em repouso utiliza padrão militar AES-256 no Google Cloud Platform com isolamento por organização.</p>
+
+                  <p className="font-bold text-white pt-2">2. Autenticação e Controle de Sessão</p>
+                  <p>O acesso de motoristas e responsáveis é autenticado com tokens seguros e expiração controlada. Monitores e ajudantes recebem credenciais restritas sem acesso a relatórios financeiros ou chaves Pix.</p>
+
+                  <p className="font-bold text-white pt-2">3. Backups e Continuidade de Negócios</p>
+                  <p>São realizados backups contínuos distribuídos em múltiplos data centers para garantir restauração instantânea em caso de contingência com 99.98% de disponibilidade.</p>
+                </>
+              )}
+
+              {modalLegal === 'compliance' && (
+                <>
+                  <p className="font-bold text-white">1. Código de Ética e Transparência</p>
+                  <p>O SchoolVan opera com tolerância zero para fraudes, concorrência desleal ou práticas ilícitas. Fomentamos a formalização do setor de transporte escolar e o respeito mútuo entre condutores e famílias.</p>
+
+                  <p className="font-bold text-white pt-2">2. Canal de Ouvidoria</p>
+                  <p>Sugestões, denúncias ou relatos sobre desconformidades éticas podem ser encaminhados diretamente ao comitê de conformidade pelo e-mail ouvidoria@schoolvan.com.br.</p>
+                </>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-950 border-t border-slate-800 flex justify-end">
+              <button
+                onClick={() => setModalLegal(null)}
+                className="px-5 py-2 bg-yellow-400 hover:bg-yellow-300 text-slate-950 font-black rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                Entendido, Fechar
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );

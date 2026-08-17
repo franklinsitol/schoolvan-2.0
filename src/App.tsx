@@ -65,7 +65,7 @@ import { SubscriptionModal } from './components/SubscriptionModal';
 import { AICSMSupportAssistantModal } from './components/AICSMSupportAssistantModal';
 import { TioIAFloatingDockWidget } from './components/TioIAFloatingDockWidget';
 import { Lead } from './types';
-import { Sparkles, Bot, Zap, Compass, Phone, MessageSquare } from 'lucide-react';
+import { Sparkles, Bot, Zap, Compass, Phone, MessageSquare, Building2, HelpCircle, Lock, Headphones, Calculator } from 'lucide-react';
 
 // Views
 const ParentView = () => {
@@ -473,8 +473,20 @@ export default function App() {
   const [upgradeReason, setUpgradeReason] = useState('limit_students');
   const [isAICSMOpen, setIsAICSMOpen] = useState(false);
   const [triggerNewVehicleModal, setTriggerNewVehicleModal] = useState(false);
+  const [isLandingMobileMenuOpen, setIsLandingMobileMenuOpen] = useState(false);
   const [authModal, setAuthModal] = useState<{ open: boolean; type: 'driver' | 'parent' }>({ open: false, type: 'driver' });
   const [impersonatedDriver, setImpersonatedDriver] = useState<Driver | null>(null);
+
+  const handleLandingNav = (section: string) => {
+    setIsLandingMobileMenuOpen(false);
+    if (currentView !== 'market') {
+      setCurrentView('market');
+    }
+    // Dispatch custom event to trigger smooth scroll in Marketplace component
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('schoolvan_nav', { detail: { section } }));
+    }, 50);
+  };
 
   const activeProfile = impersonatedDriver || profile;
 
@@ -607,8 +619,9 @@ export default function App() {
       )}
 
       {/* Navbar */}
-      <nav className="sticky top-0 z-40 bg-white border-b border-gray-100 px-3 sm:px-6 py-3 flex items-center justify-between gap-2 shadow-sm">
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+      <nav className="sticky top-0 z-40 bg-white border-b border-gray-200 px-3 sm:px-6 py-2.5 flex items-center justify-between gap-2 shadow-sm">
+        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+          {/* User authenticated sidebar toggle */}
           {user && (
             <button 
               onClick={() => setIsSidebarOpen(true)}
@@ -617,29 +630,112 @@ export default function App() {
               <Menu size={22} />
             </button>
           )}
+
+          {/* Logo */}
           <div 
-            className="flex items-center gap-2 cursor-pointer shrink-0"
-            onClick={() => setCurrentView(user ? (isParent ? 'parent' : 'dash') : 'market')}
+            className="flex items-center gap-2 cursor-pointer shrink-0 group"
+            onClick={() => {
+              if (user) {
+                setCurrentView(isParent ? 'parent' : 'dash');
+              } else {
+                setCurrentView('market');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+            }}
           >
-            <SchoolVanLogo size={30} />
-            <span className="text-lg sm:text-xl font-black tracking-tight text-gray-950">SchoolVan</span>
+            <SchoolVanLogo size={32} />
+            <div className="flex flex-col">
+              <span className="text-lg sm:text-xl font-black tracking-tight text-gray-950 flex items-center">
+                School<span className="text-yellow-500">Van</span>
+              </span>
+              {!user && (
+                <span className="hidden xl:inline text-[9px] text-gray-400 font-bold uppercase tracking-wider -mt-1">
+                  Gestão Inteligente
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
+        {/* 🌐 DESKTOP INSTITUTIONAL MENU (When visitor is on landing page) */}
+        {!user && (
+          <div className="hidden lg:flex items-center gap-6 text-xs font-bold text-gray-600">
+            <button
+              onClick={() => handleLandingNav('about')}
+              className="hover:text-gray-950 transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <Building2 size={15} className="text-gray-400" />
+              <span>Sobre</span>
+            </button>
+
+            <button
+              onClick={() => handleLandingNav('features')}
+              className="hover:text-gray-950 transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <Sparkles size={15} className="text-gray-400" />
+              <span>Recursos & T.IA</span>
+            </button>
+
+            <button
+              onClick={() => handleLandingNav('pricing')}
+              className="hover:text-gray-950 transition-colors cursor-pointer flex items-center gap-1.5 text-yellow-600 font-black bg-yellow-50 px-3 py-1.5 rounded-full border border-yellow-200"
+            >
+              <Zap size={14} className="text-yellow-500 fill-yellow-500" />
+              <span>Planos & Preços</span>
+            </button>
+
+            <button
+              onClick={() => handleLandingNav('calc')}
+              className="hover:text-gray-950 transition-colors cursor-pointer flex items-center gap-1.5 text-emerald-700"
+            >
+              <Calculator size={15} className="text-emerald-500" />
+              <span>Calculadora</span>
+            </button>
+
+            <button
+              onClick={() => handleLandingNav('faq')}
+              className="hover:text-gray-950 transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <HelpCircle size={15} className="text-gray-400" />
+              <span>FAQ</span>
+            </button>
+
+            <button
+              onClick={() => handleLandingNav('contact')}
+              className="hover:text-gray-950 transition-colors cursor-pointer flex items-center gap-1.5 text-blue-600"
+            >
+              <Headphones size={15} className="text-blue-500" />
+              <span>Atendimento</span>
+            </button>
+          </div>
+        )}
+
+        {/* Right CTA Actions & Mobile Hamburger */}
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           {!user ? (
             <>
               <button 
                 onClick={() => setAuthModal({ open: true, type: 'driver' })}
-                className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-gray-900 text-yellow-400 rounded-full font-extrabold text-[11px] sm:text-sm hover:bg-gray-800 transition-colors whitespace-nowrap shadow-sm cursor-pointer"
+                className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gray-950 hover:bg-gray-800 text-yellow-400 rounded-full font-black text-xs sm:text-sm transition-all whitespace-nowrap shadow-sm hover:shadow active:scale-95 cursor-pointer flex items-center gap-1.5"
               >
-                MOTORISTA
+                <Zap size={14} className="fill-yellow-400" />
+                <span>MOTORISTA</span>
               </button>
+
               <button 
                 onClick={() => setAuthModal({ open: true, type: 'parent' })}
-                className="px-2.5 sm:px-4 py-1.5 sm:py-2 border-2 border-gray-900 text-gray-900 rounded-full font-extrabold text-[11px] sm:text-sm hover:bg-gray-50 transition-colors whitespace-nowrap cursor-pointer"
+                className="px-3 sm:px-4 py-1.5 sm:py-2 border-2 border-gray-900 text-gray-900 rounded-full font-black text-xs sm:text-sm hover:bg-gray-50 transition-colors whitespace-nowrap cursor-pointer"
               >
                 RESPONSÁVEL
+              </button>
+
+              {/* 🍔 Mobile Landing Hamburger Toggle */}
+              <button
+                onClick={() => setIsLandingMobileMenuOpen(!isLandingMobileMenuOpen)}
+                className="lg:hidden p-2 text-gray-700 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
+                aria-label="Abrir Menu de Navegação"
+              >
+                {isLandingMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
               </button>
             </>
           ) : (
@@ -703,6 +799,111 @@ export default function App() {
           )}
         </div>
       </nav>
+
+      {/* 📱 MOBILE HAMBURGER SLIDE DRAWER FOR VISITORS */}
+      <AnimatePresence>
+        {!user && isLandingMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="lg:hidden bg-white border-b border-gray-200 shadow-xl overflow-hidden z-30 sticky top-14"
+          >
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-2 gap-2 text-xs font-black">
+                <button
+                  onClick={() => handleLandingNav('pricing')}
+                  className="p-3 bg-yellow-400 text-gray-950 rounded-2xl flex items-center gap-2 font-black shadow-sm"
+                >
+                  <Zap size={16} className="fill-gray-950" />
+                  <span>Planos & Preços</span>
+                </button>
+
+                <button
+                  onClick={() => handleLandingNav('calc')}
+                  className="p-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-2xl flex items-center gap-2 font-black"
+                >
+                  <Calculator size={16} />
+                  <span>Calculadora</span>
+                </button>
+              </div>
+
+              <div className="space-y-1 pt-2 border-t border-gray-100">
+                <button
+                  onClick={() => handleLandingNav('about')}
+                  className="w-full p-2.5 text-left text-sm font-bold text-gray-700 hover:bg-gray-50 rounded-xl flex items-center justify-between"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Building2 size={16} className="text-gray-400" />
+                    Sobre o SchoolVan
+                  </span>
+                  <ChevronRight size={16} className="text-gray-300" />
+                </button>
+
+                <button
+                  onClick={() => handleLandingNav('features')}
+                  className="w-full p-2.5 text-left text-sm font-bold text-gray-700 hover:bg-gray-50 rounded-xl flex items-center justify-between"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Sparkles size={16} className="text-yellow-500" />
+                    Módulos & Copiloto T.IA
+                  </span>
+                  <ChevronRight size={16} className="text-gray-300" />
+                </button>
+
+                <button
+                  onClick={() => handleLandingNav('security')}
+                  className="w-full p-2.5 text-left text-sm font-bold text-gray-700 hover:bg-gray-50 rounded-xl flex items-center justify-between"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Lock size={16} className="text-emerald-500" />
+                    Segurança & LGPD
+                  </span>
+                  <ChevronRight size={16} className="text-gray-300" />
+                </button>
+
+                <button
+                  onClick={() => handleLandingNav('faq')}
+                  className="w-full p-2.5 text-left text-sm font-bold text-gray-700 hover:bg-gray-50 rounded-xl flex items-center justify-between"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <HelpCircle size={16} className="text-gray-400" />
+                    Dúvidas Frequentes (FAQ)
+                  </span>
+                  <ChevronRight size={16} className="text-gray-300" />
+                </button>
+
+                <button
+                  onClick={() => handleLandingNav('contact')}
+                  className="w-full p-2.5 text-left text-sm font-bold text-gray-700 hover:bg-gray-50 rounded-xl flex items-center justify-between"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Headphones size={16} className="text-blue-500" />
+                    Central de Atendimento
+                  </span>
+                  <ChevronRight size={16} className="text-gray-300" />
+                </button>
+              </div>
+
+              <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  Servidores 99.98% Online
+                </span>
+                <a
+                  href="https://wa.me/5511947078453?text=Ol%C3%A1%20SchoolVan%21"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-emerald-600 font-bold flex items-center gap-1"
+                >
+                  <MessageSquare size={13} />
+                  WhatsApp
+                </a>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AuthModal 
         isOpen={authModal.open} 
