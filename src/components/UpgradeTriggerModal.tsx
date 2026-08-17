@@ -24,6 +24,7 @@ interface UpgradeTriggerModalProps {
   onClose: () => void;
   reason?: string; // e.g., 'limit_students' | 'multi_vehicle' | 'multi_vehicle_pro' | 'extra_vehicle' | 'team_monitors' | 'ai_route'
   studentCount?: number;
+  onOpenContractModal?: (plan: 'Pro' | 'Frota') => void;
   onOpenPixCheckout?: (plan: 'Pro' | 'Frota') => void;
   onConfirmAutoAdd?: () => void;
 }
@@ -33,6 +34,7 @@ export function UpgradeTriggerModal({
   onClose, 
   reason = 'limit_students',
   studentCount = 25,
+  onOpenContractModal,
   onOpenPixCheckout,
   onConfirmAutoAdd
 }: UpgradeTriggerModalProps) {
@@ -289,7 +291,7 @@ export function UpgradeTriggerModal({
               <>
                 <div className="text-xs font-black uppercase tracking-wider text-gray-400 flex items-center justify-between">
                   <span>Selecione o plano desejado:</span>
-                  <span className="text-yellow-400 text-[11px]">Pix Copia e Cola instantâneo</span>
+                  <span className="text-yellow-400 text-[11px]">Pagamento unificado no dia 10</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -386,7 +388,10 @@ export function UpgradeTriggerModal({
                 <div className="space-y-2 pt-1">
                   <button
                     onClick={() => {
-                      if (onOpenPixCheckout) {
+                      if (onOpenContractModal) {
+                        onClose();
+                        onOpenContractModal(activePlanName);
+                      } else if (onOpenPixCheckout) {
                         onClose();
                         onOpenPixCheckout(activePlanName);
                       } else {
@@ -399,7 +404,7 @@ export function UpgradeTriggerModal({
                     className="w-full py-3.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-2xl text-sm sm:text-base shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 border-2 border-yellow-300"
                   >
                     <Zap size={18} className="text-gray-950 fill-gray-950" />
-                    <span>Assinar Plano {activePlanName} (R$ {activePlanPrice}/mês via Pix)</span>
+                    <span>Contratar Plano {activePlanName} (Pagar só no Dia 10)</span>
                     <ArrowRight size={18} />
                   </button>
 
@@ -415,7 +420,7 @@ export function UpgradeTriggerModal({
 
                   <p className="text-[10px] text-center text-gray-400 flex items-center justify-center gap-1">
                     <ShieldCheck size={12} className="text-emerald-400" />
-                    Liberação instantânea via Pix. Sem fidelidade, cancele quando quiser.
+                    Liberação imediata hoje. Sem taxa de ativação, pague só no próximo dia 10.
                   </p>
                 </div>
               </>

@@ -38,7 +38,7 @@ interface SubscriptionModalProps {
   isOpen: boolean;
   onClose: () => void;
   defaultPlan?: 'Pro' | 'Frota';
-  initialStep?: 'select' | 'pix';
+  initialStep?: 'select' | 'pix' | 'contract';
 }
 
 export function SubscriptionModal({ isOpen, onClose, defaultPlan = 'Pro', initialStep = 'select' }: SubscriptionModalProps) {
@@ -50,7 +50,9 @@ export function SubscriptionModal({ isOpen, onClose, defaultPlan = 'Pro', initia
   const [copied, setCopied] = useState(false);
   const [notes, setNotes] = useState('');
   const [notifying, setNotifying] = useState(false);
-  const [step, setStep] = useState<'select' | 'pix' | 'notified'>(initialStep);
+  const [activatingPlan, setActivatingPlan] = useState(false);
+  const [agreedTerms, setAgreedTerms] = useState(false);
+  const [step, setStep] = useState<'select' | 'pix' | 'notified' | 'contract' | 'contract_success'>(initialStep);
   const [activeTab, setActiveTab] = useState<'status' | 'timeline' | 'plans'>('status');
   const [viewingReceipt, setViewingReceipt] = useState<SubscriptionInvoice | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -68,6 +70,7 @@ export function SubscriptionModal({ isOpen, onClose, defaultPlan = 'Pro', initia
       setStep(initialStep);
       setActiveTab(profile?.plan && profile.plan !== 'Gratuito' ? 'status' : 'plans');
       setViewingReceipt(null);
+      setAgreedTerms(false);
     }
   }, [isOpen, defaultPlan, initialStep, profile?.plan]);
 
@@ -92,6 +95,12 @@ export function SubscriptionModal({ isOpen, onClose, defaultPlan = 'Pro', initia
   const currentMonthName = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(today);
   const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, BILLING_DUE_DAY);
   const nextMonthName = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(nextMonthDate);
+
+  // Prorated calculation for next due date
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  const daysRemainingInMonth = Math.max(1, daysInMonth - today.getDate() + 1);
+  const proratedFactor = Math.min(1, Math.max(0.1, daysRemainingInMonth / daysInMonth));
+  const estimatedProratedValue = currentPrice * proratedFactor;
 
   // Fallback / dynamic invoice timeline generation combining real Firestore data + simulated initial history
   const invoicesTimeline = useMemo<SubscriptionInvoice[]>(() => {
@@ -196,6 +205,64 @@ export function SubscriptionModal({ isOpen, onClose, defaultPlan = 'Pro', initia
     setTimeout(() => setCopied(false), 3000);
   };
 
+  const handleConfirmContract = async () => {
+    if (!agreedTerms) {
+      toast.error('Por favor, confirme que leu e concorda com as condições para prosseguir.');
+      return;
+    }
+
+    setActivatingPlan(true);
+    try {
+      const nowIso = new Date().toISOString();
+      const payload = {
+        plan: selectedPlan,
+        invoiceStatus: 'Em Dia',
+        termsAccepted: `Contratação Plano ${selectedPlan} aceita em ${today.toLocaleDateString('pt-BR')}`,
+        planSubscribedAt: nowIso
+      };
+
+      try {
+        await updateDoc(doc(db, 'users', profile.id), payload);
+      } catch (e) {
+        console.warn('User doc update fallback:', e);
+      }
+
+      try {
+        await setDoc(doc(db, 'drivers', profile.id), payload, { merge: true });
+      } catch (e) {
+        console.warn('Driver doc update fallback:', e);
+      }
+
+      // Record next scheduled invoice into subcollection
+      try {
+        const nextInvoiceRef = doc(db, `drivers/${profile.id}/subscription_invoices`, `inv-sched-${Date.now()}`);
+        await setDoc(nextInvoiceRef, {
+          id: `inv-sched-${Date.now()}`,
+          driverId: profile.id,
+          monthRef: `${nextMonthName.charAt(0).toUpperCase() + nextMonthName.slice(1)}/${nextMonthDate.getFullYear()}`,
+          dueDate: `10/${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}/${nextMonthDate.getFullYear()}`,
+          amount: currentPrice,
+          status: 'Agendada',
+          plan: selectedPlan,
+          vehiclesCount: vehicleCount,
+          method: 'Pix / Fatura',
+          txid: `SV-SCHED-${Date.now().toString().slice(-6)}`,
+          notes: `Contratação com vencimento unificado no dia ${BILLING_DUE_DAY}. Valor proporcional deste mês lançado na fatura.`
+        });
+      } catch (invErr) {
+        console.warn('Invoice subcollection write:', invErr);
+      }
+
+      setStep('contract_success');
+      toast.success(`Parabéns! Plano ${selectedPlan} ativado com sucesso!`);
+    } catch (err) {
+      console.error('Error activating plan:', err);
+      toast.error('Erro ao ativar plano. Tente novamente.');
+    } finally {
+      setActivatingPlan(false);
+    }
+  };
+
   const handleNotifyPayment = async () => {
     setNotifying(true);
     try {
@@ -297,16 +364,6 @@ export function SubscriptionModal({ isOpen, onClose, defaultPlan = 'Pro', initia
               <FileText size={15} /> Minha Fatura & Status
             </button>
             <button
-              onClick={() => { setActiveTab('timeline'); setViewingReceipt(null); }}
-              className={`pb-3 px-3 sm:px-4 text-xs font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                activeTab === 'timeline'
-                  ? 'border-gray-950 text-gray-950'
-                  : 'border-transparent text-gray-500 hover:text-gray-800'
-              }`}
-            >
-              <History size={15} /> Linha do Tempo & Recibos
-            </button>
-            <button
               onClick={() => { setActiveTab('plans'); setViewingReceipt(null); }}
               className={`pb-3 px-3 sm:px-4 text-xs font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                 activeTab === 'plans'
@@ -315,6 +372,16 @@ export function SubscriptionModal({ isOpen, onClose, defaultPlan = 'Pro', initia
               }`}
             >
               <Zap size={15} /> Planos
+            </button>
+            <button
+              onClick={() => { setActiveTab('timeline'); setViewingReceipt(null); }}
+              className={`pb-3 px-3 sm:px-4 text-xs font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                activeTab === 'timeline'
+                  ? 'border-gray-950 text-gray-950'
+                  : 'border-transparent text-gray-500 hover:text-gray-800'
+              }`}
+            >
+              <History size={15} /> Histórico de Pagamentos
             </button>
           </div>
         )}
@@ -468,9 +535,9 @@ export function SubscriptionModal({ isOpen, onClose, defaultPlan = 'Pro', initia
                   <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h4 className="text-sm font-black text-gray-950">Linha do Tempo das Faturas</h4>
+                        <h4 className="text-sm font-black text-gray-950">Histórico de Pagamentos</h4>
                         <p className="text-xs text-gray-600 font-medium mt-0.5">
-                          Histórico de pagamentos, liquidações e comprovantes fiscais demonstrativos.
+                          Histórico de mensalidades, faturas liquidadas e emissão de recibos.
                         </p>
                       </div>
                       <div className="p-2 bg-yellow-400/20 text-yellow-800 rounded-xl">
@@ -752,10 +819,133 @@ export function SubscriptionModal({ isOpen, onClose, defaultPlan = 'Pro', initia
               </div>
 
               <button
-                onClick={() => setStep('pix')}
-                className="w-full py-4 bg-gray-950 text-yellow-400 font-black rounded-2xl text-base shadow-xl hover:bg-gray-800 transition-all flex items-center justify-center gap-2 cursor-pointer border border-yellow-400/20 active:scale-95"
+                onClick={() => setStep('contract')}
+                className="w-full py-4 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-2xl text-base shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer border-2 border-yellow-300 active:scale-95"
               >
-                <Zap size={18} className="text-yellow-400" /> Confirmar & Gerar Pix (R$ {currentPrice.toFixed(2).replace('.', ',')})
+                <Zap size={18} className="text-gray-950 fill-gray-950" /> 
+                <span>CONTRATAR PLANO {selectedPlan.toUpperCase()} (PAGAR NO DIA {BILLING_DUE_DAY})</span>
+              </button>
+            </div>
+          )}
+
+          {/* STEP: CONTRACT / LI E CONCORDO COM VENCIMENTO PROPORCIONAL NO DIA 10 */}
+          {step === 'contract' && (
+            <div className="space-y-4">
+              <button
+                onClick={() => setStep('select')}
+                className="text-xs font-bold text-gray-600 hover:text-gray-950 flex items-center gap-1 cursor-pointer"
+              >
+                ← Voltar e escolher outro plano
+              </button>
+
+              <div className="bg-gradient-to-br from-gray-950 via-slate-900 to-black text-white p-5 rounded-2xl border-2 border-yellow-400 shadow-xl space-y-4">
+                <div className="flex items-center justify-between border-b border-gray-800 pb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 bg-yellow-400 text-gray-950 text-[10px] font-black uppercase rounded-full">
+                      Ativação Imediata
+                    </span>
+                    <span className="text-xs text-gray-300 font-bold">
+                      Plano {selectedPlan}
+                    </span>
+                  </div>
+                  <span className="text-sm font-black text-yellow-400">
+                    R$ {currentPrice.toFixed(2).replace('.', ',')}/mês
+                  </span>
+                </div>
+
+                <div className="space-y-2.5 text-xs text-gray-200">
+                  <h3 className="text-base font-black text-white flex items-center gap-1.5">
+                    <ShieldCheck size={18} className="text-yellow-400" />
+                    Condições Transparentes da Contratação
+                  </h3>
+                  
+                  <div className="bg-white/5 p-3.5 rounded-xl border border-white/10 space-y-2 text-xs">
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 size={15} className="text-emerald-400 shrink-0 mt-0.5" />
+                      <p><strong>Acesso Total Liberado Imediatamente:</strong> Alunos ilimitados, WhatsApp da T.IA, gestão de equipe e rotas são ativados agora.</p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 size={15} className="text-emerald-400 shrink-0 mt-0.5" />
+                      <p><strong>Zero Pagamento Hoje:</strong> Você não paga nada agora no momento da contratação.</p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 size={15} className="text-emerald-400 shrink-0 mt-0.5" />
+                      <p><strong>Pagamento Apenas no Próximo Dia {BILLING_DUE_DAY}:</strong> O valor proporcional dos dias restantes deste mês (~R$ {estimatedProratedValue.toFixed(2).replace('.', ',')}) virá unificado na sua fatura do dia {BILLING_DUE_DAY} de {nextMonthName}.</p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 size={15} className="text-emerald-400 shrink-0 mt-0.5" />
+                      <p><strong>Sem Fidelidade nem Multas:</strong> Cancele ou altere seu plano quando quiser sem pegadinhas.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Checkbox Li e Concordo */}
+                <div 
+                  onClick={() => setAgreedTerms(!agreedTerms)}
+                  className={`p-3.5 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-3 select-none ${
+                    agreedTerms 
+                      ? 'bg-yellow-400/10 border-yellow-400' 
+                      : 'bg-white/5 border-gray-700 hover:border-gray-500'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={agreedTerms}
+                    onChange={(e) => setAgreedTerms(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 text-yellow-400 rounded focus:ring-yellow-400 border-gray-600 cursor-pointer"
+                  />
+                  <label className="text-xs font-semibold text-gray-200 cursor-pointer leading-relaxed">
+                    <strong>Li e concordo com os termos de adesão do Plano {selectedPlan}.</strong> Estou ciente de que meu acesso é liberado hoje sem custos imediatos e que o valor proporcional será cobrado na fatura do próximo <strong>dia {BILLING_DUE_DAY} de {nextMonthName}</strong>.
+                  </label>
+                </div>
+
+                {/* Confirm Button */}
+                <button
+                  onClick={handleConfirmContract}
+                  disabled={!agreedTerms || activatingPlan}
+                  className="w-full py-4 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-2xl text-sm sm:text-base shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed border-2 border-yellow-300"
+                >
+                  {activatingPlan ? (
+                    <div className="w-5 h-5 border-2 border-gray-950 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Zap size={18} className="fill-gray-950" />
+                      <span>CONFIRMAR CONTRATAÇÃO & LIBERAR MEU ACESSO</span>
+                      <ArrowRight size={18} />
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP: CONTRACT SUCCESS CONFIRMATION */}
+          {step === 'contract_success' && (
+            <div className="text-center py-6 space-y-4">
+              <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+                <CheckCircle2 size={36} />
+              </div>
+
+              <h3 className="text-xl font-black text-gray-950">
+                Plano {selectedPlan} Contratado com Sucesso! 🚐🎉
+              </h3>
+
+              <p className="text-xs text-gray-700 max-w-md mx-auto leading-relaxed font-medium">
+                Seu acesso ao <strong>Plano {selectedPlan}</strong> já está 100% liberado! Você não precisou pagar nada agora. A sua primeira fatura com o valor proporcional deste mês terá vencimento apenas no <strong>dia {BILLING_DUE_DAY} de {nextMonthName}</strong>.
+              </p>
+
+              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200 text-xs text-gray-800 text-left space-y-1.5">
+                <p><strong>Plano Ativo:</strong> {selectedPlan} ({vehicles.length} van(s) cadastrada(s))</p>
+                <p><strong>Status do Acesso:</strong> 100% Liberado (Em Dia)</p>
+                <p><strong>Primeiro Vencimento:</strong> Dia {BILLING_DUE_DAY} de {nextMonthName}</p>
+                <p><strong>Valor Mensalidade:</strong> R$ {currentPrice.toFixed(2).replace('.', ',')}/mês</p>
+              </div>
+
+              <button
+                onClick={onClose}
+                className="w-full py-3.5 bg-gray-950 text-yellow-400 font-black rounded-2xl text-sm hover:bg-gray-800 transition-all cursor-pointer shadow-lg"
+              >
+                Começar a Usar Agora
               </button>
             </div>
           )}

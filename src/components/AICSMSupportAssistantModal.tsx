@@ -58,6 +58,10 @@ import {
   formatDateBR, 
   getTodayStr 
 } from '../lib/absence';
+import { 
+  formatBillingMessage, 
+  calculateStudentBillingStage 
+} from '../lib/billingRuleUtils';
 import toast from 'react-hot-toast';
 
 export interface ContactCardItem {
@@ -3078,7 +3082,20 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
                             
                             // Pre-configured message templates
                             const defaultArrivalMsg = `Olá ${contact.parentName || 'Responsável'}! Aqui é o Tio da Van Escolar. Estamos a 5 minutos do ponto para o embarque do(a) ${contact.studentName}. 🚌💛`;
-                            const defaultPixMsg = `Olá ${contact.parentName || 'Responsável'}! Segue lembrete da mensalidade escolar do(a) ${contact.studentName} no valor de R$ ${(contact.value || 400).toFixed(2)}. Chave Pix do Tio: ${profile?.pixKey || profile?.phone || 'Consulte o app'}. Obrigado! 🙏`;
+                            
+                            const currentDay = new Date().getDate();
+                            const stageKey = calculateStudentBillingStage(contact.paymentDay || 10, contact.invoiceStatus || 'Em Dia', currentDay);
+                            const billingFormatted = formatBillingMessage({
+                              stageKey,
+                              studentName: contact.studentName,
+                              parentName: contact.parentName || 'Responsável',
+                              driverName: profile?.name || 'Tio da Van',
+                              value: contact.value || 350,
+                              paymentDay: contact.paymentDay || 10,
+                              pixKey: profile?.pixKey || '',
+                              driverCity: profile?.city || 'São Paulo'
+                            });
+                            const defaultPixMsg = billingFormatted.messageText;
                             
                             return (
                               <div 

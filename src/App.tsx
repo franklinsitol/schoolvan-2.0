@@ -469,7 +469,7 @@ export default function App() {
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
   const [subscriptionPlan, setSubscriptionPlan] = useState<'Pro' | 'Frota'>('Pro');
-  const [subscriptionStep, setSubscriptionStep] = useState<'select' | 'pix'>('select');
+  const [subscriptionStep, setSubscriptionStep] = useState<'select' | 'pix' | 'contract'>('select');
   const [upgradeReason, setUpgradeReason] = useState('limit_students');
   const [isAICSMOpen, setIsAICSMOpen] = useState(false);
   const [triggerNewVehicleModal, setTriggerNewVehicleModal] = useState(false);
@@ -573,6 +573,9 @@ export default function App() {
       </div>
     );
   }
+
+  const isDriverFreePlan = !profile?.plan || profile.plan === 'Gratuito';
+  const driverPlanName = profile?.plan || 'Gratuito';
 
   const navItems = isParent ? [
     { id: 'parent', label: 'Área dos Pais', icon: Users },
@@ -761,15 +764,20 @@ export default function App() {
                       setSubscriptionStep('select');
                       setIsSubscriptionModalOpen(true);
                     }}
-                    className="px-3 py-1.5 bg-gray-950 text-yellow-400 hover:bg-gray-800 font-black rounded-xl text-xs flex items-center gap-1.5 shadow-md transition-all cursor-pointer border border-yellow-400/30 active:scale-95"
-                    title="Ver meu plano, faturas e régua de cobrança SchoolVan"
+                    className={cn(
+                      "px-3 sm:px-3.5 py-1.5 font-black rounded-xl text-xs flex items-center gap-1.5 shadow-md transition-all cursor-pointer active:scale-95 border",
+                      isDriverFreePlan
+                        ? "bg-yellow-400 text-gray-950 hover:bg-yellow-300 border-yellow-500 shadow-yellow-500/10"
+                        : "bg-gray-950 text-yellow-400 hover:bg-gray-800 border-yellow-400/30"
+                    )}
+                    title="Ver meu plano, faturas e opções de contratação SchoolVan"
                   >
-                    <Zap size={14} className="text-yellow-400" />
+                    <Zap size={14} className={isDriverFreePlan ? "fill-gray-950" : "fill-yellow-400"} />
                     <span className="hidden sm:inline">
-                      Meu Plano: {profile?.plan || 'Gratuito'}
+                      {isDriverFreePlan ? `Plano Gratuito (${students.length}/25) • Upgrade` : `Plano ${driverPlanName} • Em Dia`}
                     </span>
                     <span className="inline sm:hidden">
-                      {profile?.plan || 'Plano'}
+                      {isDriverFreePlan ? `Upgrade (${students.length}/25)` : driverPlanName}
                     </span>
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse hidden sm:inline-block ml-0.5" />
                   </button>
@@ -914,14 +922,14 @@ export default function App() {
       <div className="flex">
         {/* Sidebar (Desktop) */}
         {user && (
-          <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-gray-100 min-h-[calc(100vh-64px)] p-4 sticky top-16">
+          <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-gray-100 min-h-[calc(100vh-64px)] p-4 sticky top-16 justify-between">
             <div className="space-y-1">
               {navItems.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => setCurrentView(item.id as View)}
                   className={cn(
-                    "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200",
+                    "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer",
                     currentView === item.id 
                       ? "bg-yellow-400 text-gray-900 font-bold shadow-md" 
                       : "text-gray-500 hover:bg-gray-50 hover:text-gray-900",
@@ -933,6 +941,46 @@ export default function App() {
                 </button>
               ))}
             </div>
+
+            {/* 🚐 Plan & Quota Desktop Sidebar Widget */}
+            {!isParent && (
+              <div className="pt-4 mt-6 border-t border-gray-100">
+                <div className={cn(
+                  "p-3.5 rounded-2xl border space-y-2.5",
+                  isDriverFreePlan 
+                    ? "bg-gradient-to-br from-amber-50 to-yellow-50/70 border-amber-200" 
+                    : "bg-gradient-to-br from-emerald-50 to-teal-50/70 border-emerald-200"
+                )}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-xs font-black text-gray-950 uppercase tracking-tight">
+                        Plano {driverPlanName}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-white text-gray-800 shadow-xs border border-gray-100">
+                      {isDriverFreePlan ? `${students.length}/25 alunos` : 'Ilimitado'}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setSubscriptionStep('select');
+                      setIsSubscriptionModalOpen(true);
+                    }}
+                    className={cn(
+                      "w-full py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer active:scale-95",
+                      isDriverFreePlan
+                        ? "bg-gray-950 hover:bg-gray-800 text-yellow-400 border border-yellow-400/30"
+                        : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                    )}
+                  >
+                    <Zap size={13} className={isDriverFreePlan ? "fill-yellow-400" : "fill-white"} />
+                    <span>{isDriverFreePlan ? 'Conhecer Plano Pro' : 'Ver Faturas & Plano'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </aside>
         )}
 
@@ -952,35 +1000,74 @@ export default function App() {
                 animate={{ x: 0 }}
                 exit={{ x: '-100%' }}
                 transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="fixed inset-y-0 left-0 w-72 bg-white z-50 lg:hidden flex flex-col"
+                className="fixed inset-y-0 left-0 w-72 bg-white z-50 lg:hidden flex flex-col justify-between"
               >
-                <div className="p-6 bg-yellow-400 flex items-center justify-between">
-                  <span className="text-xl font-bold">Menu</span>
-                  <button onClick={() => setIsSidebarOpen(false)}>
-                    <X size={24} />
-                  </button>
-                </div>
-                <div className="p-4 flex-1 overflow-y-auto space-y-1">
-                  {navItems.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        setCurrentView(item.id as View);
-                        setIsSidebarOpen(false);
-                      }}
-                      className={cn(
-                        "w-full flex items-center gap-3 px-4 py-4 rounded-xl transition-all",
-                        currentView === item.id 
-                          ? "bg-yellow-400 text-gray-900 font-bold" 
-                          : "text-gray-500 hover:bg-gray-50",
-                        item.className
-                      )}
-                    >
-                      <item.icon size={20} />
-                      <span>{item.label}</span>
+                <div>
+                  <div className="p-6 bg-yellow-400 flex items-center justify-between">
+                    <span className="text-xl font-bold">Menu</span>
+                    <button onClick={() => setIsSidebarOpen(false)}>
+                      <X size={24} />
                     </button>
-                  ))}
+                  </div>
+                  <div className="p-4 overflow-y-auto space-y-1">
+                    {navItems.map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          setCurrentView(item.id as View);
+                          setIsSidebarOpen(false);
+                        }}
+                        className={cn(
+                          "w-full flex items-center gap-3 px-4 py-4 rounded-xl transition-all cursor-pointer",
+                          currentView === item.id 
+                            ? "bg-yellow-400 text-gray-900 font-bold" 
+                            : "text-gray-500 hover:bg-gray-50",
+                          item.className
+                        )}
+                      >
+                        <item.icon size={20} />
+                        <span>{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
+
+                {/* 🚐 Plan & Quota Mobile Drawer Widget */}
+                {!isParent && (
+                  <div className="p-4 border-t border-gray-100 bg-gray-50/50">
+                    <div className={cn(
+                      "p-3 rounded-2xl border space-y-2",
+                      isDriverFreePlan 
+                        ? "bg-gradient-to-br from-amber-50 to-yellow-50/70 border-amber-200" 
+                        : "bg-gradient-to-br from-emerald-50 to-teal-50/70 border-emerald-200"
+                    )}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black text-gray-950">
+                          Plano {driverPlanName}
+                        </span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white text-gray-800 shadow-xs">
+                          {isDriverFreePlan ? `${students.length}/25 alunos` : 'Ilimitado'}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setIsSidebarOpen(false);
+                          setSubscriptionStep('select');
+                          setIsSubscriptionModalOpen(true);
+                        }}
+                        className={cn(
+                          "w-full py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer",
+                          isDriverFreePlan
+                            ? "bg-gray-950 hover:bg-gray-800 text-yellow-400"
+                            : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                        )}
+                      >
+                        <Zap size={13} className={isDriverFreePlan ? "fill-yellow-400" : "fill-white"} />
+                        <span>{isDriverFreePlan ? 'Conhecer Plano Pro' : 'Ver Faturas'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </motion.aside>
             </>
           )}
@@ -1001,7 +1088,15 @@ export default function App() {
                   <Marketplace onOpenAuth={(type) => setAuthModal({ open: true, type: type || 'driver' })} />
                 )}
                 {currentView === 'dash' && (
-                  isParent ? <ParentView /> : <Dashboard onNavigateToLeads={() => setCurrentView('leads')} />
+                  isParent ? <ParentView /> : (
+                    <Dashboard 
+                      onNavigateToLeads={() => setCurrentView('leads')}
+                      onOpenSubscriptionModal={() => {
+                        setSubscriptionStep('select');
+                        setIsSubscriptionModalOpen(true);
+                      }}
+                    />
+                  )
                 )}
                 {currentView === 'leads' && (
                   isParent ? <ParentView /> : (
@@ -1046,7 +1141,7 @@ export default function App() {
                     />
                   )
                 )}
-                {currentView === 'finance' && (isParent ? <ParentView /> : <FinanceView />)}
+                {currentView === 'finance' && (isParent ? <ParentView /> : <FinanceView onNavigateToProfile={() => setCurrentView('profile')} />)}
                 {currentView === 'profile' && (
                   isParent ? <ParentView /> : (
                     <ProfileView 
@@ -1102,6 +1197,11 @@ export default function App() {
         onClose={() => setIsUpgradeModalOpen(false)}
         reason={upgradeReason}
         studentCount={students.length}
+        onOpenContractModal={(plan) => {
+          setSubscriptionPlan(plan);
+          setSubscriptionStep('contract');
+          setIsSubscriptionModalOpen(true);
+        }}
         onOpenPixCheckout={(plan) => {
           setSubscriptionPlan(plan);
           setSubscriptionStep('pix');

@@ -11,7 +11,10 @@ import {
   UserCheck,
   ArrowRight,
   Armchair,
-  CheckCircle2
+  CheckCircle2,
+  Zap,
+  Sparkles,
+  ShieldCheck
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { useAuth } from '../hooks/useAuth';
@@ -23,7 +26,13 @@ import { doc, updateDoc, addDoc, collection } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import toast from 'react-hot-toast';
 
-export function Dashboard({ onNavigateToLeads }: { onNavigateToLeads?: () => void }) {
+export function Dashboard({ 
+  onNavigateToLeads,
+  onOpenSubscriptionModal 
+}: { 
+  onNavigateToLeads?: () => void;
+  onOpenSubscriptionModal?: () => void;
+}) {
   const { profile } = useAuth();
   const { data: students } = useFirestore<Student>(`drivers/${profile?.id}/students`);
   const { data: vehicles } = useFirestore<Vehicle>(`drivers/${profile?.id}/vehicles`);
@@ -31,6 +40,12 @@ export function Dashboard({ onNavigateToLeads }: { onNavigateToLeads?: () => voi
   const { data: finances } = useFirestore<Finance>(`drivers/${profile?.id}/finance`);
 
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('');
+
+  const isFreePlan = !profile?.plan || profile.plan === 'Gratuito';
+  const planName = profile?.plan || 'Gratuito';
+  const maxStudentsLimit = isFreePlan ? 25 : 999;
+  const currentStudentsCount = students.filter(s => s.status !== 'Excluido').length;
+  const quotaPercent = isFreePlan ? Math.min(100, Math.round((currentStudentsCount / 25) * 100)) : 100;
 
   const activeVehicle = useMemo(() => {
     if (selectedVehicleId) {
@@ -97,6 +112,88 @@ export function Dashboard({ onNavigateToLeads }: { onNavigateToLeads?: () => voi
           </div>
         </div>
       </div>
+
+      {/* 🚀 PLAN STATUS & VISIBILITY BANNER */}
+      {onOpenSubscriptionModal && (
+        <div className={cn(
+          "rounded-3xl p-5 sm:p-6 shadow-sm border transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4",
+          isFreePlan 
+            ? "bg-gradient-to-r from-amber-500/10 via-yellow-500/10 to-amber-500/5 border-amber-200/80" 
+            : "bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-white border-emerald-200"
+        )}>
+          <div className="space-y-2 max-w-2xl">
+            <div className="flex items-center gap-2.5">
+              <span className={cn(
+                "px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm",
+                isFreePlan ? "bg-yellow-400 text-gray-950" : "bg-emerald-600 text-white"
+              )}>
+                <Zap size={14} className={isFreePlan ? "fill-gray-950" : "fill-white"} />
+                Plano {planName}
+              </span>
+              
+              {isFreePlan ? (
+                <span className="text-xs font-bold text-amber-900 bg-amber-100/80 px-2.5 py-0.5 rounded-full">
+                  Uso: {currentStudentsCount}/25 Alunos
+                </span>
+              ) : (
+                <span className="text-xs font-bold text-emerald-900 bg-emerald-100 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                  <ShieldCheck size={14} className="text-emerald-700" />
+                  Alunos Ilimitados • Em Dia
+                </span>
+              )}
+            </div>
+
+            <p className="text-xs sm:text-sm text-gray-700 font-medium leading-relaxed">
+              {isFreePlan ? (
+                <>
+                  Você está usando a <strong>versão gratuita do SchoolVan</strong>. Quer adicionar alunos ilimitados, WhatsApp automático da T.IA e adicionar novas vans? Contrate o <strong>Plano Pro</strong> sem pagar nada hoje (pague só proporcional no dia 10).
+                </>
+              ) : (
+                <>
+                  Seu plano <strong>{planName}</strong> está ativo com todos os recursos liberados! Fatura unificada com vencimento todo <strong>dia 10</strong>.
+                </>
+              )}
+            </p>
+
+            {/* Quota Progress Bar for Free Plan */}
+            {isFreePlan && (
+              <div className="space-y-1 pt-1">
+                <div className="flex justify-between text-[11px] font-bold text-gray-600">
+                  <span>Capacidade do Plano Gratuito</span>
+                  <span className={quotaPercent >= 80 ? "text-red-600 font-black" : "text-amber-800 font-black"}>
+                    {currentStudentsCount} de 25 ({quotaPercent}%)
+                  </span>
+                </div>
+                <div className="w-full h-2.5 bg-amber-200/50 rounded-full overflow-hidden">
+                  <div 
+                    className={cn(
+                      "h-full rounded-full transition-all duration-500",
+                      quotaPercent >= 90 ? "bg-red-500" : quotaPercent >= 70 ? "bg-amber-500" : "bg-emerald-500"
+                    )}
+                    style={{ width: `${quotaPercent}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="shrink-0 flex items-center gap-2">
+            <button
+              onClick={onOpenSubscriptionModal}
+              className={cn(
+                "w-full sm:w-auto px-5 py-3 rounded-2xl text-xs sm:text-sm font-black transition-all shadow-md active:scale-95 cursor-pointer flex items-center justify-center gap-2",
+                isFreePlan 
+                  ? "bg-gray-950 hover:bg-gray-800 text-yellow-400 border border-yellow-400/30" 
+                  : "bg-emerald-600 hover:bg-emerald-700 text-white"
+              )}
+            >
+              <Sparkles size={16} className={isFreePlan ? "text-yellow-400" : "text-emerald-200"} />
+              <span>{isFreePlan ? 'VER PLANOS & CONTRATAR PRO' : 'GERENCIAR PLANO & FATURAS'}</span>
+              <ArrowRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
