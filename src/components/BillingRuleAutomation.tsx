@@ -102,12 +102,16 @@ export function BillingRuleAutomation({ students, finances, onOpenProfile }: Bil
     return studentsInSelectedStage[0] || studentsWithStatus[0];
   }, [selectedStudentId, studentsInSelectedStage, studentsWithStatus]);
 
+  // Billing Mode: 'manual' (Driver's own Pix key, 0% fee) or 'schoolvan_pay'
+  const [billingMode, setBillingMode] = useState<'manual' | 'schoolvan_pay'>('manual');
+
   // Current formatted message & Pix
   const currentMessageData = useMemo(() => {
     if (!currentPreviewStudent) {
       return {
         messageText: 'Nenhum aluno cadastrado para gerar prévia.',
-        pixCopiaECola: profile?.pixKey || ''
+        pixString: profile?.pixKey || '',
+        billingMethod: billingMode
       };
     }
 
@@ -122,18 +126,20 @@ export function BillingRuleAutomation({ students, finances, onOpenProfile }: Bil
       paymentDay: currentPreviewStudent.paymentDay || 10,
       pixKey: profile?.pixKey || '',
       driverCity: profile?.city || 'São Paulo',
+      billingMethod: billingMode,
       customTemplate: templateToUse
     });
-  }, [currentPreviewStudent, selectedStageKey, customTemplates, profile]);
+  }, [currentPreviewStudent, selectedStageKey, customTemplates, profile, billingMode]);
 
   const handleCopyPix = () => {
-    if (!profile?.pixKey) {
+    const codeToCopy = currentMessageData.pixString;
+    if (!codeToCopy || codeToCopy.includes('não cadastrada')) {
       toast.error('Cadastre sua chave Pix em "Meu Perfil" primeiro.');
       return;
     }
-    navigator.clipboard.writeText(currentMessageData.pixCopiaECola);
+    navigator.clipboard.writeText(codeToCopy);
     setCopiedKey(true);
-    toast.success('Código Pix Copia e Cola copiado com sucesso!');
+    toast.success(billingMode === 'manual' ? 'Sua Chave Pix foi copiada!' : 'Pix Copia e Cola copiado!');
     setTimeout(() => setCopiedKey(false), 2500);
   };
 
@@ -164,6 +170,7 @@ export function BillingRuleAutomation({ students, finances, onOpenProfile }: Bil
       paymentDay: student.paymentDay || 10,
       pixKey: profile?.pixKey || '',
       driverCity: profile?.city || 'São Paulo',
+      billingMethod: billingMode,
       customTemplate: templateToUse
     });
 
@@ -453,6 +460,37 @@ export function BillingRuleAutomation({ students, finances, onOpenProfile }: Bil
               </div>
             </div>
 
+            {/* Billing Mode Switcher in Automation */}
+            <div className="flex items-center justify-between p-1 bg-gray-100 rounded-2xl border border-gray-200">
+              <button
+                type="button"
+                onClick={() => setBillingMode('manual')}
+                className={cn(
+                  "flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5",
+                  billingMode === 'manual'
+                    ? "bg-white text-gray-950 shadow-sm"
+                    : "text-gray-600 hover:text-gray-950"
+                )}
+              >
+                <span>🏷️ Cobrar Manualmente (Sua Chave Pix)</span>
+                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded-md">0% Taxa</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBillingMode('schoolvan_pay')}
+                className={cn(
+                  "flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5",
+                  billingMode === 'schoolvan_pay'
+                    ? "bg-gray-950 text-yellow-400 shadow-sm"
+                    : "text-gray-600 hover:text-gray-950"
+                )}
+              >
+                <span>⚡ Cobrar com SchoolVan Pay</span>
+                <span className="text-[10px] bg-yellow-400 text-gray-950 font-bold px-1.5 py-0.2 rounded-md">Baixa Auto</span>
+              </button>
+            </div>
+
             {/* Template Editor or Formatted WhatsApp Message Preview */}
             {isEditingTemplate ? (
               <div className="space-y-3">
@@ -484,37 +522,64 @@ export function BillingRuleAutomation({ students, finances, onOpenProfile }: Bil
                   </div>
                 </div>
 
-                {/* Pix Copia e Cola Card Display */}
-                <div className="bg-gray-950 text-white p-4 rounded-2xl border border-yellow-500/30 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <QrCode size={16} className="text-yellow-400" />
-                      <span className="text-xs font-black uppercase text-yellow-400 tracking-wider">
-                        Pix Copia e Cola (BR Code EMV Automático)
+                {/* Pix or Key Card Display */}
+                {billingMode === 'manual' ? (
+                  <div className="bg-amber-50/80 p-4 rounded-2xl border border-amber-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <QrCode size={16} className="text-amber-700" />
+                        <span className="text-xs font-black text-amber-950">
+                          Sua Chave Pix Cadastrada (0% Taxa):
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                        Repasse Imediato no seu Banco
                       </span>
                     </div>
-                    <span className="text-[10px] font-bold text-gray-400">
-                      Venc. Dia {currentPreviewStudent?.paymentDay || 10} • R$ {currentPreviewStudent?.value?.toFixed(2) || '0,00'}
-                    </span>
-                  </div>
 
-                  <div className="p-2.5 bg-gray-900 rounded-xl border border-gray-800 font-mono text-[11px] text-emerald-400 break-all select-all">
-                    {currentMessageData.pixCopiaECola}
+                    <div className="p-2.5 bg-white rounded-xl border border-amber-200 font-mono text-xs font-bold text-gray-900 break-all select-all flex items-center justify-between">
+                      <span>{profile?.pixKey || 'Nenhuma chave cadastrada'}</span>
+                      <button
+                        onClick={handleCopyPix}
+                        className="px-3 py-1 bg-amber-200 hover:bg-amber-300 text-amber-900 font-black rounded-lg text-xs flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                      >
+                        {copiedKey ? <Check size={13} /> : <Copy size={13} />}
+                        <span>{copiedKey ? 'Copiada!' : 'Copiar Chave'}</span>
+                      </button>
+                    </div>
                   </div>
+                ) : (
+                  <div className="bg-gray-950 text-white p-4 rounded-2xl border border-yellow-500/30 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <QrCode size={16} className="text-yellow-400" />
+                        <span className="text-xs font-black uppercase text-yellow-400 tracking-wider">
+                          Pix Dinâmico SchoolVan Pay (Baixa Automática)
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-bold text-gray-400">
+                        Venc. Dia {currentPreviewStudent?.paymentDay || 10} • R$ {currentPreviewStudent?.value?.toFixed(2) || '0,00'}
+                      </span>
+                    </div>
 
-                  <div className="flex items-center justify-between pt-1">
-                    <p className="text-[10px] text-gray-400">
-                      Funciona em qualquer banco (Nubank, Itaú, Bradesco, Inter, Caixa, Santander).
-                    </p>
-                    <button
-                      onClick={handleCopyPix}
-                      className="px-3 py-1 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-lg text-xs flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
-                    >
-                      {copiedKey ? <Check size={13} /> : <Copy size={13} />}
-                      <span>{copiedKey ? 'Copiado!' : 'Copiar Pix'}</span>
-                    </button>
+                    <div className="p-2.5 bg-gray-900 rounded-xl border border-gray-800 font-mono text-[11px] text-emerald-400 break-all select-all">
+                      {currentMessageData.pixString}
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <p className="text-[10px] text-gray-400">
+                        Baixa automática assim que o responsável efetuar o pagamento.
+                      </p>
+                      <button
+                        onClick={handleCopyPix}
+                        className="px-3 py-1 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-lg text-xs flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                      >
+                        {copiedKey ? <Check size={13} /> : <Copy size={13} />}
+                        <span>{copiedKey ? 'Copiado!' : 'Copiar Pix'}</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row items-center gap-2 pt-2">
@@ -532,7 +597,7 @@ export function BillingRuleAutomation({ students, finances, onOpenProfile }: Bil
                       className="w-full sm:flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer"
                     >
                       <Send size={15} />
-                      <span>Abrir WhatsApp do Responsável</span>
+                      <span>Abrir WhatsApp ({billingMode === 'manual' ? 'Sua Chave Pix' : 'SchoolVan Pay'})</span>
                     </button>
                   )}
                 </div>

@@ -21,14 +21,82 @@ export async function requestPushNotificationPermission(): Promise<NotificationP
   }
 }
 
+// Web Audio API synthesized status chime (boarding, school drop-off, arrival at home)
+export function playStudentStatusChime(status: 'Casa' | 'Van' | 'Escola' | 'A CAMINHO' | 'NÃO VAI' | string) {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const now = ctx.currentTime;
+
+    if (status === 'Van') {
+      // Cheerful boarding chord (F4 -> A4 -> C5)
+      [349.23, 440, 523.25].forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+        gain.gain.setValueAtTime(0.25, now + idx * 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.45);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + idx * 0.1);
+        osc.stop(now + idx * 0.1 + 0.45);
+      });
+    } else if (status === 'Escola') {
+      // Harmonic bell (E5 -> G5 -> C6)
+      [659.25, 783.99, 1046.50].forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+        gain.gain.setValueAtTime(0.3, now + idx * 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.6);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + idx * 0.12);
+        osc.stop(now + idx * 0.12 + 0.6);
+      });
+    } else if (status === 'A CAMINHO') {
+      // Double horn beep chime (520Hz double pulse)
+      [0, 0.22].forEach((offset) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(520, now + offset);
+        gain.gain.setValueAtTime(0.2, now + offset);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.15);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + offset);
+        osc.stop(now + offset + 0.15);
+      });
+    } else if (status === 'Casa') {
+      // Warm welcoming chime (C5 -> G4 -> C4)
+      [523.25, 392.00, 261.63].forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.14);
+        gain.gain.setValueAtTime(0.3, now + idx * 0.14);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.14 + 0.55);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + idx * 0.14);
+        osc.stop(now + idx * 0.14 + 0.55);
+      });
+    }
+  } catch (e) {
+    console.warn('Audio status chime could not be played:', e);
+  }
+}
+
 // Web Audio API synthesized urgent chime / broadcast alert
 export function playIncidentAlertChime() {
   try {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContextClass) return;
     const ctx = new AudioContextClass();
-    
-    // Play a distinctive two-tone attention sound: 880Hz -> 1174Hz (A5 -> D6)
     const now = ctx.currentTime;
     
     // Tone 1
@@ -68,6 +136,111 @@ export function playIncidentAlertChime() {
     osc3.stop(now + 0.95);
   } catch (e) {
     console.warn('Audio chime could not be played:', e);
+  }
+}
+
+// Dispatch native web push notification when student boarding status updates
+export function showStudentStatusPushNotification(params: {
+  studentName: string;
+  status: 'Casa' | 'Van' | 'Escola' | 'A CAMINHO' | 'NÃO VAI' | string;
+  driverName?: string;
+  schoolName?: string;
+  studentId?: string;
+}) {
+  const { studentName, status, driverName = 'Motorista', schoolName, studentId } = params;
+
+  // 1. Play synthesized status audio chime
+  playStudentStatusChime(status);
+
+  // 2. Vibrate mobile device if supported
+  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    try {
+      if (status === 'Van' || status === 'Escola') {
+        navigator.vibrate([150, 80, 200]);
+      } else if (status === 'A CAMINHO') {
+        navigator.vibrate([200, 100, 200, 100, 300]);
+      } else {
+        navigator.vibrate([100, 50, 100]);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  // 3. Trigger Browser Web Notification
+  if (!isPushNotificationSupported() || Notification.permission !== 'granted') {
+    return;
+  }
+
+  try {
+    const iconUrl = '/schoolvan_app_icon_1786622663458.jpg';
+    let title = `SchoolVan: ${studentName}`;
+    let body = '';
+
+    if (status === 'Van') {
+      title = `🚐 Embarque Confirmado: ${studentName}`;
+      body = `${studentName} acabou de embarcar na van escolar do(a) ${driverName}! Está a caminho em segurança.`;
+    } else if (status === 'Escola') {
+      title = `🏫 Chegou na Escola: ${studentName}`;
+      body = `${studentName} foi entregue com segurança na escola ${schoolName ? `(${schoolName})` : ''}!`;
+    } else if (status === 'Casa') {
+      title = `🏠 Chegou em Casa: ${studentName}`;
+      body = `${studentName} acabou de desembarcar e está em casa em segurança!`;
+    } else if (status === 'A CAMINHO') {
+      title = `🚐 Van a Caminho da sua Casa!`;
+      body = `A van do(a) ${driverName} está a caminho para buscar ${studentName}. Deixe o passageiro preparado!`;
+    } else if (status === 'NÃO VAI') {
+      title = `🚫 Falta Registrada: ${studentName}`;
+      body = `A ausência de ${studentName} foi registrada para a chamada de hoje.`;
+    } else {
+      title = `🚐 Status de ${studentName} atualizado`;
+      body = `Status alterado para ${status}.`;
+    }
+
+    const tag = `status-${studentId || studentName}-${Date.now()}`;
+
+    // Try service worker registration first if available (better PWA support)
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then((registration) => {
+        registration.showNotification(title, {
+          body,
+          icon: iconUrl,
+          badge: iconUrl,
+          tag,
+          renotify: true,
+          requireInteraction: false,
+          data: {
+            url: window.location.href,
+            studentName,
+            status
+          }
+        } as NotificationOptions & { renotify?: boolean });
+      }).catch(() => {
+        const notif = new Notification(title, {
+          body,
+          icon: iconUrl,
+          badge: iconUrl,
+          tag
+        });
+        notif.onclick = () => {
+          window.focus();
+          notif.close();
+        };
+      });
+    } else {
+      const notif = new Notification(title, {
+        body,
+        icon: iconUrl,
+        badge: iconUrl,
+        tag
+      });
+      notif.onclick = () => {
+        window.focus();
+        notif.close();
+      };
+    }
+  } catch (err) {
+    console.warn('Não foi possível exibir a notificação push de status do aluno:', err);
   }
 }
 

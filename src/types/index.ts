@@ -239,6 +239,7 @@ export interface AdminConfig {
 export interface SubscriptionInvoice {
   id: string;
   driverId: string;
+  subscriptionId?: string | null;
   monthRef: string;
   dueDate: string;
   paidAt?: string;
@@ -246,7 +247,7 @@ export interface SubscriptionInvoice {
   status: 'Pago' | 'Em Aberto' | 'Em Processamento' | 'Pendente';
   plan: 'Pro' | 'Frota';
   vehiclesCount: number;
-  method: 'Pix';
+  method: 'Pix' | 'Cartão' | 'Pix Instantâneo' | 'Cartão de Crédito Recorrente' | string;
   txid?: string;
   notes?: string;
   receiptUrl?: string;

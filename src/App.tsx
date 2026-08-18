@@ -45,7 +45,9 @@ import {
 import { playBusHornSound, speakTioIAPrompt } from './lib/sound';
 import { 
   showIncidentPushNotification, 
+  showStudentStatusPushNotification,
   playIncidentAlertChime, 
+  playStudentStatusChime,
   isPushNotificationSupported, 
   getPushNotificationPermission, 
   requestPushNotificationPermission 
@@ -139,6 +141,57 @@ const ParentView = () => {
       }
     });
   }, [activeIncidents]);
+
+  // Track and trigger real-time push notifications when student boarding status changes (in van, at school, at home, on the way)
+  const previousStudentStatusesRef = React.useRef<Record<string, string>>({});
+  const isInitialStudentLoadRef = React.useRef<boolean>(true);
+
+  useEffect(() => {
+    if (students.length === 0) return;
+
+    if (isInitialStudentLoadRef.current) {
+      students.forEach(s => {
+        if (s.id) {
+          previousStudentStatusesRef.current[s.id] = s.boardingStatus || 'Casa';
+        }
+      });
+      isInitialStudentLoadRef.current = false;
+      return;
+    }
+
+    students.forEach(s => {
+      if (!s.id) return;
+      const prevStatus = previousStudentStatusesRef.current[s.id];
+      const currentStatus = s.boardingStatus || 'Casa';
+
+      if (prevStatus && prevStatus !== currentStatus) {
+        previousStudentStatusesRef.current[s.id] = currentStatus;
+
+        // Fire native push notification + audio chime + vibration
+        showStudentStatusPushNotification({
+          studentName: s.name,
+          status: currentStatus,
+          schoolName: s.schoolName,
+          studentId: s.id
+        });
+
+        const statusLabels: Record<string, string> = {
+          'Van': 'acabou de embarcar na van escolar 🚌',
+          'Escola': `foi entregue na escola ${s.schoolName ? `(${s.schoolName})` : ''} 🏫`,
+          'Casa': 'chegou em casa com segurança 🏠',
+          'A CAMINHO': 'a van está a caminho da sua residência! 🚐',
+          'NÃO VAI': 'ausência confirmada para hoje 🚫'
+        };
+
+        toast(`🔔 ${s.name}: ${statusLabels[currentStatus] || `Status alterado para ${currentStatus}`}`, {
+          icon: currentStatus === 'Escola' ? '🏫' : currentStatus === 'Van' ? '🚌' : '🚐',
+          duration: 5000
+        });
+      } else {
+        previousStudentStatusesRef.current[s.id] = currentStatus;
+      }
+    });
+  }, [students]);
 
   const handleEnablePush = async () => {
     const perm = await requestPushNotificationPermission();
@@ -691,7 +744,7 @@ export default function App() {
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
   const [subscriptionPlan, setSubscriptionPlan] = useState<'Pro' | 'Frota'>('Pro');
-  const [subscriptionStep, setSubscriptionStep] = useState<'select' | 'pix' | 'contract'>('select');
+  const [subscriptionStep, setSubscriptionStep] = useState<'select' | 'pay'>('select');
   const [upgradeReason, setUpgradeReason] = useState('limit_students');
   const [isAICSMOpen, setIsAICSMOpen] = useState(false);
   const [triggerNewVehicleModal, setTriggerNewVehicleModal] = useState(false);
@@ -1421,12 +1474,12 @@ export default function App() {
         studentCount={students.length}
         onOpenContractModal={(plan) => {
           setSubscriptionPlan(plan);
-          setSubscriptionStep('contract');
+          setSubscriptionStep('pay');
           setIsSubscriptionModalOpen(true);
         }}
         onOpenPixCheckout={(plan) => {
           setSubscriptionPlan(plan);
-          setSubscriptionStep('pix');
+          setSubscriptionStep('pay');
           setIsSubscriptionModalOpen(true);
         }}
         onConfirmAutoAdd={() => {

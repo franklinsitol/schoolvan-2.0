@@ -11,7 +11,18 @@ import {
   Bot,
   Sparkles,
   QrCode,
-  ArrowRight
+  ArrowRight,
+  ShieldCheck,
+  Zap,
+  CreditCard,
+  Building2,
+  FileText,
+  BadgePercent,
+  Check,
+  UserCheck,
+  HelpCircle,
+  Clock,
+  ExternalLink
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useFirestore } from '../hooks/useFirestore';
@@ -29,7 +40,7 @@ export function FinanceView({ onNavigateToProfile }: { onNavigateToProfile?: () 
   const { data: finances } = useFirestore<Finance>(`drivers/${profile?.id}/finance`);
   const { data: students } = useFirestore<Student>(`drivers/${profile?.id}/students`);
   
-  const [activeTab, setActiveTab] = useState<'table' | 'billing_rule'>('table');
+  const [activeTab, setActiveTab] = useState<'table' | 'billing_rule' | 'fees_guide'>('table');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'Todos' | 'Em Dia' | 'Em Atraso'>('Todos');
@@ -139,16 +150,16 @@ export function FinanceView({ onNavigateToProfile }: { onNavigateToProfile?: () 
       {/* Header & Tab Switcher */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-black text-gray-950">Gestão Financeira & Cobrança</h2>
-          <p className="text-gray-600 text-sm font-medium">Controle de recebimentos, fluxo de caixa e régua de comunicação inteligente da T.IA.</p>
+          <h2 className="text-3xl font-black text-gray-950">Gestão de Mensalidades</h2>
+          <p className="text-gray-600 text-sm font-medium">Controle de recebimentos, fluxo de caixa e cobrança simples e transparente.</p>
         </div>
 
         {/* View mode toggle tabs */}
-        <div className="flex items-center p-1 bg-gray-100/90 rounded-2xl border border-gray-200 shadow-inner">
+        <div className="flex items-center p-1 bg-gray-100/90 rounded-2xl border border-gray-200 shadow-inner flex-wrap gap-1">
           <button
             onClick={() => setActiveTab('table')}
             className={cn(
-              "px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2",
+              "px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5",
               activeTab === 'table'
                 ? "bg-white text-gray-950 shadow-sm"
                 : "text-gray-600 hover:text-gray-950"
@@ -161,7 +172,7 @@ export function FinanceView({ onNavigateToProfile }: { onNavigateToProfile?: () 
           <button
             onClick={() => setActiveTab('billing_rule')}
             className={cn(
-              "px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2",
+              "px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5",
               activeTab === 'billing_rule'
                 ? "bg-gray-950 text-yellow-400 shadow-sm"
                 : "text-amber-900 hover:text-gray-950"
@@ -171,10 +182,211 @@ export function FinanceView({ onNavigateToProfile }: { onNavigateToProfile?: () 
             <span>Régua da T.IA</span>
             <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
           </button>
+
+          <button
+            onClick={() => setActiveTab('fees_guide')}
+            className={cn(
+              "px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5",
+              activeTab === 'fees_guide'
+                ? "bg-yellow-400 text-gray-950 shadow-sm font-black"
+                : "text-gray-700 hover:text-gray-950"
+            )}
+          >
+            <BadgePercent size={15} />
+            <span>Taxas & Como Funciona</span>
+          </button>
         </div>
       </div>
 
-      {activeTab === 'billing_rule' ? (
+      {activeTab === 'fees_guide' ? (
+        /* Transparent Fees & Flow Guide View */
+        <div className="space-y-6">
+          
+          {/* Header Banner */}
+          <div className="bg-gradient-to-br from-slate-900 via-gray-900 to-black text-white p-6 sm:p-8 rounded-3xl border border-slate-800 shadow-xl space-y-4">
+            <div className="flex items-center gap-2 text-yellow-400 font-bold text-xs uppercase tracking-wider">
+              <ShieldCheck size={18} />
+              <span>Transparência Total com o Motorista</span>
+            </div>
+            <h3 className="text-2xl sm:text-3xl font-black text-white leading-tight">
+              Como funcionam as opções de cobrança e o repasse para sua conta?
+            </h3>
+            <p className="text-sm text-gray-300 max-w-3xl leading-relaxed">
+              Você tem total liberdade para escolher entre <strong>Cobrança Manual (100% gratuita com sua própria chave Pix)</strong> ou <strong>SchoolVan Pay (com baixa automática e link de pagamento)</strong>.
+            </p>
+          </div>
+
+          {/* Side by Side Comparison Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* Card 1: Cobrança Manual */}
+            <div className="bg-white p-6 rounded-3xl border-2 border-amber-300 shadow-sm flex flex-col justify-between space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-900 flex items-center justify-center font-black">
+                    <UserCheck size={26} />
+                  </div>
+                  <span className="px-3 py-1 bg-emerald-100 text-emerald-800 font-black text-xs rounded-full">
+                    0% de Taxa (100% Grátis)
+                  </span>
+                </div>
+
+                <div>
+                  <h4 className="text-xl font-black text-gray-950">1. Cobrança Manual</h4>
+                  <p className="text-xs text-gray-600 mt-1">Usa sua chave Pix pessoal cadastrada no seu perfil.</p>
+                </div>
+
+                <div className="space-y-2.5 text-xs text-gray-700">
+                  <div className="flex items-start gap-2">
+                    <Check size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                    <span><strong>Chave Pix Própria</strong>: O texto do WhatsApp leva seu CPF, Celular ou E-mail cadastrado.</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Check size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                    <span><strong>Sem Intermediários</strong>: O dinheiro entra direto no seu banco no mesmo segundo.</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Check size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                    <span><strong>Baixa Manual</strong>: O pai envia o comprovante no WhatsApp e você marca como "Em Dia" com 1 clique.</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200">
+                <p className="text-xs text-amber-950 font-bold">
+                  Ideal para motoristas que preferem receber no próprio banco e fazer a conferência pelo extrato bancário.
+                </p>
+              </div>
+            </div>
+
+            {/* Card 2: Cobrança com SchoolVan Pay */}
+            <div className="bg-gradient-to-br from-gray-950 to-slate-900 text-white p-6 rounded-3xl border border-yellow-400/40 shadow-xl flex flex-col justify-between space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-yellow-400 text-gray-950 flex items-center justify-center font-black">
+                    <Zap size={26} />
+                  </div>
+                  <span className="px-3 py-1 bg-yellow-400 text-gray-950 font-black text-xs rounded-full">
+                    ⚡ Baixa 100% Automática
+                  </span>
+                </div>
+
+                <div>
+                  <h4 className="text-xl font-black text-white">2. Cobrança com SchoolVan Pay</h4>
+                  <p className="text-xs text-gray-300 mt-1">Pix Dinâmico, Boleto Registrado e Fatura Online.</p>
+                </div>
+
+                {/* Rates Table */}
+                <div className="bg-white/10 rounded-2xl p-4 space-y-3 border border-white/10 text-xs">
+                  <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                    <span className="flex items-center gap-1.5 text-yellow-300 font-bold">
+                      <QrCode size={14} /> Pix Dinâmico com Baixa Auto:
+                    </span>
+                    <strong className="text-white text-sm font-black">R$ 0,99 <span className="text-[10px] font-normal text-gray-300">/ recebido</span></strong>
+                  </div>
+                  <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                    <span className="flex items-center gap-1.5 text-gray-200 font-bold">
+                      <FileText size={14} /> Boleto Bancário Registrado:
+                    </span>
+                    <strong className="text-white text-sm font-black">R$ 2,49 <span className="text-[10px] font-normal text-gray-300">/ compensado</span></strong>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-gray-200 font-bold">
+                      <CreditCard size={14} /> Cartão de Crédito Online:
+                    </span>
+                    <strong className="text-white text-sm font-black">2,99% + R$ 0,49</strong>
+                  </div>
+                </div>
+
+                <div className="space-y-2 text-xs text-gray-300">
+                  <p>✓ <strong>Sem mensalidade</strong> e sem taxas de emissão/cancelamento.</p>
+                  <p>✓ <strong>Sem conferência manual</strong>: O app atualiza sozinho quando o pai paga.</p>
+                </div>
+              </div>
+
+              <div className="p-4 bg-yellow-400/10 rounded-2xl border border-yellow-400/30">
+                <p className="text-xs text-yellow-200 font-bold">
+                  Ideal para automatizar a rotina e não precisar cobrar comprovantes um por um.
+                </p>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Technical Revenue & Transfer Explanation (How it works step-by-step) */}
+          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm space-y-6">
+            <div className="flex items-center gap-2 text-yellow-600 font-black text-xs uppercase tracking-wider">
+              <Building2 size={18} />
+              <span>Entenda o Fluxo de Repasse do Dinheiro</span>
+            </div>
+
+            <h4 className="text-2xl font-black text-gray-950">
+              Como o motorista recebe o dinheiro no SchoolVan Pay?
+            </h4>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              
+              <div className="p-5 rounded-2xl bg-gray-50 border border-gray-200 space-y-2">
+                <div className="w-8 h-8 rounded-xl bg-gray-950 text-yellow-400 font-black flex items-center justify-center text-xs">
+                  1
+                </div>
+                <h5 className="font-black text-gray-950 text-sm">Cadastro da Conta</h5>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  O motorista cadastra sua chave Pix ou dados bancários em <strong>"Meu Perfil"</strong>.
+                </p>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-gray-50 border border-gray-200 space-y-2">
+                <div className="w-8 h-8 rounded-xl bg-gray-950 text-yellow-400 font-black flex items-center justify-center text-xs">
+                  2
+                </div>
+                <h5 className="font-black text-gray-950 text-sm">Disparo da Cobrança</h5>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  A T.IA gera o Pix Copia e Cola / Boleto e o motorista envia para o WhatsApp do responsável.
+                </p>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-gray-50 border border-gray-200 space-y-2">
+                <div className="w-8 h-8 rounded-xl bg-gray-950 text-yellow-400 font-black flex items-center justify-center text-xs">
+                  3
+                </div>
+                <h5 className="font-black text-gray-950 text-sm">Pagamento & Baixa</h5>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  O pai paga no banco dele e o sistema dá <strong>baixa automática</strong> no status do aluno na mesma hora.
+                </p>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-gray-50 border border-gray-200 space-y-2">
+                <div className="w-8 h-8 rounded-xl bg-gray-950 text-yellow-400 font-black flex items-center justify-center text-xs">
+                  4
+                </div>
+                <h5 className="font-black text-gray-950 text-sm">Repasse Automático</h5>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  O saldo líquido é transferido via Pix diretamente para a conta bancária cadastrada do motorista.
+                </p>
+              </div>
+
+            </div>
+
+            <div className="p-4 bg-yellow-50 rounded-2xl border border-yellow-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-xs text-yellow-950 font-bold">
+                <Info size={16} className="text-yellow-700 shrink-0" />
+                <span>Precisa cadastrar ou atualizar sua chave Pix de recebimento?</span>
+              </div>
+              {onNavigateToProfile && (
+                <button
+                  onClick={onNavigateToProfile}
+                  className="px-4 py-2 bg-yellow-400 hover:bg-yellow-300 text-gray-950 text-xs font-black rounded-xl transition-all shadow-sm cursor-pointer shrink-0"
+                >
+                  Abrir Meu Perfil →
+                </button>
+              )}
+            </div>
+
+          </div>
+
+        </div>
+      ) : activeTab === 'billing_rule' ? (
         <BillingRuleAutomation 
           students={students} 
           finances={finances} 
@@ -231,25 +443,35 @@ export function FinanceView({ onNavigateToProfile }: { onNavigateToProfile?: () 
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h4 className="text-xs sm:text-sm font-black text-gray-950">
-                    Régua de Cobrança T.IA + SchoolVan Pay (Hoje é dia {currentDay})
+                    Opções de Cobrança: Manual (Sua Chave Pix) ou SchoolVan Pay (Hoje é dia {currentDay})
                   </h4>
                   <span className="px-2 py-0.5 bg-yellow-400 text-gray-950 font-black text-[10px] rounded-full uppercase tracking-wider">
-                    ⚡ Baixa Automática
+                    ⚡ WhatsApp Direto
                   </span>
                 </div>
                 <p className="text-xs text-gray-700 font-medium mt-0.5">
-                  A T.IA calcula a data de cada aluno e gera o Pix Copia e Cola bancário ou Boleto registrado SchoolVan com texto personalizado para WhatsApp.
+                  Cobrança manual sem taxas com sua própria chave Pix, ou cobrança automática com Pix dinâmico e boleto.
                 </p>
               </div>
             </div>
 
-            <button
-              onClick={() => setActiveTab('billing_rule')}
-              className="px-4 py-2.5 bg-gray-950 hover:bg-gray-800 text-yellow-400 font-black rounded-xl text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer active:scale-95 shrink-0"
-            >
-              <span>Ver Régua Completa</span>
-              <ArrowRight size={14} />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setActiveTab('fees_guide')}
+                className="px-3.5 py-2.5 bg-white hover:bg-gray-100 text-gray-900 border border-gray-200 font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer shrink-0"
+              >
+                <BadgePercent size={14} />
+                <span>Ver Taxas</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('billing_rule')}
+                className="px-4 py-2.5 bg-gray-950 hover:bg-gray-800 text-yellow-400 font-black rounded-xl text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer active:scale-95 shrink-0"
+              >
+                <span>Régua da T.IA</span>
+                <ArrowRight size={14} />
+              </button>
+            </div>
           </div>
 
           {/* Filters and Search */}
@@ -363,10 +585,10 @@ export function FinanceView({ onNavigateToProfile }: { onNavigateToProfile?: () 
                               status: item.status
                             })}
                             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 transition-all shadow-sm active:scale-95 cursor-pointer"
-                            title="Abrir opções de cobrança da T.IA com Pix Copia e Cola, Boleto Bancário ou Link Digital"
+                            title="Cobrar este aluno (Manual com sua Chave Pix ou com SchoolVan Pay)"
                           >
                             <MessageCircle size={14} />
-                            <span>Cobrar com T.IA</span>
+                            <span>Cobrar</span>
                           </button>
                         </td>
                       </tr>
@@ -398,6 +620,7 @@ export function FinanceView({ onNavigateToProfile }: { onNavigateToProfile?: () 
           onClose={() => setSelectedStudentForBilling(null)}
           student={selectedStudentForBilling.student}
           financeStatus={selectedStudentForBilling.status}
+          onOpenProfile={onNavigateToProfile}
         />
       )}
     </div>

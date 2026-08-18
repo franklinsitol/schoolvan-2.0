@@ -8,6 +8,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { isStudentAbsentOnDate, reintegrateStudentToRoute, getTodayStr } from '../lib/absence';
 import { playBusHornSound } from '../lib/sound';
+import { showStudentStatusPushNotification, playStudentStatusChime } from '../lib/pushNotifications';
 import toast from 'react-hot-toast';
 
 interface CheckinModalProps {
@@ -58,6 +59,15 @@ export function CheckinModal({ isOpen, onClose, students, driverId }: CheckinMod
         boardingStatus: newStatus,
         lastCheck: new Date().toISOString()
       });
+
+      // Trigger local sound & push notification
+      showStudentStatusPushNotification({
+        studentName: student.name,
+        status: newStatus,
+        schoolName: student.schoolName,
+        studentId: student.id
+      });
+
       toast.success(`${student.name}: ${statusLabels[newStatus]}`);
 
       // If student just boarded the van (Van), notify the NEXT student that the van is on the way!
@@ -70,6 +80,14 @@ export function CheckinModal({ isOpen, onClose, students, driverId }: CheckinMod
             boardingStatus: 'A CAMINHO',
             lastCheck: new Date().toISOString()
           });
+
+          showStudentStatusPushNotification({
+            studentName: nextStudent.name,
+            status: 'A CAMINHO',
+            schoolName: nextStudent.schoolName,
+            studentId: nextStudent.id
+          });
+
           toast(`🔔 Notificação de proximidade: ${nextStudent.name} é o próximo na rota (A Caminho)!`, {
             icon: '🚐',
             duration: 4000

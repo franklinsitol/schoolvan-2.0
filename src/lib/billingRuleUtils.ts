@@ -277,10 +277,7 @@ export function calculateStudentBillingStage(
   return 'atraso_critico';
 }
 
-/**
- * Formats a message for a given student, stage, and driver profile.
- */
-export function formatBillingMessage(params: {
+export interface BillingMessageParams {
   stageKey: BillingStageKey;
   studentName: string;
   parentName: string;
@@ -290,9 +287,20 @@ export function formatBillingMessage(params: {
   pixKey: string;
   driverCity?: string;
   customTemplate?: string;
-}): {
+  billingMethod?: 'manual' | 'schoolvan_pay';
+  asaasPixCopiaECola?: string;
+  asaasInvoiceUrl?: string;
+}
+
+/**
+ * Formats a message for a given student, stage, and driver profile.
+ * - In 'manual' mode: Strictly uses the driver's own registered Pix key without gateway intermediary.
+ * - In 'schoolvan_pay' mode: Uses the dynamic gateway QR Code/Pix Copia & Cola and digital invoice link for instant automatic reconciliation.
+ */
+export function formatBillingMessage(params: BillingMessageParams): {
   messageText: string;
-  pixCopiaECola: string;
+  pixString: string;
+  billingMethod: 'manual' | 'schoolvan_pay';
 } {
   const {
     stageKey,
@@ -303,38 +311,71 @@ export function formatBillingMessage(params: {
     paymentDay,
     pixKey,
     driverCity,
-    customTemplate
+    customTemplate,
+    billingMethod = 'manual',
+    asaasPixCopiaECola,
+    asaasInvoiceUrl
   } = params;
 
   const stageConfig = BILLING_STAGES[stageKey];
-  const template = customTemplate || stageConfig.defaultTemplate;
-
-  // Generate authentic Pix Copia e Cola BR Code or readable key
-  const emvPix = generatePixCopiaECola({
-    pixKey,
-    driverName,
-    city: driverCity,
-    amount: value,
-    studentName,
-    txid: `MENSALIDADE${paymentDay}`
-  });
-
-  // If EMV fails or no key, provide clear text
-  const pixStringToUse = (pixKey && pixKey.trim().length > 0) ? emvPix : 'Chave Pix a cadastrar';
-
   const formattedValue = value.toFixed(2).replace('.', ',');
 
-  const messageText = template
+  let pixStringToUse = '';
+  let invoiceBlock = '';
+
+  if (billingMethod === 'schoolvan_pay') {
+    // Automated SchoolVan Pay Flow
+    pixStringToUse = asaasPixCopiaECola || generatePixCopiaECola({
+      pixKey: pixKey || 'suporte@schoolvan.com.br',
+      driverName: driverName || 'SchoolVan Pay',
+      city: driverCity || 'SAO PAULO',
+      amount: value,
+      studentName,
+      txid: `SV${paymentDay}`
+    });
+
+    if (asaasInvoiceUrl) {
+      invoiceBlock = `\n📄 *Link da Fatura Digital / Boleto / Cartão:* ${asaasInvoiceUrl}`;
+    }
+  } else {
+    // Pure Manual Flow: strictly the driver's own registered Pix key
+    pixStringToUse = pixKey && pixKey.trim().length > 0 
+      ? pixKey.trim() 
+      : '(Chave Pix não cadastrada no Perfil do Motorista)';
+  }
+
+  let template = customTemplate || stageConfig.defaultTemplate;
+
+  // If in manual mode, adjust pix label to clearly show driver's own Pix key
+  if (billingMethod === 'manual') {
+    template = template
+      .replace(/\[PIX_COPIA_COLA\]/g, pixStringToUse)
+      .replace(/\[CHAVE_PIX\]/g, pixStringToUse);
+  } else {
+    template = template
+      .replace(/\[PIX_COPIA_COLA\]/g, pixStringToUse + invoiceBlock)
+      .replace(/\[CHAVE_PIX\]/g, pixStringToUse);
+  }
+
+  let messageText = template
     .replace(/\[NOME_RESPONSAVEL\]/g, parentName || 'Responsável')
     .replace(/\[NOME_ALUNO\]/g, studentName || 'Aluno')
     .replace(/\[NOME_TIO\]/g, driverName || 'Tio da Van')
     .replace(/\[VALOR\]/g, formattedValue)
-    .replace(/\[DIA_VENCIMENTO\]/g, String(paymentDay || 10))
-    .replace(/\[PIX_COPIA_COLA\]/g, pixStringToUse)
-    .replace(/\[CHAVE_PIX\]/g, pixKey || 'Chave Pix não cadastrada');
+    .replace(/\[DIA_VENCIMENTO\]/g, String(paymentDay || 10));
+
+  if (billingMethod === 'manual') {
+    // Add clear note asking for receipt
+    if (!messageText.includes('comprovante')) {
+      messageText += `\n\n📌 *Chave Pix do Motorista:* ${pixStringToUse}\n*(Favor nos enviar o comprovante por aqui após o pagamento para darmos baixa no sistema!)*`;
+    }
+  } else if (billingMethod === 'schoolvan_pay' && asaasInvoiceUrl && !messageText.includes(asaasInvoiceUrl)) {
+    messageText += `\n${invoiceBlock}\n*(Pagamento com baixa automática instantânea no app!)*`;
+  }
 
   return {
     messageText,
-    pixCopiaECola: pixStringToUse
+    pixString: pixStringToUse,
+    billingMethod
   };
 }

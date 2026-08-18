@@ -27,6 +27,7 @@ import {
   Clock,
   FileText,
   Award,
+  RefreshCw,
   X
 } from 'lucide-react';
 import { db, auth } from '../lib/firebase';
@@ -73,6 +74,8 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
   const [verificationFilter, setVerificationFilter] = useState<'todos' | 'pending' | 'verified' | 'unverified'>('todos');
   const [viewingVerificationDriver, setViewingVerificationDriver] = useState<Driver | null>(null);
   const [savingConfig, setSavingConfig] = useState(false);
+  const [testingAsaas, setTestingAsaas] = useState(false);
+  const [asaasTestStatus, setAsaasTestStatus] = useState<{ success: boolean; message: string; details?: any } | null>(null);
   const isInitialTicketsRef = useRef(true);
 
   // Auto-request Notification permission for Super Admin PWA
@@ -333,6 +336,46 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
       toast.error("Erro ao salvar configurações");
     } finally {
       setSavingConfig(false);
+    }
+  };
+
+  const handleTestAsaasConnection = async () => {
+    setTestingAsaas(true);
+    setAsaasTestStatus(null);
+    try {
+      const response = await fetch('/api/asaas/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiKey: config.asaasApiKey,
+          environment: config.asaasEnvironment || 'sandbox'
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setAsaasTestStatus({
+          success: true,
+          message: `Conexão bem sucedida! Ambiente: ${data.environment.toUpperCase()}`,
+          details: data
+        });
+        toast.success(`Integração Asaas validada com sucesso (${data.environment})!`);
+      } else {
+        setAsaasTestStatus({
+          success: false,
+          message: data.error || 'Erro ao conectar com a API do Asaas.',
+          details: data
+        });
+        toast.error(data.error || 'Falha na autenticação com Asaas');
+      }
+    } catch (err: any) {
+      console.error("Erro ao testar conexão Asaas:", err);
+      setAsaasTestStatus({
+        success: false,
+        message: 'Erro de rede ou servidor ao testar conexão Asaas.'
+      });
+      toast.error('Erro de comunicação ao testar Asaas.');
+    } finally {
+      setTestingAsaas(false);
     }
   };
 
@@ -1146,19 +1189,62 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={savingConfig}
-            className="w-full py-4 bg-gray-900 text-yellow-400 font-bold rounded-2xl hover:bg-gray-800 transition-all shadow-xl flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            {savingConfig ? (
-              <div className="w-5 h-5 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <>
-                <Save size={20} /> SALVAR CONFIGURAÇÕES DO ASAAS GATEWAY
-              </>
-            )}
-          </button>
+          {/* Test Status Message */}
+          {asaasTestStatus && (
+            <div className={cn(
+              "p-4 rounded-2xl border text-xs font-semibold flex items-start gap-3",
+              asaasTestStatus.success 
+                ? "bg-emerald-50 border-emerald-200 text-emerald-900" 
+                : "bg-rose-50 border-rose-200 text-rose-900"
+            )}>
+              {asaasTestStatus.success ? (
+                <CheckCircle2 size={18} className="text-emerald-600 shrink-0 mt-0.5" />
+              ) : (
+                <AlertCircle size={18} className="text-rose-600 shrink-0 mt-0.5" />
+              )}
+              <div className="space-y-1">
+                <p className="font-bold">{asaasTestStatus.message}</p>
+                {asaasTestStatus.details && (
+                  <p className="font-mono text-[11px] opacity-80">
+                    Status: {asaasTestStatus.details.authenticated ? 'Autenticado' : 'Falha'}
+                    {asaasTestStatus.details.accountType ? ` • Tipo: ${asaasTestStatus.details.accountType}` : ''}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <button
+              type="button"
+              disabled={testingAsaas || !config.asaasApiKey}
+              onClick={handleTestAsaasConnection}
+              className="w-full sm:w-auto px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {testingAsaas ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <RefreshCw size={18} />
+                  <span>Testar Conexão com Asaas</span>
+                </>
+              )}
+            </button>
+
+            <button
+              type="submit"
+              disabled={savingConfig}
+              className="flex-1 w-full py-4 bg-gray-900 text-yellow-400 font-bold rounded-2xl hover:bg-gray-800 transition-all shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+            >
+              {savingConfig ? (
+                <div className="w-5 h-5 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <Save size={20} /> SALVAR CONFIGURAÇÕES DO ASAAS GATEWAY
+                </>
+              )}
+            </button>
+          </div>
         </form>
       )}
 
