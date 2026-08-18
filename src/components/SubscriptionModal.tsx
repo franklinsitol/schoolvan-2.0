@@ -984,6 +984,51 @@ export function SubscriptionModal({
               {paymentMethod === 'CREDIT_CARD' && (
                 <form onSubmit={handlePayCreditCard} className="space-y-3.5 text-left">
                   
+                  {/* Sandbox Test Auto-Fill Helper */}
+                  <div className="bg-amber-50/90 border border-amber-200 p-3 rounded-2xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-black text-amber-900 flex items-center gap-1.5">
+                        <Sparkles size={14} className="text-amber-600" />
+                        Cartões Oficiais de Teste (Asaas Sandbox)
+                      </span>
+                      <span className="text-[9px] font-black bg-amber-200 text-amber-950 px-2 py-0.5 rounded-full uppercase">
+                        Sem cobrança real
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCardNumber('4012 0010 3714 1112');
+                          setCardHolder('FRANKLIN TOLEDO');
+                          setCardExpiry('12/29');
+                          setCardCvv('123');
+                          if (!cardCpf) setCardCpf('123.456.789-00');
+                          toast.success('Cartão de APROVAÇÃO preenchido!');
+                        }}
+                        className="py-1.5 px-2 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold rounded-xl text-[11px] flex items-center justify-center gap-1 transition-all cursor-pointer shadow-sm active:scale-95"
+                      >
+                        <Check size={13} className="text-emerald-600" /> Preencher: Aprovado
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCardNumber('4012 0010 3714 1111');
+                          setCardHolder('FRANKLIN TOLEDO');
+                          setCardExpiry('12/29');
+                          setCardCvv('123');
+                          if (!cardCpf) setCardCpf('123.456.789-00');
+                          toast.error('Cartão de RECUSA preenchido para teste!');
+                        }}
+                        className="py-1.5 px-2 bg-white hover:bg-red-50 text-red-800 border border-red-300 font-bold rounded-xl text-[11px] flex items-center justify-center gap-1 transition-all cursor-pointer shadow-sm active:scale-95"
+                      >
+                        <AlertCircle size={13} className="text-red-600" /> Preencher: Recusado
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Number */}
                   <div>
                     <label className="text-xs font-black text-gray-700 block mb-1">
