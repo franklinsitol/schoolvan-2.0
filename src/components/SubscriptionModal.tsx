@@ -435,8 +435,14 @@ export function SubscriptionModal({
         })
       });
 
-      const data = await res.json();
-      if (data.success) {
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        console.warn('Response is not JSON:', parseErr);
+      }
+
+      if (data && data.success) {
         const nowIso = new Date().toISOString();
         const payload = {
           invoiceStatus: 'Em Dia',
@@ -473,10 +479,12 @@ export function SubscriptionModal({
         setStep('success');
         toast.success('🎉 Cartão cadastrado com sucesso! Assinatura ativada.');
       } else {
-        toast.error(data.error || 'Não foi possível processar o cartão. Verifique os dados e tente novamente.');
+        const errorMsg = data?.error || data?.reason || 'Não foi possível processar o cartão com o gateway Asaas.';
+        toast.error(errorMsg);
       }
-    } catch (err) {
-      toast.error('Erro ao processar cartão. Verifique sua conexão.');
+    } catch (err: any) {
+      console.error('Credit card payment error:', err);
+      toast.error(err?.message || 'Erro ao processar cartão. Verifique os dados e tente novamente.');
     } finally {
       setProcessingCard(false);
     }
