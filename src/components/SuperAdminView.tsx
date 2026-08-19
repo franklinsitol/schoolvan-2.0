@@ -42,7 +42,7 @@ interface SuperAdminViewProps {
 }
 
 export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
-  const [activeTab, setActiveTab] = useState<'drivers' | 'tickets' | 'asaas' | 'config'>('drivers');
+  const [activeTab, setActiveTab] = useState<'drivers' | 'tickets' | 'gateway' | 'config'>('drivers');
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [config, setConfig] = useState<AdminConfig>({
@@ -60,6 +60,12 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
     popupMsg: '',
     termsText: 'Termos de uso do sistema...',
     lgpdText: 'Política de privacidade LGPD...',
+    paymentGatewayProvider: 'cora',
+    coraClientId: 'app-hKTVJB2iqimj0uUNqAjSS',
+    coraClientSecret: '9c8d3404-f99c-4a5a-8210-e856ba586eaa',
+    coraEnvironment: 'stage',
+    coraPlatformSplitFee: 1.50,
+    coraAutoSync: true,
     asaasEnvironment: 'sandbox',
     asaasPlatformSplitFee: 1.50,
     asaasSplitType: 'FIXED',
@@ -74,6 +80,8 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
   const [verificationFilter, setVerificationFilter] = useState<'todos' | 'pending' | 'verified' | 'unverified'>('todos');
   const [viewingVerificationDriver, setViewingVerificationDriver] = useState<Driver | null>(null);
   const [savingConfig, setSavingConfig] = useState(false);
+  const [testingCora, setTestingCora] = useState(false);
+  const [coraTestStatus, setCoraTestStatus] = useState<{ success: boolean; message: string; details?: any } | null>(null);
   const [testingAsaas, setTestingAsaas] = useState(false);
   const [asaasTestStatus, setAsaasTestStatus] = useState<{ success: boolean; message: string; details?: any } | null>(null);
   const isInitialTicketsRef = useRef(true);
@@ -339,6 +347,47 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
     }
   };
 
+  const handleTestCoraConnection = async () => {
+    setTestingCora(true);
+    setCoraTestStatus(null);
+    try {
+      const response = await fetch('/api/cora/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: config.coraClientId,
+          clientSecret: config.coraClientSecret,
+          environment: config.coraEnvironment || 'stage'
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setCoraTestStatus({
+          success: true,
+          message: data.message || `Conexão bem sucedida com o Cora Bank (${data.environment.toUpperCase()})!`,
+          details: data
+        });
+        toast.success(`Integração Cora Bank validada com sucesso! Token gerado (${data.environment}).`);
+      } else {
+        setCoraTestStatus({
+          success: false,
+          message: data.message || data.error || 'Erro ao autenticar com o Cora Bank.',
+          details: data
+        });
+        toast.error(data.message || 'Falha na autenticação com Cora Bank');
+      }
+    } catch (err: any) {
+      console.error("Erro ao testar conexão Cora:", err);
+      setCoraTestStatus({
+        success: false,
+        message: 'Erro de rede ou servidor ao testar conexão Cora Bank.'
+      });
+      toast.error('Erro de comunicação ao testar Cora Bank.');
+    } finally {
+      setTestingCora(false);
+    }
+  };
+
   const handleTestAsaasConnection = async () => {
     setTestingAsaas(true);
     setAsaasTestStatus(null);
@@ -347,8 +396,8 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          apiKey: config.asaasApiKey,
-          environment: config.asaasEnvironment || 'sandbox'
+          customApiKey: config.asaasApiKey,
+          customEnvironment: config.asaasEnvironment || 'sandbox'
         })
       });
       const data = await response.json();
@@ -362,10 +411,10 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
       } else {
         setAsaasTestStatus({
           success: false,
-          message: data.error || 'Erro ao conectar com a API do Asaas.',
+          message: data.error || data.message || 'Erro ao conectar com a API do Asaas.',
           details: data
         });
-        toast.error(data.error || 'Falha na autenticação com Asaas');
+        toast.error(data.error || data.message || 'Falha na autenticação com Asaas');
       }
     } catch (err: any) {
       console.error("Erro ao testar conexão Asaas:", err);
@@ -453,15 +502,15 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
               Chamados ({tickets.filter(t => t.status === 'Aberto').length})
             </button>
             <button
-              onClick={() => setActiveTab('asaas')}
+              onClick={() => setActiveTab('gateway')}
               className={cn(
                 "px-5 py-2.5 rounded-2xl text-sm font-bold transition-all flex items-center gap-1.5",
-                activeTab === 'asaas' ? "bg-yellow-400 text-gray-900 shadow-lg" : "bg-white/10 text-white hover:bg-white/20"
+                activeTab === 'gateway' ? "bg-yellow-400 text-gray-900 shadow-lg" : "bg-white/10 text-white hover:bg-white/20"
               )}
             >
               <CreditCard size={15} />
-              <span>Gateway Asaas</span>
-              {config.asaasApiKey && <span className="w-2 h-2 rounded-full bg-emerald-400" />}
+              <span>Gateway Bancário (Cora Bank)</span>
+              {(config.coraClientId || config.asaasApiKey) && <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />}
             </button>
             <button
               onClick={() => setActiveTab('config')}
@@ -1044,19 +1093,19 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
         </div>
       )}
 
-      {/* TAB 3: ASAAS GATEWAY CONFIGURATION */}
-      {activeTab === 'asaas' && (
+      {/* TAB 3: CORA BANK & ASAAS GATEWAY CONFIGURATION */}
+      {activeTab === 'gateway' && (
         <form onSubmit={handleSaveConfig} className="bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm space-y-8 animate-fadeIn">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 pb-6">
             <div>
               <div className="flex items-center gap-2">
-                <div className="p-2.5 bg-blue-50 text-blue-600 rounded-2xl">
+                <div className="p-2.5 bg-yellow-50 text-yellow-600 rounded-2xl">
                   <CreditCard size={24} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">Integração Asaas Gateway</h2>
+                  <h2 className="text-xl font-bold text-gray-900">Integração Bancária & Gateway de Pagamentos</h2>
                   <p className="text-xs text-gray-500">
-                    Gerencie a chave de API, split de comissão automática por cobrança e webhook.
+                    Gerencie a integração oficial com o <strong>Cora Bank</strong> (OAuth 2.0 / Homologação e Produção) e gateways auxiliares.
                   </p>
                 </div>
               </div>
@@ -1064,173 +1113,238 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
             <div className="flex items-center gap-2">
               <span className={cn(
                 "px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5",
-                config.asaasApiKey ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                config.coraClientId ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
               )}>
-                <span className={cn("w-2 h-2 rounded-full", config.asaasApiKey ? "bg-emerald-500 animate-pulse" : "bg-amber-500")} />
-                {config.asaasApiKey ? "API Conectada" : "Aguardando Chave"}
+                <span className={cn("w-2 h-2 rounded-full", config.coraClientId ? "bg-emerald-500 animate-pulse" : "bg-amber-500")} />
+                {config.coraClientId ? "Cora Bank Conectado" : "Aguardando Credenciais Cora"}
               </span>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Ambiente */}
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
-                Ambiente de Execução
-              </label>
-              <select
-                value={config.asaasEnvironment || 'sandbox'}
-                onChange={(e) => setConfig({ ...config, asaasEnvironment: e.target.value as any })}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-yellow-400 text-sm font-bold text-gray-800"
-              >
-                <option value="sandbox">Sandbox (Ambiente de Testes Gratuito - sandbox.asaas.com)</option>
-                <option value="production">Produção (Ambiente Real Oficial - asaas.com)</option>
-              </select>
-              <p className="text-[11px] text-gray-400 ml-1">
-                Use Sandbox para testar a emissão de cobranças fictícias antes de ir para produção.
-              </p>
-            </div>
-
-            {/* Taxa de Split SchoolVan */}
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
-                Sua Comissão SchoolVan por Cobrança (Split)
-              </label>
-              <div className="relative">
-                <span className="absolute left-4 top-3.5 text-sm font-bold text-gray-400">R$</span>
+          {/* Seleção do Provedor Ativo */}
+          <div className="bg-gray-50 p-5 rounded-2xl border border-gray-200/80 space-y-3">
+            <label className="text-xs font-bold text-gray-700 uppercase tracking-wider block">
+              Gateway de Pagamento Ativo da Plataforma
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className={cn(
+                "p-4 rounded-2xl border-2 flex items-center gap-3 cursor-pointer transition-all",
+                (config.paymentGatewayProvider || 'cora') === 'cora'
+                  ? "bg-yellow-50/70 border-yellow-400 text-gray-900 shadow-sm"
+                  : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+              )}>
                 <input
-                  type="number"
-                  step="0.10"
-                  min="0"
-                  value={config.asaasPlatformSplitFee ?? 1.50}
-                  onChange={(e) => setConfig({ ...config, asaasPlatformSplitFee: Number(e.target.value) })}
-                  className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-yellow-400 text-sm font-bold text-gray-800"
-                  placeholder="1.50"
+                  type="radio"
+                  name="paymentGatewayProvider"
+                  value="cora"
+                  checked={(config.paymentGatewayProvider || 'cora') === 'cora'}
+                  onChange={() => setConfig({ ...config, paymentGatewayProvider: 'cora' })}
+                  className="accent-yellow-500 w-4 h-4"
                 />
-              </div>
-              <p className="text-[11px] text-gray-400 ml-1">
-                Valor líquido que a SchoolVan retém automaticamente de cada mensalidade paga pelos pais (Ex: R$ 1,50).
-              </p>
-            </div>
-
-            {/* API Key do Asaas */}
-            <div className="md:col-span-2 space-y-1">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
-                Chave de API do Asaas (Access Token)
+                <div>
+                  <div className="font-bold text-sm flex items-center gap-1.5">
+                    <span>🏦 Cora Bank (Recomendado / Ativo)</span>
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-black">OFICIAL</span>
+                  </div>
+                  <div className="text-xs text-gray-500">API Direta de Cobranças Pix e Boletos via OAuth2</div>
+                </div>
               </label>
-              <input
-                type="password"
-                value={config.asaasApiKey || ''}
-                onChange={(e) => setConfig({ ...config, asaasApiKey: e.target.value })}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-yellow-400 text-sm font-mono text-gray-800 tracking-wider"
-                placeholder="$aact_YTU5YTE0M2M6N2Zl..."
-              />
-              <p className="text-[11px] text-gray-400 ml-1">
-                Copie no painel do Asaas em: <strong>Configurações da Conta &gt; Integrações &gt; Chaves de API</strong>.
-              </p>
-            </div>
 
-            {/* Webhook Secret Token */}
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
-                Token de Autenticação do Webhook (Opcional)
-              </label>
-              <input
-                type="password"
-                value={config.asaasWebhookSecret || ''}
-                onChange={(e) => setConfig({ ...config, asaasWebhookSecret: e.target.value })}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-yellow-400 text-sm font-mono text-gray-800"
-                placeholder="Token de segurança do Webhook"
-              />
-            </div>
-
-            {/* URL do Webhook da SchoolVan */}
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
-                URL do Webhook para cadastrar no Asaas
-              </label>
-              <div className="flex items-center gap-2">
+              <label className={cn(
+                "p-4 rounded-2xl border-2 flex items-center gap-3 cursor-pointer transition-all",
+                config.paymentGatewayProvider === 'asaas'
+                  ? "bg-blue-50/70 border-blue-400 text-gray-900 shadow-sm"
+                  : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+              )}>
                 <input
-                  type="text"
-                  readOnly
-                  value={`${window.location.origin}/api/asaas/webhook`}
-                  className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-2xl text-xs font-mono text-gray-600 select-all"
+                  type="radio"
+                  name="paymentGatewayProvider"
+                  value="asaas"
+                  checked={config.paymentGatewayProvider === 'asaas'}
+                  onChange={() => setConfig({ ...config, paymentGatewayProvider: 'asaas' })}
+                  className="accent-blue-500 w-4 h-4"
                 />
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}/api/asaas/webhook`);
-                    alert('URL do Webhook copiada!');
-                  }}
-                  className="px-4 py-3 bg-gray-900 text-yellow-400 font-bold rounded-2xl text-xs whitespace-nowrap hover:bg-gray-800"
-                >
-                  Copiar
-                </button>
-              </div>
-            </div>
-
-            {/* Sincronização Automática */}
-            <div className="md:col-span-2 bg-blue-50/50 p-5 rounded-2xl border border-blue-100 flex items-start gap-4">
-              <input
-                type="checkbox"
-                id="asaasAutoSync"
-                checked={config.asaasAutoSync ?? true}
-                onChange={(e) => setConfig({ ...config, asaasAutoSync: e.target.checked })}
-                className="w-5 h-5 mt-0.5 accent-yellow-400 rounded cursor-pointer"
-              />
-              <div>
-                <label htmlFor="asaasAutoSync" className="text-sm font-bold text-gray-900 cursor-pointer block">
-                  Ativar Baixa Automática e Notificação via T.IA
-                </label>
-                <p className="text-xs text-gray-600 mt-0.5">
-                  Quando o Asaas confirmar um pagamento de PIX ou Boleto, a SchoolVan atualiza o status para <strong>Pago</strong> em tempo real e dispara a mensagem de confirmação para o responsável e para o motorista.
-                </p>
-              </div>
+                <div>
+                  <div className="font-bold text-sm">Asaas Gateway (Legado / Alternativo)</div>
+                  <div className="text-xs text-gray-500">Chave de acesso Access Token $aact_...</div>
+                </div>
+              </label>
             </div>
           </div>
 
-          {/* Test Status Message */}
-          {asaasTestStatus && (
-            <div className={cn(
-              "p-4 rounded-2xl border text-xs font-semibold flex items-start gap-3",
-              asaasTestStatus.success 
-                ? "bg-emerald-50 border-emerald-200 text-emerald-900" 
-                : "bg-rose-50 border-rose-200 text-rose-900"
-            )}>
-              {asaasTestStatus.success ? (
-                <CheckCircle2 size={18} className="text-emerald-600 shrink-0 mt-0.5" />
-              ) : (
-                <AlertCircle size={18} className="text-rose-600 shrink-0 mt-0.5" />
-              )}
-              <div className="space-y-1">
-                <p className="font-bold">{asaasTestStatus.message}</p>
-                {asaasTestStatus.details && (
-                  <p className="font-mono text-[11px] opacity-80">
-                    Status: {asaasTestStatus.details.authenticated ? 'Autenticado' : 'Falha'}
-                    {asaasTestStatus.details.accountType ? ` • Tipo: ${asaasTestStatus.details.accountType}` : ''}
-                  </p>
-                )}
+          {/* SEÇÃO CORA BANK */}
+          <div className="border border-yellow-200/80 bg-yellow-50/30 p-6 rounded-3xl space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-black text-gray-900 text-base flex items-center gap-2">
+                  <span>🏦 Configuração da API Cora Bank</span>
+                  <span className="text-xs px-2.5 py-0.5 bg-yellow-100 text-yellow-800 rounded-full font-bold">OAuth 2.0</span>
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Credenciais fornecidas pelo time de integrações da Cora no e-mail de aprovação de homologação.
+                </p>
               </div>
             </div>
-          )}
 
-          <div className="flex flex-col sm:flex-row items-center gap-3">
-            <button
-              type="button"
-              disabled={testingAsaas || !config.asaasApiKey}
-              onClick={handleTestAsaasConnection}
-              className="w-full sm:w-auto px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-            >
-              {testingAsaas ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <>
-                  <RefreshCw size={18} />
-                  <span>Testar Conexão com Asaas</span>
-                </>
-              )}
-            </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Ambiente Cora */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
+                  Ambiente Cora
+                </label>
+                <select
+                  value={config.coraEnvironment || 'stage'}
+                  onChange={(e) => setConfig({ ...config, coraEnvironment: e.target.value as any })}
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-yellow-400 text-sm font-bold text-gray-800"
+                >
+                  <option value="stage">Homologação / Testes (api.stage.cora.com.br)</option>
+                  <option value="production">Produção Oficial (api.cora.com.br)</option>
+                </select>
+                <p className="text-[11px] text-gray-400 ml-1">
+                  Ambiente de testes solicitado pela Cora para validação inicial antes da virada para produção.
+                </p>
+              </div>
 
+              {/* Taxa de Split SchoolVan */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
+                  Taxa SchoolVan por Cobrança Emitida
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-3.5 text-sm font-bold text-gray-400">R$</span>
+                  <input
+                    type="number"
+                    step="0.10"
+                    min="0"
+                    value={config.coraPlatformSplitFee ?? 1.50}
+                    onChange={(e) => setConfig({ ...config, coraPlatformSplitFee: Number(e.target.value) })}
+                    className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-yellow-400 text-sm font-bold text-gray-800"
+                    placeholder="1.50"
+                  />
+                </div>
+                <p className="text-[11px] text-gray-400 ml-1">
+                  Valor que a SchoolVan retém por mensalidade escolar emitida.
+                </p>
+              </div>
+
+              {/* Client ID Cora */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
+                  Cora Client ID
+                </label>
+                <input
+                  type="text"
+                  value={config.coraClientId || ''}
+                  onChange={(e) => setConfig({ ...config, coraClientId: e.target.value })}
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-yellow-400 text-sm font-mono text-gray-800"
+                  placeholder="app-hKTVJB2iqimj0uUNqAjSS"
+                />
+              </div>
+
+              {/* Client Secret Cora */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
+                  Cora Client Secret
+                </label>
+                <input
+                  type="password"
+                  value={config.coraClientSecret || ''}
+                  onChange={(e) => setConfig({ ...config, coraClientSecret: e.target.value })}
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-yellow-400 text-sm font-mono text-gray-800"
+                  placeholder="9c8d3404-f99c-4a5a-8210-e856ba586eaa"
+                />
+              </div>
+
+              {/* URL do Webhook da Cora na SchoolVan */}
+              <div className="md:col-span-2 space-y-1">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
+                  URL de Notificações / Webhook Cora Bank
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={`${window.location.origin}/api/cora/webhook`}
+                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-2xl text-xs font-mono text-gray-600 select-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/api/cora/webhook`);
+                      toast.success('URL do Webhook Cora copiada!');
+                    }}
+                    className="px-4 py-3 bg-gray-900 text-yellow-400 font-bold rounded-2xl text-xs whitespace-nowrap hover:bg-gray-800"
+                  >
+                    Copiar
+                  </button>
+                </div>
+              </div>
+
+              {/* Sincronização Automática Cora */}
+              <div className="md:col-span-2 bg-white p-5 rounded-2xl border border-gray-200 flex items-start gap-4">
+                <input
+                  type="checkbox"
+                  id="coraAutoSync"
+                  checked={config.coraAutoSync ?? true}
+                  onChange={(e) => setConfig({ ...config, coraAutoSync: e.target.checked })}
+                  className="w-5 h-5 mt-0.5 accent-yellow-400 rounded cursor-pointer"
+                />
+                <div>
+                  <label htmlFor="coraAutoSync" className="text-sm font-bold text-gray-900 cursor-pointer block">
+                    Ativar Baixa Automática e Confirmação via T.IA (Cora Bank)
+                  </label>
+                  <p className="text-xs text-gray-600 mt-0.5">
+                    Quando o Cora Bank confirmar a liquidação de uma fatura Pix ou Boleto, a SchoolVan dá baixa na hora e notifica pai e motorista.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Test Cora Status Message */}
+            {coraTestStatus && (
+              <div className={cn(
+                "p-4 rounded-2xl border text-xs font-semibold flex items-start gap-3",
+                coraTestStatus.success 
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-900" 
+                  : "bg-rose-50 border-rose-200 text-rose-900"
+              )}>
+                {coraTestStatus.success ? (
+                  <CheckCircle2 size={18} className="text-emerald-600 shrink-0 mt-0.5" />
+                ) : (
+                  <AlertCircle size={18} className="text-rose-600 shrink-0 mt-0.5" />
+                )}
+                <div className="space-y-1">
+                  <p className="font-bold">{coraTestStatus.message}</p>
+                  {coraTestStatus.details && (
+                    <p className="font-mono text-[11px] opacity-80">
+                      Status: {coraTestStatus.details.authenticated ? 'Token OAuth2 Válido' : 'Falha na Validação'}
+                      {coraTestStatus.details.expiresIn ? ` • Validade do Token: ${coraTestStatus.details.expiresIn}s` : ''}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <button
+                type="button"
+                disabled={testingCora || !config.coraClientId}
+                onClick={handleTestCoraConnection}
+                className="w-full sm:w-auto px-6 py-3.5 bg-yellow-500 hover:bg-yellow-600 text-gray-950 font-bold rounded-2xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {testingCora ? (
+                  <div className="w-5 h-5 border-2 border-gray-950 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <RefreshCw size={18} />
+                    <span>Testar Conexão OAuth2 com Cora Bank</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
             <button
               type="submit"
               disabled={savingConfig}
@@ -1240,7 +1354,7 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
                 <div className="w-5 h-5 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  <Save size={20} /> SALVAR CONFIGURAÇÕES DO ASAAS GATEWAY
+                  <Save size={20} /> SALVAR CONFIGURAÇÕES DO GATEWAY CORA
                 </>
               )}
             </button>

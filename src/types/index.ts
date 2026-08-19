@@ -227,7 +227,16 @@ export interface AdminConfig {
   termsText?: string;
   lgpdText?: string;
   masterPass?: string;
-  // Asaas Gateway Configuration
+  // Gateway Configuration (Cora Bank API & Asaas)
+  paymentGatewayProvider?: 'cora' | 'asaas';
+  // Cora Bank API Configuration
+  coraClientId?: string;
+  coraClientSecret?: string;
+  coraEnvironment?: 'stage' | 'production';
+  coraWebhookSecret?: string;
+  coraPlatformSplitFee?: number;
+  coraAutoSync?: boolean;
+  // Legacy / Alternate Asaas Configuration
   asaasApiKey?: string;
   asaasEnvironment?: 'sandbox' | 'production';
   asaasWebhookSecret?: string;

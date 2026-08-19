@@ -91,7 +91,7 @@ export function Dashboard({
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-extrabold text-gray-900">Olá, {profile?.name}!</h2>
+          <h2 className="text-3xl font-extrabold text-gray-900">Olá, {profile?.name || 'Franklin'}!</h2>
           <p className="text-gray-500 text-sm font-medium">Aqui está o resumo da sua operação hoje.</p>
         </div>
         <div className="flex items-center gap-2">

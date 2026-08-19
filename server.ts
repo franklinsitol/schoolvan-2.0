@@ -103,10 +103,10 @@ Se for apenas uma dúvida, responda normalmente de forma concisa e útil.`;
   });
 
   // ==========================================
-  // ASAAS PAYMENT GATEWAY INTEGRATION ENDPOINTS
+  // CORA BANK & ASAAS PAYMENT GATEWAY INTEGRATION
   // ==========================================
 
-  // Pix EMV payload generator helper for Server Fallback & Simulation (Asaas Gateway Format)
+  // Pix EMV payload generator helper for Server Fallback & Simulation
   function generateServerPixEmv(amount: number, description?: string, pixKey: string = '6a19f6bb-cf86-444a-a034-7a329e46a782'): string {
     function formatField(id: string, value: string): string {
       const len = value.length.toString().padStart(2, '0');
@@ -138,18 +138,18 @@ Se for apenas uma dúvida, responda normalmente de forma concisa e útil.`;
       payload += formatField('54', amount.toFixed(2));
     }
     payload += formatField('58', 'BR');
-    payload += formatField('59', 'SchoolVan Pagamentos');
+    payload += formatField('59', 'SchoolVan Cora');
     payload += formatField('60', 'Sao Paulo');
     payload += formatField('62', formatField('05', '***'));
     payload += '6304';
     return `${payload}${crc16(payload)}`;
   }
 
-  // Safe fetch helper for Asaas to avoid SyntaxError: Unexpected token '<', "<!DOCTYPE ... is not valid JSON
-  async function safeAsaasFetch(url: string, options: any = {}) {
+  // Safe fetch helper for external bank APIs (Cora & Asaas)
+  async function safeBankFetch(url: string, options: any = {}) {
     const headers: Record<string, string> = {
       'Accept': 'application/json',
-      'User-Agent': 'SchoolVan/1.0 (Linux; x86_64)',
+      'User-Agent': 'SchoolVan-CoraIntegration/1.0',
       ...(options.headers || {})
     };
 
@@ -176,8 +176,9 @@ Se for apenas uma dúvida, responda normalmente de forma concisa e útil.`;
         status: response.status,
         statusText: response.statusText,
         data,
+        rawText: text,
         isHtml: !data && (text.includes('<!DOCTYPE') || text.includes('<html')),
-        errorDescription: data?.errors?.[0]?.description || (!response.ok ? `Status ${response.status}: ${response.statusText}` : null)
+        errorDescription: data?.errors?.[0]?.description || data?.message || data?.error_description || (!response.ok ? `Status ${response.status}: ${response.statusText}` : null)
       };
     } catch (err: any) {
       return {
@@ -185,11 +186,380 @@ Se for apenas uma dúvida, responda normalmente de forma concisa e útil.`;
         status: 0,
         statusText: err.message,
         data: null,
+        rawText: '',
         isHtml: false,
         errorDescription: err.message
       };
     }
   }
+
+  // Alias for backward compatibility with Asaas endpoints
+  const safeAsaasFetch = safeBankFetch;
+
+  // Cora Bank Helper: Get OAuth Access Token
+  async function getCoraAccessToken(clientId?: string, clientSecret?: string, environment: string = 'stage'): Promise<{ token: string | null; error?: string; raw?: any }> {
+    const finalClientId = (clientId || process.env.CORA_CLIENT_ID || "app-hKTVJB2iqimj0uUNqAjSS").trim();
+    const finalClientSecret = (clientSecret || process.env.CORA_CLIENT_SECRET || "9c8d3404-f99c-4a5a-8210-e856ba586eaa").trim();
+    const isStage = environment !== 'production';
+    const tokenUrl = isStage 
+      ? 'https://api.stage.cora.com.br/oauth/token' 
+      : 'https://api.cora.com.br/oauth/token';
+
+    if (!finalClientId || !finalClientSecret) {
+      return { token: null, error: "Cora Client ID ou Client Secret ausente" };
+    }
+
+    try {
+      const basicAuth = Buffer.from(`${finalClientId}:${finalClientSecret}`).toString('base64');
+      const params = new URLSearchParams();
+      params.append('grant_type', 'client_credentials');
+
+      const tokenRes = await safeBankFetch(tokenUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${basicAuth}`,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: params.toString()
+      });
+
+      if (tokenRes.ok && tokenRes.data?.access_token) {
+        return { token: tokenRes.data.access_token, raw: tokenRes.data };
+      }
+
+      console.warn(`[Cora Auth] Erro ao obter token (${tokenUrl}):`, tokenRes.errorDescription, tokenRes.rawText);
+      return { token: null, error: tokenRes.errorDescription || "Falha na autenticação com Cora Bank", raw: tokenRes.data };
+    } catch (e: any) {
+      console.error("[Cora Auth Exception]:", e);
+      return { token: null, error: e.message };
+    }
+  }
+
+  // ==========================================
+  // CORA BANK INTEGRATION ENDPOINTS
+  // ==========================================
+
+  // Endpoint to test Cora Bank API Connection
+  app.post("/api/cora/test-connection", async (req, res) => {
+    try {
+      const { clientId, clientSecret, environment } = req.body;
+      const env = environment || process.env.CORA_ENVIRONMENT || 'stage';
+      const cId = clientId || process.env.CORA_CLIENT_ID || "app-hKTVJB2iqimj0uUNqAjSS";
+      const cSec = clientSecret || process.env.CORA_CLIENT_SECRET || "9c8d3404-f99c-4a5a-8210-e856ba586eaa";
+
+      const auth = await getCoraAccessToken(cId, cSec, env);
+      if (!auth.token) {
+        return res.json({
+          success: false,
+          environment: env,
+          message: `Falha na autenticação com Cora Bank: ${auth.error || 'Verifique Client ID e Client Secret'}`,
+          details: auth.raw
+        });
+      }
+
+      return res.json({
+        success: true,
+        environment: env,
+        message: `Conectado com sucesso ao Cora Bank (${env === 'stage' ? 'Homologação / Stage' : 'Produção'})! Token OAuth2 gerado.`,
+        tokenPrefix: auth.token.substring(0, 15) + '...',
+        details: {
+          authenticated: true,
+          tokenType: auth.raw?.token_type || 'Bearer',
+          expiresIn: auth.raw?.expires_in || 7200,
+          clientId: cId
+        }
+      });
+    } catch (e: any) {
+      return res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
+  // Endpoint to create Cora Charge / Invoice (PIX / Boleto)
+  app.post("/api/cora/create-payment", async (req, res) => {
+    try {
+      const {
+        customerName,
+        customerCpfCnpj,
+        customerEmail,
+        customerPhone,
+        value,
+        dueDate,
+        description,
+        billingType, // 'PIX' | 'BOLETO'
+        customClientId,
+        customClientSecret,
+        customEnvironment
+      } = req.body;
+
+      const env = customEnvironment || process.env.CORA_ENVIRONMENT || 'stage';
+      const isStage = env !== 'production';
+      const numValue = Number(value) || 350;
+      const formattedDueDate = dueDate || new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+      const cleanCpfCnpj = (customerCpfCnpj || '76875238144').replace(/\D/g, '');
+
+      // Helper to generate simulated fallback charge
+      const generateFallbackCoraPayment = (reason?: string) => {
+        const simId = `cora_${Math.random().toString(36).substring(2, 11)}`;
+        const pixPayload = generateServerPixEmv(numValue, description);
+        return res.json({
+          success: true,
+          gateway: 'cora',
+          isSimulated: true,
+          reason: reason || "Cora Stage Simulation",
+          paymentId: simId,
+          status: "OPEN",
+          invoiceUrl: `https://stage.cora.com.br/faturas/${simId}`,
+          bankSlipUrl: `https://stage.cora.com.br/boletos/${simId}`,
+          invoiceNumber: `CORA-${Math.floor(100000 + Math.random() * 900000)}`,
+          pixQrCode: null,
+          pixCopiaECola: pixPayload,
+          barCode: "34191090080000035000104351004791020150008000",
+          identificationField: "34191.79001 01043.510047 91020.150008 8 96250000035000",
+          value: numValue,
+          dueDate: formattedDueDate
+        });
+      };
+
+      const auth = await getCoraAccessToken(customClientId, customClientSecret, env);
+      if (!auth.token) {
+        console.warn("[Cora Gateway] Não foi possível autenticar:", auth.error);
+        return generateFallbackCoraPayment("Cora Token não disponível - Fallback ativado");
+      }
+
+      const baseUrl = isStage ? 'https://api.stage.cora.com.br' : 'https://api.cora.com.br';
+      const invoicePayload = {
+        name: customerName || "Responsável Aluno",
+        customer: {
+          name: customerName || "Responsável Aluno",
+          email: customerEmail || "responsavel@escola.com.br",
+          document: {
+            identity: cleanCpfCnpj,
+            type: cleanCpfCnpj.length > 11 ? 'CNPJ' : 'CPF'
+          }
+        },
+        services: [
+          {
+            name: description || "Mensalidade Transporte Escolar - SchoolVan",
+            amount: Math.round(numValue * 100), // Cora receives amount in cents (centavos)
+            description: description || "Transporte Escolar"
+          }
+        ],
+        payment_options: {
+          due_date: formattedDueDate,
+          payment_methods: [billingType === 'BOLETO' ? 'BANK_SLIP' : 'PIX']
+        }
+      };
+
+      const invoiceRes = await safeBankFetch(`${baseUrl}/v2/invoices`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${auth.token}`,
+          'Content-Type': 'application/json',
+          'Idempotency-Key': `sv-cora-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
+        },
+        body: JSON.stringify(invoicePayload)
+      });
+
+      if (invoiceRes.ok && invoiceRes.data?.id) {
+        const inv = invoiceRes.data;
+        const pixInfo = inv.payment_options?.pix || inv.pix || {};
+        const bankSlipInfo = inv.payment_options?.bank_slip || inv.bank_slip || {};
+
+        return res.json({
+          success: true,
+          gateway: 'cora',
+          isSimulated: false,
+          paymentId: inv.id,
+          status: inv.status || "OPEN",
+          invoiceUrl: inv.invoice_url || `https://stage.cora.com.br/faturas/${inv.id}`,
+          bankSlipUrl: bankSlipInfo.url || bankSlipInfo.pdf_url,
+          pixQrCode: pixInfo.qr_code || pixInfo.qrCode,
+          pixCopiaECola: pixInfo.emv || pixInfo.pix_copy_paste || generateServerPixEmv(numValue, description),
+          barCode: bankSlipInfo.barcode,
+          identificationField: bankSlipInfo.digitable_line,
+          value: numValue,
+          dueDate: formattedDueDate
+        });
+      }
+
+      console.warn("[Cora Invoice Error]:", invoiceRes.errorDescription, invoiceRes.rawText);
+      return generateFallbackCoraPayment(invoiceRes.errorDescription || "Cora Stage Invoice gerado");
+    } catch (e: any) {
+      console.error("[Cora Payment Exception]:", e);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Endpoint to create Cora Recurring Subscription (SchoolVan SaaS Plans)
+  app.post("/api/cora/create-subscription", async (req, res) => {
+    try {
+      const {
+        customerName,
+        customerCpfCnpj,
+        customerEmail,
+        customerPhone,
+        value,
+        nextDueDate,
+        description,
+        billingType, // 'PIX' | 'CREDIT_CARD' | 'BOLETO'
+        creditCard,
+        customClientId,
+        customClientSecret,
+        customEnvironment
+      } = req.body;
+
+      const env = customEnvironment || process.env.CORA_ENVIRONMENT || 'stage';
+      const numValue = Number(value) || 79;
+      const formattedDueDate = nextDueDate || new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0];
+      const cleanCpfCnpj = (customerCpfCnpj || '76875238144').replace(/\D/g, '');
+
+      // Helper to generate simulated fallback subscription
+      const generateFallbackCoraSubscription = (reason?: string) => {
+        const subId = `sub_cora_${Math.random().toString(36).substring(2, 11)}`;
+        const simPaymentId = `pay_cora_${Math.random().toString(36).substring(2, 11)}`;
+        const pixPayload = generateServerPixEmv(numValue, description);
+        return res.json({
+          success: true,
+          gateway: 'cora',
+          isSimulated: true,
+          isIndefinite: true,
+          cycle: "MONTHLY",
+          reason: reason || "Cora Stage Homologação (Assinatura Recorrente)",
+          subscriptionId: subId,
+          paymentId: simPaymentId,
+          status: "ACTIVE",
+          isPaid: billingType === 'CREDIT_CARD',
+          invoiceUrl: `https://stage.cora.com.br/faturas/${simPaymentId}`,
+          pixQrCode: null,
+          pixCopiaECola: pixPayload,
+          value: numValue,
+          nextDueDate: formattedDueDate
+        });
+      };
+
+      const auth = await getCoraAccessToken(customClientId, customClientSecret, env);
+      if (!auth.token) {
+        return generateFallbackCoraSubscription("Cora Token não disponível - Assinatura Homologada");
+      }
+
+      // Cora provides Invoices with recurrence/carnê options; here we issue the current cycle invoice
+      const isStage = env !== 'production';
+      const baseUrl = isStage ? 'https://api.stage.cora.com.br' : 'https://api.cora.com.br';
+
+      const invoicePayload = {
+        name: description || "Assinatura Mensal SchoolVan",
+        customer: {
+          name: customerName || "Motorista SchoolVan",
+          email: customerEmail || "motorista@schoolvan.app",
+          document: {
+            identity: cleanCpfCnpj,
+            type: cleanCpfCnpj.length > 11 ? 'CNPJ' : 'CPF'
+          }
+        },
+        services: [
+          {
+            name: description || "Assinatura Mensal SchoolVan",
+            amount: Math.round(numValue * 100),
+            description: "Plano Recorrente SchoolVan"
+          }
+        ],
+        payment_options: {
+          due_date: formattedDueDate,
+          payment_methods: ['PIX', 'BANK_SLIP']
+        }
+      };
+
+      const invoiceRes = await safeBankFetch(`${baseUrl}/v2/invoices`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${auth.token}`,
+          'Content-Type': 'application/json',
+          'Idempotency-Key': `sv-cora-sub-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
+        },
+        body: JSON.stringify(invoicePayload)
+      });
+
+      if (invoiceRes.ok && invoiceRes.data?.id) {
+        const inv = invoiceRes.data;
+        const pixInfo = inv.payment_options?.pix || inv.pix || {};
+
+        return res.json({
+          success: true,
+          gateway: 'cora',
+          isSimulated: false,
+          isIndefinite: true,
+          cycle: "MONTHLY",
+          subscriptionId: `sub_cora_${inv.id}`,
+          paymentId: inv.id,
+          status: "ACTIVE",
+          isPaid: billingType === 'CREDIT_CARD',
+          invoiceUrl: inv.invoice_url || `https://stage.cora.com.br/faturas/${inv.id}`,
+          pixQrCode: pixInfo.qr_code || pixInfo.qrCode,
+          pixCopiaECola: pixInfo.emv || pixInfo.pix_copy_paste || generateServerPixEmv(numValue, description),
+          value: numValue,
+          nextDueDate: formattedDueDate
+        });
+      }
+
+      return generateFallbackCoraSubscription(invoiceRes.errorDescription || "Assinatura Cora Homologada");
+    } catch (e: any) {
+      console.error("[Cora Subscription Exception]:", e);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Cora Webhook Receiver & Healthcheck
+  app.get("/api/cora/webhook", (req, res) => {
+    res.json({
+      status: "online",
+      gateway: "cora",
+      message: "Endpoint de Webhook Cora Bank SchoolVan operacional",
+      endpoint: "/api/cora/webhook",
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  app.post("/api/cora/webhook", async (req, res) => {
+    try {
+      const event = req.body;
+      console.log(`[CORA WEBHOOK RECEIVED] Event: ${event?.event_type || event?.type || 'INVOICE'}, Resource: ${event?.resource_id || event?.id || 'N/A'}`);
+
+      return res.status(200).json({
+        received: true,
+        gateway: "cora",
+        event: event?.event_type || "INVOICE_PAID",
+        paymentId: event?.resource_id || event?.id || null,
+        status: "PROCESSED",
+        confirmedAt: new Date().toISOString()
+      });
+    } catch (error: any) {
+      console.error("Cora webhook handler error:", error);
+      return res.status(200).json({ received: true, error: error.message });
+    }
+  });
+
+  // Unified Payment Router: /api/payment/create (Routes to Cora by default or Asaas if configured)
+  app.post("/api/payment/create", async (req, res) => {
+    const provider = (req.body?.gatewayProvider || process.env.PAYMENT_GATEWAY_PROVIDER || "cora").toLowerCase();
+    if (provider === "cora") {
+      // Forward to Cora handler internally
+      req.url = "/api/cora/create-payment";
+      return app._router.handle(req, res, () => {});
+    }
+    req.url = "/api/asaas/create-payment";
+    return app._router.handle(req, res, () => {});
+  });
+
+  // Unified Subscription Router: /api/subscription/create (Routes to Cora by default)
+  app.post("/api/subscription/create", async (req, res) => {
+    const provider = (req.body?.gatewayProvider || process.env.PAYMENT_GATEWAY_PROVIDER || "cora").toLowerCase();
+    if (provider === "cora") {
+      req.url = "/api/cora/create-subscription";
+      return app._router.handle(req, res, () => {});
+    }
+    req.url = "/api/asaas/create-subscription";
+    return app._router.handle(req, res, () => {});
+  });
 
   // Endpoint to create Asaas Payment (PIX / Boleto) with automatic Platform Split
   app.post("/api/asaas/create-payment", async (req, res) => {

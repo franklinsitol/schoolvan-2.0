@@ -26,9 +26,14 @@ export function useAuth() {
       }
 
       const isSuperAdminEmail = firebaseUser.email === 'franklin.toledo@gmail.com';
+      const defaultName = firebaseUser.displayName || 
+        (isSuperAdminEmail ? 'Franklin Toledo' : '') || 
+        (firebaseUser.email ? firebaseUser.email.split('@')[0].replace('.', ' ') : '') || 
+        'Tio da Van';
+
       const initialFallback: Driver = {
         id: firebaseUser.uid,
-        name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuário',
+        name: defaultName,
         email: firebaseUser.email || '',
         phone: firebaseUser.phoneNumber || '',
         role: isSuperAdminEmail ? 'superadmin' : 'admin',
