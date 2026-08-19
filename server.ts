@@ -197,7 +197,7 @@ Se for apenas uma dúvida, responda normalmente de forma concisa e útil.`;
   const safeAsaasFetch = safeBankFetch;
 
   // Cora Bank Helper: Get OAuth Access Token
-  async function getCoraAccessToken(clientId?: string, clientSecret?: string, environment: string = 'stage'): Promise<{ token: string | null; error?: string; raw?: any }> {
+  async function getCoraAccessToken(clientId?: string, clientSecret?: string, environment: string = 'stage'): Promise<{ token: string | null; error?: string; raw?: any; status?: number }> {
     const finalClientId = (clientId || process.env.CORA_CLIENT_ID || "app-hKTVJB2iqimj0uUNqAjSS").trim();
     const finalClientSecret = (clientSecret || process.env.CORA_CLIENT_SECRET || "9c8d3404-f99c-4a5a-8210-e856ba586eaa").trim();
     const isStage = environment !== 'production';
@@ -224,14 +224,25 @@ Se for apenas uma dúvida, responda normalmente de forma concisa e útil.`;
       });
 
       if (tokenRes.ok && tokenRes.data?.access_token) {
-        return { token: tokenRes.data.access_token, raw: tokenRes.data };
+        return { token: tokenRes.data.access_token, raw: tokenRes.data, status: tokenRes.status };
       }
 
       console.warn(`[Cora Auth] Erro ao obter token (${tokenUrl}):`, tokenRes.errorDescription, tokenRes.rawText);
-      return { token: null, error: tokenRes.errorDescription || "Falha na autenticação com Cora Bank", raw: tokenRes.data };
+      const errMsg = tokenRes.data?.error_description || 
+                     tokenRes.data?.error || 
+                     tokenRes.data?.message || 
+                     tokenRes.errorDescription || 
+                     (tokenRes.status === 0 ? "Erro de rede ao conectar à API da Cora (Timeout ou DNS)" : `Falha na autenticação (HTTP ${tokenRes.status})`);
+
+      return { 
+        token: null, 
+        error: errMsg, 
+        raw: tokenRes.data || { rawResponse: tokenRes.rawText, status: tokenRes.status },
+        status: tokenRes.status 
+      };
     } catch (e: any) {
       console.error("[Cora Auth Exception]:", e);
-      return { token: null, error: e.message };
+      return { token: null, error: e.message || "Erro inesperado na conexão" };
     }
   }
 
@@ -242,7 +253,7 @@ Se for apenas uma dúvida, responda normalmente de forma concisa e útil.`;
   // Endpoint to test Cora Bank API Connection
   app.post("/api/cora/test-connection", async (req, res) => {
     try {
-      const { clientId, clientSecret, environment } = req.body;
+      const { clientId, clientSecret, environment } = req.body || {};
       const env = environment || process.env.CORA_ENVIRONMENT || 'stage';
       const cId = clientId || process.env.CORA_CLIENT_ID || "app-hKTVJB2iqimj0uUNqAjSS";
       const cSec = clientSecret || process.env.CORA_CLIENT_SECRET || "9c8d3404-f99c-4a5a-8210-e856ba586eaa";
@@ -252,25 +263,32 @@ Se for apenas uma dúvida, responda normalmente de forma concisa e útil.`;
         return res.json({
           success: false,
           environment: env,
-          message: `Falha na autenticação com Cora Bank: ${auth.error || 'Verifique Client ID e Client Secret'}`,
-          details: auth.raw
+          message: `Falha na autenticação com Cora Bank (${env === 'stage' ? 'Homologação' : 'Produção'}): ${auth.error || 'Verifique Client ID e Client Secret'}`,
+          details: auth.raw,
+          statusCode: auth.status
         });
       }
 
       return res.json({
         success: true,
         environment: env,
-        message: `Conectado com sucesso ao Cora Bank (${env === 'stage' ? 'Homologação / Stage' : 'Produção'})! Token OAuth2 gerado.`,
+        message: `Conectado com sucesso ao Cora Bank (${env === 'stage' ? 'Homologação / Stage' : 'Produção Oficial'})! Token OAuth2 gerado.`,
         tokenPrefix: auth.token.substring(0, 15) + '...',
         details: {
           authenticated: true,
           tokenType: auth.raw?.token_type || 'Bearer',
           expiresIn: auth.raw?.expires_in || 7200,
-          clientId: cId
+          clientId: cId,
+          environment: env
         }
       });
     } catch (e: any) {
-      return res.status(500).json({ success: false, error: e.message });
+      console.error("[/api/cora/test-connection error]:", e);
+      return res.status(200).json({ 
+        success: false, 
+        message: `Erro interno no servidor ao testar conexão: ${e.message}`,
+        error: e.message 
+      });
     }
   });
 

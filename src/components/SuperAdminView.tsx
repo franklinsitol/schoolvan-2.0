@@ -360,27 +360,35 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
           environment: config.coraEnvironment || 'stage'
         })
       });
-      const data = await response.json();
-      if (data.success) {
+      
+      let data: any = null;
+      try {
+        data = await response.json();
+      } catch (jsonErr) {
+        data = { success: false, message: `Erro ao interpretar resposta do servidor (${response.status}: ${response.statusText})` };
+      }
+
+      if (data && data.success) {
         setCoraTestStatus({
           success: true,
-          message: data.message || `Conexão bem sucedida com o Cora Bank (${data.environment.toUpperCase()})!`,
+          message: data.message || `Conexão bem sucedida com o Cora Bank (${(data.environment || 'stage').toUpperCase()})!`,
           details: data
         });
         toast.success(`Integração Cora Bank validada com sucesso! Token gerado (${data.environment}).`);
       } else {
+        const errorText = data?.message || data?.error || `Erro de validação (HTTP ${response.status})`;
         setCoraTestStatus({
           success: false,
-          message: data.message || data.error || 'Erro ao autenticar com o Cora Bank.',
+          message: errorText,
           details: data
         });
-        toast.error(data.message || 'Falha na autenticação com Cora Bank');
+        toast.error(errorText);
       }
     } catch (err: any) {
       console.error("Erro ao testar conexão Cora:", err);
       setCoraTestStatus({
         success: false,
-        message: 'Erro de rede ou servidor ao testar conexão Cora Bank.'
+        message: `Erro de rede ou servidor ao testar conexão Cora Bank: ${err.message || 'Falha na requisição'}`
       });
       toast.error('Erro de comunicação ao testar Cora Bank.');
     } finally {
