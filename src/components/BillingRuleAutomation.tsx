@@ -99,8 +99,8 @@ export function BillingRuleAutomation({ students, finances, onOpenProfile }: Bil
     return studentsInSelectedStage[0] || studentsWithStatus[0];
   }, [selectedStudentId, studentsInSelectedStage, studentsWithStatus]);
 
-  // Payment Method: 'pix' vs 'boleto'
-  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'boleto'>(
+  // Payment Method: 'pix' vs 'sem_pix' vs 'boleto'
+  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'sem_pix' | 'boleto'>(
     profile?.billingPreference || 'pix'
   );
 

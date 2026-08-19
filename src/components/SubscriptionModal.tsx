@@ -29,6 +29,7 @@ import { db } from '../lib/firebase';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { Vehicle, SubscriptionInvoice, AdminConfig } from '../types';
 import { FROTA_INCLUDED_VEHICLES, EXTRA_VEHICLE_PRICE, BILLING_DUE_DAY } from '../lib/plans';
+import { generatePixPayload } from '../lib/pix';
 import toast from 'react-hot-toast';
 
 interface SubscriptionModalProps {
@@ -238,21 +239,37 @@ export function SubscriptionModal({
           pixQrCode: data.pixQrCode || null
         });
       } else {
-        // Fallback so the user is never stuck in an infinite loading state
+        // Fallback so the user is never stuck in an infinite loading state (Sem Cora / Modo Manual)
+        const customPix = generatePixPayload({
+          pixKey: adminConfig?.pixAdmin || 'pix@schoolvan.com.br',
+          amount: proRataPrice || currentPrice,
+          merchantName: 'SchoolVan Brasil',
+          merchantCity: 'SAO PAULO',
+          txid: `SV${Date.now().toString().slice(-10)}`
+        });
+
         setPaymentData({
           subscriptionId: `sub_${Date.now()}`,
           paymentId: `pay_${Date.now()}`,
-          pixCopiaECola: data?.pixCopiaECola || '00020126580014br.gov.bcb.pix0136schoolvan@pagamentos.com.br5204000053039865802BR5916SchoolVan Brasil6009Sao Paulo62070503***6304',
+          pixCopiaECola: data?.pixCopiaECola || customPix,
           pixQrCode: null
         });
       }
     } catch (err) {
       console.warn('Erro ao conectar gateway:', err);
+      const customPix = generatePixPayload({
+        pixKey: adminConfig?.pixAdmin || 'pix@schoolvan.com.br',
+        amount: proRataPrice || currentPrice,
+        merchantName: 'SchoolVan Brasil',
+        merchantCity: 'SAO PAULO',
+        txid: `SV${Date.now().toString().slice(-10)}`
+      });
+
       // Ensure paymentData is populated to stop flickering/re-fetching loop
       setPaymentData({
         subscriptionId: `sub_${Date.now()}`,
         paymentId: `pay_${Date.now()}`,
-        pixCopiaECola: '00020126580014br.gov.bcb.pix0136schoolvan@pagamentos.com.br5204000053039865802BR5916SchoolVan Brasil6009Sao Paulo62070503***6304',
+        pixCopiaECola: customPix,
         pixQrCode: null
       });
     } finally {

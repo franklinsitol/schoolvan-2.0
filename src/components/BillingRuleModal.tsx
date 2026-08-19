@@ -45,12 +45,12 @@ export function BillingRuleModal({
   const currentDay = new Date().getDate();
   const paymentDay = student?.paymentDay || 10;
   
-  // Payment mode toggle: 'pix' (Includes driver's Pix key) vs 'boleto' (Informs boleto was issued by bank)
-  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'boleto'>(
-    student?.billingPreference || profile?.billingPreference || 'pix'
+  // Payment mode toggle: 'pix' (Includes driver's Pix key) vs 'sem_pix' (Polite reminder without specific method)
+  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'sem_pix'>(
+    student?.billingPreference === 'sem_pix' || profile?.billingPreference === 'sem_pix' ? 'sem_pix' : 'pix'
   );
 
-  // Recommended stage by T.IA
+  // Recommended stage
   const recommendedStage = useMemo(() => {
     return calculateStudentBillingStage(paymentDay, financeStatus === 'Em Atraso' ? 'Em Atraso' : 'Em Dia', currentDay);
   }, [paymentDay, financeStatus, currentDay]);
@@ -63,7 +63,9 @@ export function BillingRuleModal({
   React.useEffect(() => {
     if (isOpen) {
       setSelectedStageKey(recommendedStage);
-      setPaymentMethod(student?.billingPreference || profile?.billingPreference || 'pix');
+      setPaymentMethod(
+        student?.billingPreference === 'sem_pix' || profile?.billingPreference === 'sem_pix' ? 'sem_pix' : 'pix'
+      );
     }
   }, [isOpen, recommendedStage, student, profile]);
 
@@ -76,7 +78,7 @@ export function BillingRuleModal({
       stageKey: selectedStageKey,
       studentName: student.name,
       parentName: student.parentName || 'Responsável',
-      driverName: profile?.name || 'Tio da Van',
+      driverName: profile?.name || 'Tio(a) da Van',
       value: student.value || 350,
       paymentDay: student.paymentDay || 10,
       pixKey: profile?.pixKey || '',
@@ -125,7 +127,7 @@ export function BillingRuleModal({
         <div className="bg-gray-950 text-white p-5 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-2xl bg-yellow-400 text-gray-950 flex items-center justify-center shadow-md">
-              <Bot size={20} className="fill-gray-950" />
+              <MessageCircle size={20} className="fill-gray-950" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -134,7 +136,7 @@ export function BillingRuleModal({
                   "text-[10px] font-black px-2 py-0.5 rounded-full uppercase",
                   paymentMethod === 'pix' ? "bg-yellow-400 text-gray-950" : "bg-blue-400 text-gray-950"
                 )}>
-                  {paymentMethod === 'pix' ? '🟢 Cobrança via Pix' : '📄 Boleto Bancário'}
+                  {paymentMethod === 'pix' ? '🟢 Com Chave Pix' : '📋 Sem Chave Pix'}
                 </span>
               </div>
               <p className="text-xs text-gray-300">
@@ -172,7 +174,7 @@ export function BillingRuleModal({
             </div>
           </div>
 
-          {/* Forma de Cobrança Toggle: Pix vs Boleto */}
+          {/* Forma de Cobrança Toggle: Pix vs Sem Pix */}
           <div className="space-y-1.5">
             <label className="text-[11px] font-black text-gray-800 uppercase tracking-wider block">
               Forma de Cobrança para este Envio:
@@ -190,29 +192,29 @@ export function BillingRuleModal({
               >
                 <div className="flex items-center gap-1.5 font-black text-gray-950 text-xs">
                   <QrCode size={16} className={paymentMethod === 'pix' ? "text-yellow-600" : "text-gray-400"} />
-                  <span>Cobrar por Pix</span>
+                  <span>🟢 Com Chave Pix</span>
                 </div>
                 <p className="text-[10px] text-gray-600 mt-1 leading-normal font-medium">
-                  Envia a mensagem com sua <strong>Chave Pix</strong> e pede o envio do comprovante.
+                  Envia o valor com sua <strong>Chave Pix</strong> cadastrada e solicita o comprovante.
                 </p>
               </button>
 
               <button
                 type="button"
-                onClick={() => setPaymentMethod('boleto')}
+                onClick={() => setPaymentMethod('sem_pix')}
                 className={cn(
                   "p-3 rounded-2xl text-left border-2 transition-all cursor-pointer flex flex-col justify-between relative",
-                  paymentMethod === 'boleto'
-                    ? "bg-blue-50/90 border-blue-400 shadow-sm"
+                  paymentMethod === 'sem_pix'
+                    ? "bg-gray-900 border-gray-950 text-white shadow-sm"
                     : "bg-white border-gray-200 hover:border-gray-300 opacity-80"
                 )}
               >
-                <div className="flex items-center gap-1.5 font-black text-gray-950 text-xs">
-                  <FileText size={16} className={paymentMethod === 'boleto' ? "text-blue-600" : "text-gray-400"} />
-                  <span>Boleto Bancário</span>
+                <div className="flex items-center gap-1.5 font-black text-xs">
+                  <FileText size={16} className={paymentMethod === 'sem_pix' ? "text-yellow-400" : "text-gray-400"} />
+                  <span className={paymentMethod === 'sem_pix' ? "text-white" : "text-gray-950"}>📋 Sem Chave Pix</span>
                 </div>
-                <p className="text-[10px] text-gray-600 mt-1 leading-normal font-medium">
-                  Envia a mensagem avisando do <strong>Boleto Bancário do banco</strong> (sem chave Pix).
+                <p className={cn("text-[10px] mt-1 leading-normal font-medium", paymentMethod === 'sem_pix' ? "text-gray-300" : "text-gray-600")}>
+                  Envia um <strong>lembrete amigável</strong> da mensalidade sem fixar forma de pagamento.
                 </p>
               </button>
             </div>

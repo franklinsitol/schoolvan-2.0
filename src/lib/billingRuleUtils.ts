@@ -287,18 +287,18 @@ export interface BillingMessageParams {
   pixKey: string;
   driverCity?: string;
   customTemplate?: string;
-  paymentMethod?: 'pix' | 'boleto';
+  paymentMethod?: 'pix' | 'sem_pix' | 'boleto';
 }
 
 /**
  * Formats a message for a given student, stage, and driver profile.
  * - 'pix': Uses the driver's registered Pix key with clean WhatsApp formatting.
- * - 'boleto': Directs the parent to pay the bank slip issued by the driver's bank (without Pix key).
+ * - 'sem_pix' / 'boleto': Clean, polite reminder without fixing payment method, asking to pay as agreed and send proof.
  */
 export function formatBillingMessage(params: BillingMessageParams): {
   messageText: string;
   pixString: string;
-  paymentMethod: 'pix' | 'boleto';
+  paymentMethod: 'pix' | 'sem_pix' | 'boleto';
 } {
   const {
     stageKey,
@@ -324,15 +324,15 @@ export function formatBillingMessage(params: BillingMessageParams): {
 
   let template = customTemplate || stageConfig.defaultTemplate;
 
-  if (paymentMethod === 'boleto') {
-    // Replace Pix blocks with clear Bank Slip notice
+  if (paymentMethod === 'sem_pix' || paymentMethod === 'boleto') {
+    // Remove specific Pix blocks and replace with generic polite note
     template = template
-      .replace(/🔑 \*Chave Pix \/ Copia e Cola:\*[\s\S]*?```[\s\S]*?```/g, '📄 *Forma de Pagamento:* Boleto Bancário')
-      .replace(/📲 \*Pix Copia e Cola facilitado:\*[\s\S]*?```[\s\S]*?```/g, '📄 *Forma de Pagamento:* Boleto Bancário')
-      .replace(/🔑 \*Código Pix Copia e Cola:\*[\s\S]*?```[\s\S]*?```/g, '📄 *Forma de Pagamento:* Boleto Bancário')
-      .replace(/👉 \*Ainda não pagou\?\* Segue o código Pix Copia e Cola para agilizar:[\s\S]*?```[\s\S]*?```/g, '👉 *Forma de Pagamento:* Boleto Bancário emitido via banco.')
-      .replace(/\[PIX_COPIA_COLA\]/g, 'Boleto Bancário')
-      .replace(/\[CHAVE_PIX\]/g, 'Boleto Bancário');
+      .replace(/🔑 \*Chave Pix \/ Copia e Cola:\*[\s\S]*?```[\s\S]*?```/g, '📄 *Pagamento:* Conforme combinado')
+      .replace(/📲 \*Pix Copia e Cola facilitado:\*[\s\S]*?```[\s\S]*?```/g, '📄 *Pagamento:* Conforme combinado')
+      .replace(/🔑 \*Código Pix Copia e Cola:\*[\s\S]*?```[\s\S]*?```/g, '📄 *Pagamento:* Conforme combinado')
+      .replace(/👉 \*Ainda não pagou\?\* Segue o código Pix Copia e Cola para agilizar:[\s\S]*?```[\s\S]*?```/g, '👉 *Pagamento:* Conforme o combinado.')
+      .replace(/\[PIX_COPIA_COLA\]/g, '')
+      .replace(/\[CHAVE_PIX\]/g, '');
   } else {
     template = template
       .replace(/\[PIX_COPIA_COLA\]/g, pixStringToUse)
@@ -342,7 +342,7 @@ export function formatBillingMessage(params: BillingMessageParams): {
   let messageText = template
     .replace(/\[NOME_RESPONSAVEL\]/g, parentName || 'Responsável')
     .replace(/\[NOME_ALUNO\]/g, studentName || 'Aluno')
-    .replace(/\[NOME_TIO\]/g, driverName || 'Tio da Van')
+    .replace(/\[NOME_TIO\]/g, driverName || 'Tio(a) da Van')
     .replace(/\[VALOR\]/g, formattedValue)
     .replace(/\[DIA_VENCIMENTO\]/g, String(paymentDay || 10));
 
@@ -352,7 +352,7 @@ export function formatBillingMessage(params: BillingMessageParams): {
     }
   } else {
     if (!messageText.includes('comprovante')) {
-      messageText += `\n\n📌 *Aviso:* O boleto bancário foi emitido pelo banco. Favor efetuar o pagamento e nos enviar o comprovante por aqui para darmos baixa no sistema!`;
+      messageText += `\n\n📌 *Aviso:* Favor efetuar o pagamento da mensalidade conforme o combinado e nos enviar o comprovante por aqui para darmos baixa no sistema!`;
     }
   }
 
@@ -362,3 +362,85 @@ export function formatBillingMessage(params: BillingMessageParams): {
     paymentMethod
   };
 }
+
+// ============================================================================
+// 👑 RÉGUA DE COBRANÇA DA T.IA PARA OS MOTORISTAS (ASSINATURA SAAS)
+// ============================================================================
+
+export type DriverSaaSStageKey = 
+  | 'abertura_mes'
+  | 'pre_vencimento'
+  | 'vence_hoje'
+  | 'atraso_leve'
+  | 'atraso_critico';
+
+export interface DriverSaaSStageConfig {
+  key: DriverSaaSStageKey;
+  stepNumber: number;
+  name: string;
+  shortLabel: string;
+  triggerDescription: string;
+  template: string;
+}
+
+export const DRIVER_SAAS_STAGES_CORA: Record<DriverSaaSStageKey, DriverSaaSStageConfig> = {
+  abertura_mes: {
+    key: 'abertura_mes',
+    stepNumber: 1,
+    name: 'Etapa 1: Abertura Mês (Dias 01 a 05)',
+    shortLabel: 'Abertura Mês',
+    triggerDescription: 'Dias 01 a 05 de cada mês',
+    template: `Olá, [NOME_MOTORISTA]! Tudo bem? 🚌✨\n\nAqui é a T.IA do SchoolVan! Informamos que a fatura do seu plano [NOME_PLANO] referente a este mês já está disponível (Vencimento todo dia 10).\n\n📌 *Valor:* R$ [VALOR]\n📅 *Vencimento:* 10/[MES_ATUAL]/[ANO_ATUAL]\n\n🔑 *Pix Copia e Cola / QR Code Cora:*\n\`\`\`\n[PIX_COPIA_COLA]\n\`\`\`\n\nA baixa é automática assim que efetuar o pagamento! Tenha um ótimo mês de rotas! 🙏`
+  },
+  pre_vencimento: {
+    key: 'pre_vencimento',
+    stepNumber: 2,
+    name: 'Etapa 2: Pré-Vencimento (2-3 dias antes)',
+    shortLabel: 'Pré-Vencimento',
+    triggerDescription: 'Dias 07 e 08 (2-3 dias antes do dia 10)',
+    template: `Oi, [NOME_MOTORISTA]! Lembrete amigável da T.IA: a mensalidade do seu plano [NOME_PLANO] no SchoolVan vence em breve (dia 10/[MES_ATUAL]).\n\n💰 *Valor:* R$ [VALOR]\n\n📲 *Pix Copia e Cola:*\n\`\`\`\n[PIX_COPIA_COLA]\n\`\`\`\n\n(Caso já tenha efetuado o pagamento, desconsidere esta mensagem. Muito obrigado pela parceria!) 👍`
+  },
+  vence_hoje: {
+    key: 'vence_hoje',
+    stepNumber: 3,
+    name: 'Etapa 3: Vence Hoje (Dia do Vencimento)',
+    shortLabel: 'Vence Hoje',
+    triggerDescription: 'Dia 10 do mês',
+    template: `Olá, [NOME_MOTORISTA]! 🚐\n\nHoje é o dia de vencimento da assinatura do seu plano [NOME_PLANO] no SchoolVan.\n\n💵 *Valor:* R$ [VALOR]\n🔑 *Pix Copia e Cola Cora:*\n\`\`\`\n[PIX_COPIA_COLA]\n\`\`\`\n\nAssim que o pagamento for processado, o sistema atualiza automaticamente seu status no painel.`
+  },
+  atraso_leve: {
+    key: 'atraso_leve',
+    stepNumber: 4,
+    name: 'Etapa 4: Atraso Leve (1 a 5 dias de atraso)',
+    shortLabel: 'Atraso Leve',
+    triggerDescription: 'Dias 11 a 15 (1 a 5 dias de atraso)',
+    template: `Olá, [NOME_MOTORISTA], tudo bem?\n\nConsta no sistema do SchoolVan que a fatura do plano [NOME_PLANO] (vencimento dia 10/[MES_ATUAL]) no valor de R$ [VALOR] ainda não foi identificada.\n\nPara manter o acesso sem interrupções à sua rota, gestão e aplicativo dos pais, utilize o Pix abaixo:\n\n\`\`\`\n[PIX_COPIA_COLA]\n\`\`\`\n\nSe já realizou a transferência, por favor nos avise por aqui!`
+  },
+  atraso_critico: {
+    key: 'atraso_critico',
+    stepNumber: 5,
+    name: 'Etapa 5: Atraso +7 dias (+7 dias de atraso)',
+    shortLabel: 'Atraso +7 dias',
+    triggerDescription: 'A partir do dia 17 (+7 dias de atraso)',
+    template: `Atenção, [NOME_MOTORISTA]! ⚠️\n\nA fatura do seu plano [NOME_PLANO] está com mais de 7 dias de atraso. Os recursos de comunicação e marketplace poderão ser temporariamente suspensos.\n\nRegularize agora mesmo para manter seu sistema ativo:\n\n💵 *Valor:* R$ [VALOR]\n🔑 *Pix Copia e Cola:*\n\`\`\`\n[PIX_COPIA_COLA]\n\`\`\`\n\nCaso precise de ajuda com o pagamento, fale com nosso suporte imediatamente!`
+  }
+};
+
+export const DRIVER_SAAS_STAGES_MANUAL: Record<'abertura_mes' | 'atraso_leve', DriverSaaSStageConfig> = {
+  abertura_mes: {
+    key: 'abertura_mes',
+    stepNumber: 1,
+    name: '1. Abertura do Mês (Dia 01)',
+    shortLabel: 'Abertura Mês',
+    triggerDescription: 'Dia 01 de cada mês (Status: Pendente de Pagamento)',
+    template: `Olá, [NOME_MOTORISTA]! Tudo bem? 🚌✨\n\nAqui é a T.IA do SchoolVan! Informamos que a mensalidade do seu plano [NOME_PLANO] referente a este mês já está disponível (Vencimento todo dia 10).\n\n📌 *Valor:* R$ [VALOR]\n📅 *Vencimento:* 10/[MES_ATUAL]/[ANO_ATUAL]\n\n🔑 *Chave Pix Oficial SchoolVan:*\n\`\`\`\n[PIX_COPIA_COLA]\n\`\`\`\n\nApós o pagamento, envie o comprovante no app ou por aqui para o Super Admin validar e atualizar seu status para "Em Dia"! 🙏`
+  },
+  atraso_leve: {
+    key: 'atraso_leve',
+    stepNumber: 2,
+    name: '2. Atraso Leve (Após Análise do Super Admin no Dia 11)',
+    shortLabel: 'Atraso Leve (Dia 11)',
+    triggerDescription: 'Dia 11 a 15 (após validação manual do Super Admin)',
+    template: `Olá, [NOME_MOTORISTA], tudo bem?\n\nConsta no sistema do SchoolVan que a fatura do plano [NOME_PLANO] (vencimento dia 10/[MES_ATUAL]) no valor de R$ [VALOR] ainda consta como pendente de conferência.\n\nCaso já tenha pago, por favor envie o comprovante por aqui para o Super Admin atualizar seu status. Se ainda não pagou, segue a chave Pix:\n\n\`\`\`\n[PIX_COPIA_COLA]\n\`\`\`\n\nMuito obrigado!`
+  }
+};

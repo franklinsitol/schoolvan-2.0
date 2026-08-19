@@ -12,7 +12,7 @@ export interface Driver {
   city?: string;
   cpfCnpj?: string;
   pixKey?: string;
-  billingPreference?: 'pix' | 'boleto';
+  billingPreference?: 'pix' | 'sem_pix' | 'boleto';
   birthDate?: string;
   plan?: PlanTier;
   status: AccountStatus;
@@ -82,7 +82,7 @@ export interface TeamMember {
   invoiceStatus?: InvoiceStatus;
   paymentPromiseUntil?: string;
   pixKey?: string;
-  billingPreference?: 'pix' | 'boleto';
+  billingPreference?: 'pix' | 'sem_pix' | 'boleto';
   city?: string;
   cpfCnpj?: string;
   termsAccepted?: string;
@@ -150,7 +150,7 @@ export interface Student {
   }[];
   routeOrder?: number;
   paymentStatus?: InvoiceStatus;
-  billingPreference?: 'pix' | 'boleto';
+  billingPreference?: 'pix' | 'sem_pix' | 'boleto';
   lastPaidMonth?: string;
 }
 
