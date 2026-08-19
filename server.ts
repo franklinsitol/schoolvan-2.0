@@ -10,6 +10,17 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // CORS middleware for all environments and previews
+  app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(200);
+    }
+    next();
+  });
+
   app.use(express.json());
 
   // API endpoint for Gemini AI Chat (Server-side proxy)
@@ -251,16 +262,21 @@ Se for apenas uma dúvida, responda normalmente de forma concisa e útil.`;
   // ==========================================
 
   // Endpoint to test Cora Bank API Connection
-  app.post("/api/cora/test-connection", async (req, res) => {
+  app.all("/api/cora/test-connection", async (req, res) => {
     try {
-      const { clientId, clientSecret, environment } = req.body || {};
+      const body = req.body || {};
+      const query = req.query || {};
+      const clientId = body.clientId || query.clientId;
+      const clientSecret = body.clientSecret || query.clientSecret;
+      const environment = body.environment || query.environment;
+
       const env = environment || process.env.CORA_ENVIRONMENT || 'stage';
       const cId = clientId || process.env.CORA_CLIENT_ID || "app-hKTVJB2iqimj0uUNqAjSS";
       const cSec = clientSecret || process.env.CORA_CLIENT_SECRET || "9c8d3404-f99c-4a5a-8210-e856ba586eaa";
 
       const auth = await getCoraAccessToken(cId, cSec, env);
       if (!auth.token) {
-        return res.json({
+        return res.status(200).json({
           success: false,
           environment: env,
           message: `Falha na autenticação com Cora Bank (${env === 'stage' ? 'Homologação' : 'Produção'}): ${auth.error || 'Verifique Client ID e Client Secret'}`,
@@ -269,7 +285,7 @@ Se for apenas uma dúvida, responda normalmente de forma concisa e útil.`;
         });
       }
 
-      return res.json({
+      return res.status(200).json({
         success: true,
         environment: env,
         message: `Conectado com sucesso ao Cora Bank (${env === 'stage' ? 'Homologação / Stage' : 'Produção Oficial'})! Token OAuth2 gerado.`,

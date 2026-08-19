@@ -408,27 +408,35 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
           customEnvironment: config.asaasEnvironment || 'sandbox'
         })
       });
-      const data = await response.json();
-      if (data.success) {
+
+      let data: any = null;
+      try {
+        data = await response.json();
+      } catch (jsonErr) {
+        data = { success: false, message: `Erro ao interpretar resposta do servidor (${response.status}: ${response.statusText})` };
+      }
+
+      if (data && data.success) {
         setAsaasTestStatus({
           success: true,
-          message: `Conexão bem sucedida! Ambiente: ${data.environment.toUpperCase()}`,
+          message: data.message || `Conexão bem sucedida! Ambiente: ${(data.environment || 'sandbox').toUpperCase()}`,
           details: data
         });
         toast.success(`Integração Asaas validada com sucesso (${data.environment})!`);
       } else {
+        const errorText = data?.error || data?.message || `Erro de validação (HTTP ${response.status})`;
         setAsaasTestStatus({
           success: false,
-          message: data.error || data.message || 'Erro ao conectar com a API do Asaas.',
+          message: errorText,
           details: data
         });
-        toast.error(data.error || data.message || 'Falha na autenticação com Asaas');
+        toast.error(errorText);
       }
     } catch (err: any) {
       console.error("Erro ao testar conexão Asaas:", err);
       setAsaasTestStatus({
         success: false,
-        message: 'Erro de rede ou servidor ao testar conexão Asaas.'
+        message: `Erro de rede ou servidor ao testar conexão Asaas: ${err.message || 'Falha na requisição'}`
       });
       toast.error('Erro de comunicação ao testar Asaas.');
     } finally {
