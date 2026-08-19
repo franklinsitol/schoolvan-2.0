@@ -56,7 +56,7 @@ import { checkCanAddStudent } from './lib/plans';
 
 import { auth, db } from './lib/firebase';
 import { signOut } from 'firebase/auth';
-import { where, doc, updateDoc, collection, addDoc, arrayUnion } from 'firebase/firestore';
+import { where, doc, updateDoc, collection, addDoc, arrayUnion, onSnapshot } from 'firebase/firestore';
 import { SchoolVanLogo } from './components/SchoolVanLogo';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import toast from 'react-hot-toast';
@@ -69,6 +69,7 @@ import { FinanceView } from './components/FinanceView';
 import { ProfileView } from './components/ProfileView';
 import { SupportView } from './components/SupportView';
 import { RoutesView } from './components/RoutesView';
+import { ParentFinanceView } from './components/ParentFinanceView';
 import { CheckinModal } from './components/CheckinModal';
 import { StudentModal } from './components/StudentModal';
 import { VehicleModal } from './components/VehicleModal';

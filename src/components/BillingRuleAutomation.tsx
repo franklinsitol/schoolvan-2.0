@@ -6,15 +6,13 @@ import {
   Check, 
   Sparkles, 
   Calendar, 
-  DollarSign, 
   QrCode, 
   Info, 
   MessageCircle, 
   RotateCcw, 
-  ShieldAlert, 
   ChevronRight, 
   Edit3,
-  ExternalLink
+  FileText
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { Student, Finance } from '../types';
@@ -22,8 +20,7 @@ import {
   BILLING_STAGES, 
   BillingStageKey, 
   calculateStudentBillingStage, 
-  formatBillingMessage, 
-  generatePixCopiaECola 
+  formatBillingMessage 
 } from '../lib/billingRuleUtils';
 import { cn } from '../lib/utils';
 import toast from 'react-hot-toast';
@@ -55,7 +52,7 @@ export function BillingRuleAutomation({ students, finances, onOpenProfile }: Bil
   const studentsWithStatus = useMemo(() => {
     return activeStudents.map(student => {
       const fin = finances.find(f => f.studentId === student.id);
-      const status = fin?.status || 'Em Dia';
+      const status = fin?.status || student.paymentStatus || 'Em Dia';
       const paymentDay = student.paymentDay || 10;
       const value = fin?.value !== undefined ? fin.value : (student.value || 0);
       const stageKey = calculateStudentBillingStage(paymentDay, status, currentDay);
@@ -102,8 +99,10 @@ export function BillingRuleAutomation({ students, finances, onOpenProfile }: Bil
     return studentsInSelectedStage[0] || studentsWithStatus[0];
   }, [selectedStudentId, studentsInSelectedStage, studentsWithStatus]);
 
-  // Billing Mode: 'manual' (Driver's own Pix key, 0% fee) or 'schoolvan_pay'
-  const [billingMode, setBillingMode] = useState<'manual' | 'schoolvan_pay'>('manual');
+  // Payment Method: 'pix' vs 'boleto'
+  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'boleto'>(
+    profile?.billingPreference || 'pix'
+  );
 
   // Current formatted message & Pix
   const currentMessageData = useMemo(() => {
@@ -111,7 +110,7 @@ export function BillingRuleAutomation({ students, finances, onOpenProfile }: Bil
       return {
         messageText: 'Nenhum aluno cadastrado para gerar prévia.',
         pixString: profile?.pixKey || '',
-        billingMethod: billingMode
+        paymentMethod
       };
     }
 
@@ -125,11 +124,10 @@ export function BillingRuleAutomation({ students, finances, onOpenProfile }: Bil
       value: currentPreviewStudent.value || 350,
       paymentDay: currentPreviewStudent.paymentDay || 10,
       pixKey: profile?.pixKey || '',
-      driverCity: profile?.city || 'São Paulo',
-      billingMethod: billingMode,
+      paymentMethod,
       customTemplate: templateToUse
     });
-  }, [currentPreviewStudent, selectedStageKey, customTemplates, profile, billingMode]);
+  }, [currentPreviewStudent, selectedStageKey, customTemplates, profile, paymentMethod]);
 
   const handleCopyPix = () => {
     const codeToCopy = currentMessageData.pixString;
@@ -139,7 +137,7 @@ export function BillingRuleAutomation({ students, finances, onOpenProfile }: Bil
     }
     navigator.clipboard.writeText(codeToCopy);
     setCopiedKey(true);
-    toast.success(billingMode === 'manual' ? 'Sua Chave Pix foi copiada!' : 'Pix Copia e Cola copiado!');
+    toast.success('Chave Pix copiada com sucesso!');
     setTimeout(() => setCopiedKey(false), 2500);
   };
 
@@ -169,8 +167,7 @@ export function BillingRuleAutomation({ students, finances, onOpenProfile }: Bil
       value: student.value || 350,
       paymentDay: student.paymentDay || 10,
       pixKey: profile?.pixKey || '',
-      driverCity: profile?.city || 'São Paulo',
-      billingMethod: billingMode,
+      paymentMethod,
       customTemplate: templateToUse
     });
 
@@ -219,11 +216,11 @@ export function BillingRuleAutomation({ students, finances, onOpenProfile }: Bil
             </div>
 
             <h3 className="text-xl sm:text-2xl font-black text-white">
-              Automação de Comunicação com Pix Copia e Cola
+              Cobrança Humanizada via WhatsApp
             </h3>
             
             <p className="text-xs sm:text-sm text-gray-300 font-medium leading-relaxed">
-              A T.IA calcula a data de vencimento de cada aluno e classifica em <strong>5 estágios automáticos</strong>: da virada do mês até o pós-vencimento. As mensagens já vêm prontas com valor correto, chave Pix e código Pix Copia e Cola bancário oficial.
+              A T.IA calcula as datas de vencimento de cada aluno e classifica em <strong>5 estágios de comunicação</strong>: da virada do mês até lembretes de atraso. As mensagens são formatadas com sua Chave Pix ou aviso de Boleto Bancário.
             </p>
           </div>
 
@@ -412,7 +409,7 @@ export function BillingRuleAutomation({ students, finances, onOpenProfile }: Bil
           </div>
         </div>
 
-        {/* Right Column: Message Preview, Pix Copia e Cola & Actions (7 cols) */}
+        {/* Right Column: Message Preview & Actions (7 cols) */}
         <div className="lg:col-span-7 space-y-4">
           <div className="bg-white p-5 sm:p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
@@ -460,34 +457,34 @@ export function BillingRuleAutomation({ students, finances, onOpenProfile }: Bil
               </div>
             </div>
 
-            {/* Billing Mode Switcher in Automation */}
+            {/* Payment Method Switcher: Pix vs Boleto */}
             <div className="flex items-center justify-between p-1 bg-gray-100 rounded-2xl border border-gray-200">
               <button
                 type="button"
-                onClick={() => setBillingMode('manual')}
+                onClick={() => setPaymentMethod('pix')}
                 className={cn(
                   "flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5",
-                  billingMode === 'manual'
+                  paymentMethod === 'pix'
                     ? "bg-white text-gray-950 shadow-sm"
                     : "text-gray-600 hover:text-gray-950"
                 )}
               >
-                <span>🏷️ Cobrar Manualmente (Sua Chave Pix)</span>
-                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded-md">0% Taxa</span>
+                <QrCode size={14} className={paymentMethod === 'pix' ? "text-yellow-600" : "text-gray-400"} />
+                <span>🟢 Cobrança por Pix (com Chave Pix)</span>
               </button>
 
               <button
                 type="button"
-                onClick={() => setBillingMode('schoolvan_pay')}
+                onClick={() => setPaymentMethod('boleto')}
                 className={cn(
                   "flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5",
-                  billingMode === 'schoolvan_pay'
-                    ? "bg-gray-950 text-yellow-400 shadow-sm"
+                  paymentMethod === 'boleto'
+                    ? "bg-white text-gray-950 shadow-sm"
                     : "text-gray-600 hover:text-gray-950"
                 )}
               >
-                <span>⚡ Cobrar com SchoolVan Pay</span>
-                <span className="text-[10px] bg-yellow-400 text-gray-950 font-bold px-1.5 py-0.2 rounded-md">Baixa Auto</span>
+                <FileText size={14} className={paymentMethod === 'boleto' ? "text-blue-600" : "text-gray-400"} />
+                <span>📄 Boleto Bancário do seu Banco</span>
               </button>
             </div>
 
@@ -499,7 +496,7 @@ export function BillingRuleAutomation({ students, finances, onOpenProfile }: Bil
                     <Info size={14} className="text-blue-600" /> Tags Dinâmicas Disponíveis:
                   </p>
                   <p className="font-mono text-[11px] text-blue-800">
-                    [NOME_RESPONSAVEL], [NOME_ALUNO], [NOME_TIO], [VALOR], [DIA_VENCIMENTO], [PIX_COPIA_COLA], [CHAVE_PIX]
+                    [NOME_RESPONSAVEL], [NOME_ALUNO], [NOME_TIO], [VALOR], [DIA_VENCIMENTO], [CHAVE_PIX]
                   </p>
                 </div>
 
@@ -522,60 +519,29 @@ export function BillingRuleAutomation({ students, finances, onOpenProfile }: Bil
                   </div>
                 </div>
 
-                {/* Pix or Key Card Display */}
-                {billingMode === 'manual' ? (
+                {/* Pix Key Card Display when in Pix mode */}
+                {paymentMethod === 'pix' && (
                   <div className="bg-amber-50/80 p-4 rounded-2xl border border-amber-200 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <QrCode size={16} className="text-amber-700" />
                         <span className="text-xs font-black text-amber-950">
-                          Sua Chave Pix Cadastrada (0% Taxa):
+                          Sua Chave Pix Cadastrada:
                         </span>
                       </div>
                       <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
-                        Repasse Imediato no seu Banco
+                        0% Taxa • Repasse Direto no seu Banco
                       </span>
                     </div>
 
                     <div className="p-2.5 bg-white rounded-xl border border-amber-200 font-mono text-xs font-bold text-gray-900 break-all select-all flex items-center justify-between">
-                      <span>{profile?.pixKey || 'Nenhuma chave cadastrada'}</span>
+                      <span>{profile?.pixKey || 'Nenhuma chave cadastrada em Meu Perfil'}</span>
                       <button
                         onClick={handleCopyPix}
                         className="px-3 py-1 bg-amber-200 hover:bg-amber-300 text-amber-900 font-black rounded-lg text-xs flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
                       >
                         {copiedKey ? <Check size={13} /> : <Copy size={13} />}
                         <span>{copiedKey ? 'Copiada!' : 'Copiar Chave'}</span>
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-gray-950 text-white p-4 rounded-2xl border border-yellow-500/30 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <QrCode size={16} className="text-yellow-400" />
-                        <span className="text-xs font-black uppercase text-yellow-400 tracking-wider">
-                          Pix Dinâmico SchoolVan Pay (Baixa Automática)
-                        </span>
-                      </div>
-                      <span className="text-[10px] font-bold text-gray-400">
-                        Venc. Dia {currentPreviewStudent?.paymentDay || 10} • R$ {currentPreviewStudent?.value?.toFixed(2) || '0,00'}
-                      </span>
-                    </div>
-
-                    <div className="p-2.5 bg-gray-900 rounded-xl border border-gray-800 font-mono text-[11px] text-emerald-400 break-all select-all">
-                      {currentMessageData.pixString}
-                    </div>
-
-                    <div className="flex items-center justify-between pt-1">
-                      <p className="text-[10px] text-gray-400">
-                        Baixa automática assim que o responsável efetuar o pagamento.
-                      </p>
-                      <button
-                        onClick={handleCopyPix}
-                        className="px-3 py-1 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-lg text-xs flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
-                      >
-                        {copiedKey ? <Check size={13} /> : <Copy size={13} />}
-                        <span>{copiedKey ? 'Copiado!' : 'Copiar Pix'}</span>
                       </button>
                     </div>
                   </div>
@@ -597,7 +563,7 @@ export function BillingRuleAutomation({ students, finances, onOpenProfile }: Bil
                       className="w-full sm:flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer"
                     >
                       <Send size={15} />
-                      <span>Abrir WhatsApp ({billingMode === 'manual' ? 'Sua Chave Pix' : 'SchoolVan Pay'})</span>
+                      <span>Enviar no WhatsApp</span>
                     </button>
                   )}
                 </div>

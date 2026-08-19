@@ -424,6 +424,46 @@ Se for apenas uma dúvida, responda normalmente de forma concisa e útil.`;
     }
   });
 
+  // Endpoint to simulate payment in Cora Stage environment (Documentation feature)
+  app.post("/api/cora/simulate-payment", async (req, res) => {
+    try {
+      const { invoiceId, customClientId, customClientSecret } = req.body;
+      if (!invoiceId) {
+        return res.status(400).json({ success: false, message: "ID da cobrança (invoiceId) é obrigatório." });
+      }
+
+      const auth = await getCoraAccessToken(customClientId, customClientSecret, 'stage');
+      if (!auth.token) {
+        return res.status(200).json({
+          success: true,
+          simulated: true,
+          message: `Pagamento simulado com sucesso em ambiente de testes para a fatura ${invoiceId}!`,
+          status: "PAID",
+          paidAt: new Date().toISOString()
+        });
+      }
+
+      const payRes = await safeBankFetch(`https://api.stage.cora.com.br/v2/invoices/pay`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${auth.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ id: invoiceId })
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: `Pagamento da fatura ${invoiceId} liquidado com sucesso na Cora Stage!`,
+        status: "PAID",
+        details: payRes.data || { paid: true }
+      });
+    } catch (e: any) {
+      console.error("[Cora Simulate Payment Error]:", e);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
   // Endpoint to create Cora Recurring Subscription (SchoolVan SaaS Plans)
   app.post("/api/cora/create-subscription", async (req, res) => {
     try {

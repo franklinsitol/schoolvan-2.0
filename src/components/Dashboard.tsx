@@ -40,12 +40,7 @@ export function Dashboard({
   const { data: finances } = useFirestore<Finance>(`drivers/${profile?.id}/finance`);
 
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('');
-
-  const isFreePlan = !profile?.plan || profile.plan === 'Gratuito';
-  const planName = profile?.plan || 'Gratuito';
-  const maxStudentsLimit = isFreePlan ? 25 : 999;
-  const currentStudentsCount = students.filter(s => s.status !== 'Excluido').length;
-  const quotaPercent = isFreePlan ? Math.min(100, Math.round((currentStudentsCount / 25) * 100)) : 100;
+  const [selectedShift, setSelectedShift] = useState<'Todos' | 'Manhã' | 'Tarde' | 'Noite'>('Todos');
 
   const activeVehicle = useMemo(() => {
     if (selectedVehicleId) {
@@ -61,8 +56,13 @@ export function Dashboard({
     return activeStudents.filter(s => !s.vehicleId || s.vehicleId === activeVehicle.id);
   }, [activeStudents, activeVehicle]);
 
+  const shiftStudents = useMemo(() => {
+    if (selectedShift === 'Todos') return vehicleStudents;
+    return vehicleStudents.filter(s => (s.shift || 'Manhã') === selectedShift);
+  }, [vehicleStudents, selectedShift]);
+
   const vehicleCapacity = activeVehicle?.capacity || 16;
-  const occupiedSeatsCount = vehicleStudents.filter(s => s.seat && s.seat <= vehicleCapacity).length;
+  const occupiedSeatsCount = shiftStudents.filter(s => s.seat && s.seat <= vehicleCapacity).length;
   const freeSeatsCount = Math.max(0, vehicleCapacity - occupiedSeatsCount);
   
   const kpis = useMemo(() => {
@@ -112,88 +112,6 @@ export function Dashboard({
           </div>
         </div>
       </div>
-
-      {/* 🚀 PLAN STATUS & VISIBILITY BANNER */}
-      {onOpenSubscriptionModal && (
-        <div className={cn(
-          "rounded-3xl p-5 sm:p-6 shadow-sm border transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4",
-          isFreePlan 
-            ? "bg-gradient-to-r from-amber-500/10 via-yellow-500/10 to-amber-500/5 border-amber-200/80" 
-            : "bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-white border-emerald-200"
-        )}>
-          <div className="space-y-2 max-w-2xl">
-            <div className="flex items-center gap-2.5">
-              <span className={cn(
-                "px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm",
-                isFreePlan ? "bg-yellow-400 text-gray-950" : "bg-emerald-600 text-white"
-              )}>
-                <Zap size={14} className={isFreePlan ? "fill-gray-950" : "fill-white"} />
-                Plano {planName}
-              </span>
-              
-              {isFreePlan ? (
-                <span className="text-xs font-bold text-amber-900 bg-amber-100/80 px-2.5 py-0.5 rounded-full">
-                  Uso: {currentStudentsCount}/25 Alunos
-                </span>
-              ) : (
-                <span className="text-xs font-bold text-emerald-900 bg-emerald-100 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                  <ShieldCheck size={14} className="text-emerald-700" />
-                  Alunos Ilimitados • Em Dia
-                </span>
-              )}
-            </div>
-
-            <p className="text-xs sm:text-sm text-gray-700 font-medium leading-relaxed">
-              {isFreePlan ? (
-                <>
-                  Você está usando a <strong>versão gratuita do SchoolVan</strong>. Quer adicionar alunos ilimitados, WhatsApp automático da T.IA e adicionar novas vans? Contrate o <strong>Plano Pro</strong> sem pagar nada hoje (pague só proporcional no dia 10).
-                </>
-              ) : (
-                <>
-                  Seu plano <strong>{planName}</strong> está ativo com todos os recursos liberados! Fatura unificada com vencimento todo <strong>dia 10</strong>.
-                </>
-              )}
-            </p>
-
-            {/* Quota Progress Bar for Free Plan */}
-            {isFreePlan && (
-              <div className="space-y-1 pt-1">
-                <div className="flex justify-between text-[11px] font-bold text-gray-600">
-                  <span>Capacidade do Plano Gratuito</span>
-                  <span className={quotaPercent >= 80 ? "text-red-600 font-black" : "text-amber-800 font-black"}>
-                    {currentStudentsCount} de 25 ({quotaPercent}%)
-                  </span>
-                </div>
-                <div className="w-full h-2.5 bg-amber-200/50 rounded-full overflow-hidden">
-                  <div 
-                    className={cn(
-                      "h-full rounded-full transition-all duration-500",
-                      quotaPercent >= 90 ? "bg-red-500" : quotaPercent >= 70 ? "bg-amber-500" : "bg-emerald-500"
-                    )}
-                    style={{ width: `${quotaPercent}%` }}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="shrink-0 flex items-center gap-2">
-            <button
-              onClick={onOpenSubscriptionModal}
-              className={cn(
-                "w-full sm:w-auto px-5 py-3 rounded-2xl text-xs sm:text-sm font-black transition-all shadow-md active:scale-95 cursor-pointer flex items-center justify-center gap-2",
-                isFreePlan 
-                  ? "bg-gray-950 hover:bg-gray-800 text-yellow-400 border border-yellow-400/30" 
-                  : "bg-emerald-600 hover:bg-emerald-700 text-white"
-              )}
-            >
-              <Sparkles size={16} className={isFreePlan ? "text-yellow-400" : "text-emerald-200"} />
-              <span>{isFreePlan ? 'VER PLANOS & CONTRATAR PRO' : 'GERENCIAR PLANO & FATURAS'}</span>
-              <ArrowRight size={16} />
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -252,14 +170,14 @@ export function Dashboard({
         {/* Seat Map */}
         <div className="lg:col-span-2 bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between">
           <div>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <div>
                 <h3 className="text-xl font-extrabold text-gray-900 flex items-center gap-2">
                   <Armchair className="text-yellow-600" size={22} />
                   Mapa de Assentos da Van
                 </h3>
                 <p className="text-xs text-gray-500 font-medium">
-                  {activeVehicle ? `${activeVehicle.name} • Capacidade Total: ${vehicleCapacity} Lugares` : `Capacidade Total: ${vehicleCapacity} Lugares`}
+                  {activeVehicle ? `${activeVehicle.name} • Capacidade Física: ${vehicleCapacity} Assentos` : `Capacidade Física: ${vehicleCapacity} Assentos`}
                 </p>
               </div>
 
@@ -268,35 +186,97 @@ export function Dashboard({
                   {freeSeatsCount} Vagas Livres
                 </span>
                 <span className="px-3 py-1 bg-yellow-50 text-yellow-800 font-bold text-xs rounded-full border border-yellow-200">
-                  {occupiedSeatsCount}/{vehicleCapacity} Ocupados
+                  {occupiedSeatsCount}/{vehicleCapacity} Ocupados ({selectedShift})
                 </span>
               </div>
             </div>
 
+            {/* Shift Selector */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6 p-3 bg-gray-50 rounded-2xl border border-gray-200">
+              <div className="text-xs font-bold text-gray-700">
+                <span className="text-gray-500">Filtrar Ocupação por Turno da Rota:</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {(['Todos', 'Manhã', 'Tarde', 'Noite'] as const).map(shift => (
+                  <button
+                    key={shift}
+                    type="button"
+                    onClick={() => setSelectedShift(shift)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer",
+                      selectedShift === shift
+                        ? "bg-yellow-400 text-gray-950 shadow-sm"
+                        : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
+                    )}
+                  >
+                    {shift === 'Manhã' ? '☀️ Manhã' : shift === 'Tarde' ? '🌤️ Tarde' : shift === 'Noite' ? '🌙 Noite' : '⭐ Todos'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Van Graphic Container */}
             <div className="flex justify-center my-2">
-              <div className="relative bg-gray-50 border-4 border-gray-900 rounded-[40px] p-6 sm:p-8 pt-16 w-full max-w-xl shadow-xl">
-                {/* Windshield / Bus Front */}
-                <div className="absolute top-4 left-1/2 -translate-x-1/2 w-3/4 h-8 bg-blue-300 border-2 border-gray-900 rounded-lg flex items-center justify-center">
-                  <span className="text-[10px] font-black text-gray-800 uppercase tracking-widest">Para-brisa</span>
-                </div>
-                <div className="absolute -left-3 top-10 w-3 h-12 bg-gray-900 rounded-l-lg" />
-                <div className="absolute -right-3 top-10 w-3 h-12 bg-gray-900 rounded-r-lg" />
+              <div className="relative bg-white border-4 border-gray-900 rounded-[44px] p-6 sm:p-8 pt-8 w-full max-w-xl shadow-2xl">
                 
-                {/* Driver Section */}
-                <div className="flex items-center justify-between pb-6 mb-6 border-b-2 border-dashed border-gray-300">
+                {/* 💡 Stylized Headlights (Faróis Dianteiros) */}
+                <div className="absolute -top-3.5 left-10 w-8 h-5 bg-gradient-to-b from-amber-300 to-yellow-400 rounded-t-full border-2 border-gray-900 shadow-[0_-4px_12px_rgba(250,204,21,0.9)] flex items-center justify-center">
+                  <div className="w-3 h-1.5 bg-white/90 rounded-full" />
+                </div>
+                <div className="absolute -top-3.5 right-10 w-8 h-5 bg-gradient-to-b from-amber-300 to-yellow-400 rounded-t-full border-2 border-gray-900 shadow-[0_-4px_12px_rgba(250,204,21,0.9)] flex items-center justify-center">
+                  <div className="w-3 h-1.5 bg-white/90 rounded-full" />
+                </div>
+
+                {/* 🛞 Front Left Wheel (Pneu Dianteiro Esquerdo) */}
+                <div className="absolute -left-4 top-24 w-4 h-16 bg-gray-950 rounded-l-xl border-2 border-gray-800 shadow-xl flex flex-col justify-around py-1 items-center z-10">
+                  <div className="w-1.5 h-1 bg-gray-600 rounded-full" />
+                  <div className="w-1.5 h-1 bg-yellow-400/80 rounded-full" />
+                  <div className="w-1.5 h-1 bg-gray-600 rounded-full" />
+                </div>
+
+                {/* 🛞 Front Right Wheel (Pneu Dianteiro Direito) */}
+                <div className="absolute -right-4 top-24 w-4 h-16 bg-gray-950 rounded-r-xl border-2 border-gray-800 shadow-xl flex flex-col justify-around py-1 items-center z-10">
+                  <div className="w-1.5 h-1 bg-gray-600 rounded-full" />
+                  <div className="w-1.5 h-1 bg-yellow-400/80 rounded-full" />
+                  <div className="w-1.5 h-1 bg-gray-600 rounded-full" />
+                </div>
+
+                {/* 🛞 Rear Left Wheel (Pneu Traseiro Esquerdo) */}
+                <div className="absolute -left-4 bottom-14 w-4 h-16 bg-gray-950 rounded-l-xl border-2 border-gray-800 shadow-xl flex flex-col justify-around py-1 items-center z-10">
+                  <div className="w-1.5 h-1 bg-gray-600 rounded-full" />
+                  <div className="w-1.5 h-1 bg-yellow-400/80 rounded-full" />
+                  <div className="w-1.5 h-1 bg-gray-600 rounded-full" />
+                </div>
+
+                {/* 🛞 Rear Right Wheel (Pneu Traseiro Direito) */}
+                <div className="absolute -right-4 bottom-14 w-4 h-16 bg-gray-950 rounded-r-xl border-2 border-gray-800 shadow-xl flex flex-col justify-around py-1 items-center z-10">
+                  <div className="w-1.5 h-1 bg-gray-600 rounded-full" />
+                  <div className="w-1.5 h-1 bg-yellow-400/80 rounded-full" />
+                  <div className="w-1.5 h-1 bg-gray-600 rounded-full" />
+                </div>
+
+                {/* 🪟 Windshield / Para-brisa (Properly spaced without collision) */}
+                <div className="w-full h-11 bg-gradient-to-r from-sky-200 via-blue-200 to-sky-200 border-2 border-gray-900 rounded-2xl flex items-center justify-center shadow-inner mb-5">
+                  <span className="text-[11px] font-black text-gray-800 uppercase tracking-widest flex items-center gap-1.5">
+                    🚍 Para-brisa Dianteiro
+                  </span>
+                </div>
+                
+                {/* 👨‍✈️ Driver Section & Entrance Door (Grid / Responsive) */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-5 mb-5 border-b-2 border-dashed border-gray-300 bg-gray-50/80 p-3.5 rounded-2xl border border-gray-200">
                   <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 bg-gray-900 rounded-xl flex items-center justify-center text-yellow-400 font-black shadow-md">
-                      <Users size={20} />
+                    <div className="w-10 h-10 bg-gray-900 rounded-xl flex items-center justify-center text-yellow-400 font-black shadow-md shrink-0">
+                      <Users size={18} />
                     </div>
                     <div>
                       <span className="text-xs font-black text-gray-950 uppercase tracking-wider block">Cabine do Motorista</span>
-                      <span className="text-[10px] text-gray-500 font-bold">{profile?.name || 'Tio(a)'}</span>
+                      <span className="text-[11px] text-gray-600 font-bold">{profile?.name || 'Tio(a) da Van'}</span>
                     </div>
                   </div>
 
-                  <div className="text-right">
-                    <span className="text-[10px] font-bold text-gray-400 block uppercase">Porta de Entrada</span>
-                    <span className="text-xs font-black text-emerald-600">➡️ Embarque</span>
+                  <div className="bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl self-stretch sm:self-auto text-right">
+                    <span className="text-[10px] font-extrabold text-emerald-800 block uppercase">Porta de Entrada</span>
+                    <span className="text-xs font-black text-emerald-700">➡️ Embarque / Desembarque</span>
                   </div>
                 </div>
 
@@ -304,7 +284,7 @@ export function Dashboard({
                 <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-4 gap-2.5 sm:gap-3.5 max-h-[460px] overflow-y-auto p-1 pr-2">
                   {Array.from({ length: vehicleCapacity }).map((_, i) => {
                     const seatNumber = i + 1;
-                    const student = vehicleStudents.find(s => s.seat === seatNumber);
+                    const student = shiftStudents.find(s => s.seat === seatNumber);
                     const isAbsent = student ? isStudentAbsentOnDate(student) : false;
 
                     return (
@@ -328,7 +308,7 @@ export function Dashboard({
                         {/* Hover Tooltip */}
                         {student && (
                           <div className="hidden group-hover:block absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-950 text-white text-[11px] font-bold px-2.5 py-1 rounded-lg whitespace-nowrap z-20 shadow-lg pointer-events-none">
-                            {student.name} {isAbsent ? '⚠️ (Ausente)' : '✅ (Confirmado)'}
+                            {student.name} • {student.shift || 'Manhã'} {isAbsent ? '⚠️ (Ausente)' : '✅ (Confirmado)'}
                           </div>
                         )}
                       </div>
@@ -341,7 +321,7 @@ export function Dashboard({
 
           <div className="mt-6 flex flex-wrap justify-center gap-5 text-xs font-bold pt-4 border-t border-gray-100">
             <div className="flex items-center gap-2"><div className="w-3.5 h-3.5 rounded-md bg-emerald-500 shadow-sm" /> Assento Livre</div>
-            <div className="flex items-center gap-2"><div className="w-3.5 h-3.5 rounded-md bg-red-500 shadow-sm" /> Ocupado</div>
+            <div className="flex items-center gap-2"><div className="w-3.5 h-3.5 rounded-md bg-red-500 shadow-sm" /> Ocupado no Turno</div>
             <div className="flex items-center gap-2"><div className="w-3.5 h-3.5 rounded-md bg-gray-400 shadow-sm" /> Ausente Hoje</div>
           </div>
         </div>

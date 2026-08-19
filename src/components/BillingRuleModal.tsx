@@ -8,17 +8,11 @@ import {
   QrCode, 
   Calendar, 
   MessageCircle, 
-  Sparkles,
-  AlertCircle,
-  CreditCard,
-  FileText,
-  ExternalLink,
-  ShieldCheck,
-  Zap,
-  UserCheck,
-  BadgePercent,
-  ArrowRight,
-  Info
+  Sparkles, 
+  AlertCircle, 
+  FileText, 
+  CheckCircle2,
+  HelpCircle
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { Student, InvoiceStatus } from '../types';
@@ -51,8 +45,10 @@ export function BillingRuleModal({
   const currentDay = new Date().getDate();
   const paymentDay = student?.paymentDay || 10;
   
-  // Billing Mode: 'manual' (Driver's own Pix key, 0% fee) or 'schoolvan_pay' (Gateway with automatic reconciliation)
-  const [billingMode, setBillingMode] = useState<'manual' | 'schoolvan_pay'>('manual');
+  // Payment mode toggle: 'pix' (Includes driver's Pix key) vs 'boleto' (Informs boleto was issued by bank)
+  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'boleto'>(
+    student?.billingPreference || profile?.billingPreference || 'pix'
+  );
 
   // Recommended stage by T.IA
   const recommendedStage = useMemo(() => {
@@ -62,31 +58,18 @@ export function BillingRuleModal({
   const [selectedStageKey, setSelectedStageKey] = useState<BillingStageKey>(recommendedStage);
   const [copiedKey, setCopiedKey] = useState<boolean>(false);
   const [copiedText, setCopiedText] = useState<boolean>(false);
-  
-  // Asaas Instant Generation State
-  const [billingType, setBillingType] = useState<'PIX' | 'BOLETO' | 'UNDEFINED'>('PIX');
-  const [generatingAsaas, setGeneratingAsaas] = useState<boolean>(false);
-  const [copiedBoleto, setCopiedBoleto] = useState<boolean>(false);
-  const [asaasData, setAsaasData] = useState<{
-    invoiceUrl?: string;
-    bankSlipUrl?: string;
-    pixQrCode?: string;
-    pixCopiaECola?: string;
-    barCode?: string;
-    identificationField?: string;
-  } | null>(null);
 
-  // Sync selected stage when modal opens or recommendation changes
+  // Sync selected stage when modal opens
   React.useEffect(() => {
     if (isOpen) {
       setSelectedStageKey(recommendedStage);
-      setAsaasData(null);
+      setPaymentMethod(student?.billingPreference || profile?.billingPreference || 'pix');
     }
-  }, [isOpen, recommendedStage]);
+  }, [isOpen, recommendedStage, student, profile]);
 
   const formattedData = useMemo(() => {
     if (!student) {
-      return { messageText: '', pixString: '', billingMethod: billingMode };
+      return { messageText: '', pixString: '', paymentMethod };
     }
 
     return formatBillingMessage({
@@ -97,58 +80,11 @@ export function BillingRuleModal({
       value: student.value || 350,
       paymentDay: student.paymentDay || 10,
       pixKey: profile?.pixKey || '',
-      driverCity: profile?.city || 'São Paulo',
-      billingMethod: billingMode,
-      asaasPixCopiaECola: asaasData?.pixCopiaECola,
-      asaasInvoiceUrl: asaasData?.invoiceUrl
+      paymentMethod
     });
-  }, [student, selectedStageKey, profile, billingMode, asaasData]);
+  }, [student, selectedStageKey, profile, paymentMethod]);
 
   if (!isOpen || !student) return null;
-
-  const handleGenerateAsaasCharge = async (type: 'PIX' | 'BOLETO' | 'UNDEFINED' = billingType) => {
-    setGeneratingAsaas(true);
-    try {
-      const dueDate = new Date();
-      dueDate.setDate(paymentDay);
-      if (dueDate.getDate() < currentDay) {
-        dueDate.setMonth(dueDate.getMonth() + 1);
-      }
-
-      const res = await fetch('/api/asaas/create-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerName: student.parentName || `Responsável de ${student.name}`,
-          customerPhone: student.parentPhone || student.tel1 || '',
-          value: student.value || 350,
-          dueDate: dueDate.toISOString().split('T')[0],
-          description: `Mensalidade Transporte Escolar - ${student.name}`,
-          billingType: type,
-          splitFee: 0.99
-        })
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        setAsaasData({
-          invoiceUrl: data.invoiceUrl,
-          bankSlipUrl: data.bankSlipUrl,
-          pixQrCode: data.pixQrCode,
-          pixCopiaECola: data.pixCopiaECola,
-          barCode: data.barCode,
-          identificationField: data.identificationField
-        });
-        toast.success(`Cobrança (${type === 'BOLETO' ? 'Boleto' : type === 'PIX' ? 'Pix Dinâmico' : 'Fatura'}) gerada no SchoolVan Pay!`);
-      } else {
-        toast.error(data.error || 'Não foi possível gerar a cobrança online. Usando chave padrão.');
-      }
-    } catch (err) {
-      toast.error('Erro ao conectar com o serviço SchoolVan Pay.');
-    } finally {
-      setGeneratingAsaas(false);
-    }
-  };
 
   const handleCopyPix = () => {
     const codeToCopy = formattedData.pixString;
@@ -158,7 +94,7 @@ export function BillingRuleModal({
     }
     navigator.clipboard.writeText(codeToCopy);
     setCopiedKey(true);
-    toast.success(billingMode === 'manual' ? 'Sua Chave Pix foi copiada!' : 'Pix Copia e Cola copiado!');
+    toast.success('Chave Pix copiada com sucesso!');
     setTimeout(() => setCopiedKey(false), 2000);
   };
 
@@ -194,8 +130,11 @@ export function BillingRuleModal({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-black text-white">Cobrança de Mensalidade</h3>
-                <span className="text-[10px] font-black bg-yellow-400 text-gray-950 px-2 py-0.5 rounded-full uppercase">
-                  {billingMode === 'manual' ? 'Manual (Sua Chave Pix)' : 'SchoolVan Pay (Baixa Auto)'}
+                <span className={cn(
+                  "text-[10px] font-black px-2 py-0.5 rounded-full uppercase",
+                  paymentMethod === 'pix' ? "bg-yellow-400 text-gray-950" : "bg-blue-400 text-gray-950"
+                )}>
+                  {paymentMethod === 'pix' ? '🟢 Cobrança via Pix' : '📄 Boleto Bancário'}
                 </span>
               </div>
               <p className="text-xs text-gray-300">
@@ -233,73 +172,55 @@ export function BillingRuleModal({
             </div>
           </div>
 
-          {/* TWO MAIN BILLING CHOICES: MANUAL vs SCHOOLVAN PAY */}
+          {/* Forma de Cobrança Toggle: Pix vs Boleto */}
           <div className="space-y-1.5">
             <label className="text-[11px] font-black text-gray-800 uppercase tracking-wider block">
-              Como você deseja cobrar este aluno?
+              Forma de Cobrança para este Envio:
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              
-              {/* Option 1: Manual Billing */}
+            <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
-                onClick={() => setBillingMode('manual')}
+                onClick={() => setPaymentMethod('pix')}
                 className={cn(
                   "p-3 rounded-2xl text-left border-2 transition-all cursor-pointer flex flex-col justify-between relative",
-                  billingMode === 'manual'
-                    ? "bg-yellow-50/80 border-yellow-400 shadow-sm"
+                  paymentMethod === 'pix'
+                    ? "bg-yellow-50/90 border-yellow-400 shadow-sm"
                     : "bg-white border-gray-200 hover:border-gray-300 opacity-80"
                 )}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 font-black text-gray-950 text-xs">
-                    <UserCheck size={16} className={billingMode === 'manual' ? "text-yellow-600" : "text-gray-400"} />
-                    <span>Cobrar Manualmente</span>
-                  </div>
-                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-black rounded-full">
-                    0% Taxa (Grátis)
-                  </span>
+                <div className="flex items-center gap-1.5 font-black text-gray-950 text-xs">
+                  <QrCode size={16} className={paymentMethod === 'pix' ? "text-yellow-600" : "text-gray-400"} />
+                  <span>Cobrar por Pix</span>
                 </div>
                 <p className="text-[10px] text-gray-600 mt-1 leading-normal font-medium">
-                  Envia sua <strong>própria chave Pix</strong> cadastrada. O pai manda o comprovante e você altera o status para Em Dia.
+                  Envia a mensagem com sua <strong>Chave Pix</strong> e pede o envio do comprovante.
                 </p>
               </button>
 
-              {/* Option 2: Automated SchoolVan Pay */}
               <button
                 type="button"
-                onClick={() => {
-                  setBillingMode('schoolvan_pay');
-                  if (!asaasData) {
-                    handleGenerateAsaasCharge(billingType);
-                  }
-                }}
+                onClick={() => setPaymentMethod('boleto')}
                 className={cn(
                   "p-3 rounded-2xl text-left border-2 transition-all cursor-pointer flex flex-col justify-between relative",
-                  billingMode === 'schoolvan_pay'
-                    ? "bg-gray-950 text-white border-gray-950 shadow-md"
+                  paymentMethod === 'boleto'
+                    ? "bg-blue-50/90 border-blue-400 shadow-sm"
                     : "bg-white border-gray-200 hover:border-gray-300 opacity-80"
                 )}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 font-black text-yellow-400 text-xs">
-                    <Zap size={16} className="text-yellow-400" />
-                    <span>Cobrar com SchoolVan</span>
-                  </div>
-                  <span className="px-2 py-0.5 bg-yellow-400 text-gray-950 text-[10px] font-black rounded-full">
-                    ⚡ Baixa Automática
-                  </span>
+                <div className="flex items-center gap-1.5 font-black text-gray-950 text-xs">
+                  <FileText size={16} className={paymentMethod === 'boleto' ? "text-blue-600" : "text-gray-400"} />
+                  <span>Boleto Bancário</span>
                 </div>
-                <p className={cn("text-[10px] mt-1 leading-normal font-medium", billingMode === 'schoolvan_pay' ? "text-gray-300" : "text-gray-600")}>
-                  Gera Pix Dinâmico e Boleto. <strong>O sistema dá baixa automática</strong> no app assim que o pai pagar!
+                <p className="text-[10px] text-gray-600 mt-1 leading-normal font-medium">
+                  Envia a mensagem avisando do <strong>Boleto Bancário do banco</strong> (sem chave Pix).
                 </p>
               </button>
             </div>
           </div>
 
-          {/* Details for Manual Mode */}
-          {billingMode === 'manual' && (
-            <div className="bg-amber-50/70 p-3.5 rounded-2xl border border-amber-200/80 space-y-2">
+          {/* Pix Key Details when in Pix Mode */}
+          {paymentMethod === 'pix' && (
+            <div className="bg-amber-50/80 p-3.5 rounded-2xl border border-amber-200/80 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-amber-950 flex items-center gap-1.5">
                   <QrCode size={14} className="text-amber-700" />
@@ -342,155 +263,21 @@ export function BillingRuleModal({
                   )}
                 </div>
               )}
-
-              <p className="text-[10px] text-amber-800 font-medium leading-relaxed">
-                ✓ <strong>100% Gratuito (0% de taxa)</strong>: O pagamento cai direto na sua conta bancária sem intermediários.
-              </p>
             </div>
           )}
 
-          {/* Details for SchoolVan Pay Mode */}
-          {billingMode === 'schoolvan_pay' && (
-            <div className="bg-gradient-to-r from-yellow-500/10 via-amber-500/10 to-yellow-500/5 p-3.5 rounded-2xl border border-yellow-300/80 space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <span className="text-[11px] font-black text-gray-950 block">Escolha a Forma de Cobrança Online:</span>
-                  <span className="text-[10px] text-gray-700">Apenas R$ 0,99 por Pix recebido • Sem mensalidades</span>
-                </div>
-
-                <div className="flex items-center gap-1">
-                  {(['PIX', 'BOLETO', 'UNDEFINED'] as const).map((type) => (
-                    <button
-                      key={type}
-                      type="button"
-                      disabled={generatingAsaas}
-                      onClick={() => {
-                        setBillingType(type);
-                        handleGenerateAsaasCharge(type);
-                      }}
-                      className={cn(
-                        "px-2.5 py-1 rounded-lg text-[10px] font-black transition-all cursor-pointer",
-                        billingType === type
-                          ? "bg-gray-950 text-yellow-400 shadow-xs"
-                          : "bg-white text-gray-800 border border-gray-200 hover:bg-gray-100"
-                      )}
-                    >
-                      {type === 'PIX' ? '⚡ Pix Dinâmico' : type === 'BOLETO' ? '📄 Boleto' : '🔗 Fatura Digital'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* SchoolVan Action status banner */}
-              {generatingAsaas ? (
-                <div className="p-4 bg-white rounded-xl border border-yellow-300/60 text-center space-y-2">
-                  <div className="w-5 h-5 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto" />
-                  <p className="text-[11px] font-bold text-gray-700">Gerando cobrança instantânea com baixa automática no SchoolVan Pay...</p>
-                </div>
-              ) : asaasData ? (
-                <div className="p-2.5 bg-white rounded-xl border border-yellow-300/60 text-[11px] space-y-1.5">
-                  <div className="flex items-center justify-between text-gray-900 font-bold">
-                    <span className="flex items-center gap-1 text-emerald-700 font-black">
-                      <ShieldCheck size={14} /> Cobrança Ativa no SchoolVan Pay
-                    </span>
-                    {asaasData.invoiceUrl && (
-                      <a
-                        href={asaasData.invoiceUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-yellow-700 hover:underline flex items-center gap-1 font-black"
-                      >
-                        <ExternalLink size={12} />
-                        <span>Abrir Fatura</span>
-                      </a>
-                    )}
-                  </div>
-
-                  {asaasData.pixCopiaECola && (
-                    <div className="pt-1">
-                      <div className="flex items-center justify-between text-[10px] text-gray-500 font-bold mb-1">
-                        <span>Pix Copia e Cola (Dinâmico):</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            navigator.clipboard.writeText(asaasData.pixCopiaECola || '');
-                            toast.success('Pix Copia e Cola copiado!');
-                          }}
-                          className="text-yellow-700 hover:underline"
-                        >
-                          Copiar Código
-                        </button>
-                      </div>
-                      <div className="p-2 bg-gray-900 text-emerald-400 font-mono text-[9px] rounded-lg break-all select-all">
-                        {asaasData.pixCopiaECola}
-                      </div>
-                    </div>
-                  )}
-
-                  {asaasData.identificationField && (
-                    <div className="flex items-center gap-1.5 pt-1 border-t border-gray-100">
-                      <span className="text-[10px] text-gray-500 font-mono truncate flex-1 select-all">
-                        {asaasData.identificationField}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (asaasData.identificationField) {
-                            navigator.clipboard.writeText(asaasData.identificationField);
-                            setCopiedBoleto(true);
-                            toast.success('Linha digitável do Boleto copiada!');
-                            setTimeout(() => setCopiedBoleto(false), 2000);
-                          }
-                        }}
-                        className="px-2 py-0.5 bg-gray-100 hover:bg-gray-200 text-gray-800 text-[10px] font-black rounded cursor-pointer"
-                      >
-                        {copiedBoleto ? 'Copiado!' : 'Copiar Boleto'}
-                      </button>
-                    </div>
-                  )}
-
-                  {asaasData.bankSlipUrl && (
-                    <div className="pt-1">
-                      <a
-                        href={asaasData.bankSlipUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-[10px] font-black text-amber-800 hover:underline"
-                      >
-                        <FileText size={11} /> Baixar PDF Oficial do Boleto SchoolVan
-                      </a>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="p-3 bg-white rounded-xl border border-yellow-200 flex items-center justify-between">
-                  <span className="text-[10px] text-gray-600">Clique para emitir com QR Code dinâmico:</span>
-                  <button
-                    type="button"
-                    onClick={() => handleGenerateAsaasCharge(billingType)}
-                    className="px-3 py-1.5 bg-yellow-400 text-gray-950 font-black rounded-lg text-[10px] hover:bg-yellow-300 transition-all cursor-pointer"
-                  >
-                    ⚡ Gerar Cobrança Agora
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Stage Selector Pills */}
+          {/* Stage selector */}
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-[11px] font-black text-gray-700 uppercase tracking-wider block">
-                Etapa da Mensagem:
-              </label>
-              <span className="text-[10px] text-gray-500 font-medium">
-                Sugerido hoje: <strong>{BILLING_STAGES[recommendedStage].shortLabel}</strong>
-              </span>
-            </div>
+            <label className="text-[11px] font-black text-gray-800 uppercase tracking-wider flex items-center justify-between">
+              <span>Etapa da Régua de Cobrança:</span>
+              <span className="text-[10px] text-yellow-800 font-normal">Recomendado pela T.IA para o dia de hoje</span>
+            </label>
+
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-              {(Object.keys(BILLING_STAGES) as BillingStageKey[]).map(key => {
-                const isSelected = selectedStageKey === key;
+              {(Object.keys(BILLING_STAGES) as BillingStageKey[]).map((key) => {
                 const stage = BILLING_STAGES[key];
+                const isSelected = selectedStageKey === key;
+                const isRec = recommendedStage === key;
 
                 return (
                   <button
@@ -498,57 +285,67 @@ export function BillingRuleModal({
                     type="button"
                     onClick={() => setSelectedStageKey(key)}
                     className={cn(
-                      "p-2 rounded-xl text-left border transition-all cursor-pointer",
-                      isSelected 
-                        ? "bg-gray-950 text-yellow-400 border-gray-950 font-black shadow-sm" 
-                        : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50 font-semibold"
+                      "p-2 rounded-xl text-left border transition-all text-[11px] cursor-pointer flex flex-col justify-between",
+                      isSelected
+                        ? "bg-gray-950 text-yellow-400 border-gray-950 shadow-sm"
+                        : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
                     )}
                   >
-                    <div className="text-[9px] opacity-70 uppercase">Etapa {stage.stepNumber}</div>
-                    <div className="text-[11px] truncate">{stage.shortLabel}</div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold">{stage.shortLabel}</span>
+                      {isRec && (
+                        <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" title="Etapa Recomendada para Hoje" />
+                      )}
+                    </div>
+                    <span className="text-[9px] opacity-70 mt-0.5">{stage.defaultTriggerDays}</span>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* WhatsApp Balloon Preview */}
+          {/* Preview of the formatted message */}
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-[11px] font-bold text-gray-700">
-              <span>Prévia da Mensagem (WhatsApp)</span>
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-black text-gray-800 uppercase tracking-wider flex items-center gap-1.5">
+                <MessageCircle size={14} className="text-emerald-600" />
+                <span>Prévia da Mensagem (WhatsApp)</span>
+              </label>
+
               <button
+                type="button"
                 onClick={handleCopyMessage}
-                className="text-yellow-700 hover:text-yellow-900 flex items-center gap-1 font-black cursor-pointer"
+                className="text-[10px] font-bold text-gray-600 hover:text-gray-950 flex items-center gap-1 cursor-pointer bg-gray-100 px-2 py-0.5 rounded-md"
               >
-                {copiedText ? <Check size={12} /> : <Copy size={12} />}
+                {copiedText ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
                 <span>{copiedText ? 'Copiado!' : 'Copiar Texto'}</span>
               </button>
             </div>
 
-            <div className="bg-[#EFEAE2] p-3.5 rounded-2xl border border-gray-200">
-              <div className="bg-white rounded-xl p-3 shadow-xs text-[11px] text-gray-900 whitespace-pre-wrap leading-relaxed">
-                {formattedData.messageText}
-              </div>
+            <div className="p-3.5 bg-emerald-50/60 rounded-2xl border border-emerald-200 text-gray-900 whitespace-pre-wrap font-sans text-xs leading-relaxed max-h-48 overflow-y-auto shadow-inner">
+              {formattedData.messageText}
             </div>
           </div>
 
         </div>
 
-        {/* Footer */}
-        <div className="p-4 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-2">
+        {/* Footer Actions */}
+        <div className="p-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between gap-3">
           <button
+            type="button"
             onClick={onClose}
-            className="px-4 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-bold hover:bg-gray-100 transition-all cursor-pointer text-xs"
+            className="px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-100 cursor-pointer"
           >
-            Fechar
+            Cancelar
           </button>
 
           <button
+            type="button"
             onClick={handleSendWhatsApp}
-            className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black flex items-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer text-xs"
+            className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer"
           >
             <Send size={15} />
-            <span>Enviar no WhatsApp ({billingMode === 'manual' ? 'Sua Chave Pix' : 'SchoolVan Pay'})</span>
+            <span>Enviar no WhatsApp do Responsável</span>
           </button>
         </div>
 

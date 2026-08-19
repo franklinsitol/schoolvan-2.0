@@ -12,6 +12,7 @@ export interface Driver {
   city?: string;
   cpfCnpj?: string;
   pixKey?: string;
+  billingPreference?: 'pix' | 'boleto';
   birthDate?: string;
   plan?: PlanTier;
   status: AccountStatus;
@@ -81,6 +82,7 @@ export interface TeamMember {
   invoiceStatus?: InvoiceStatus;
   paymentPromiseUntil?: string;
   pixKey?: string;
+  billingPreference?: 'pix' | 'boleto';
   city?: string;
   cpfCnpj?: string;
   termsAccepted?: string;
@@ -147,6 +149,9 @@ export interface Student {
     createdAt: string;
   }[];
   routeOrder?: number;
+  paymentStatus?: InvoiceStatus;
+  billingPreference?: 'pix' | 'boleto';
+  lastPaidMonth?: string;
 }
 
 export interface Finance {
