@@ -206,6 +206,30 @@ export function SubscriptionModal({
     if (!profile || generatingPayment) return;
     setGeneratingPayment(true);
     try {
+      const isCoraActive = (adminConfig?.paymentGatewayProvider || 'cora') === 'cora' && 
+                           adminConfig?.coraEnabled !== false && 
+                           Boolean(adminConfig?.coraClientId);
+
+      if (!isCoraActive) {
+        // Sem Cora / Modo Manual: Gera código Pix Copia e Cola imediatamente
+        const customPix = generatePixPayload({
+          pixKey: adminConfig?.pixAdmin || 'pix@schoolvan.com.br',
+          amount: proRataPrice || currentPrice,
+          merchantName: 'SchoolVan Brasil',
+          merchantCity: 'SAO PAULO',
+          txid: `SV${Date.now().toString().slice(-10)}`
+        });
+
+        setPaymentData({
+          subscriptionId: `sub_${Date.now()}`,
+          paymentId: `pay_${Date.now()}`,
+          pixCopiaECola: customPix,
+          pixQrCode: null
+        });
+        setGeneratingPayment(false);
+        return;
+      }
+
       const endpoint = '/api/subscription/create';
       const isCora = (adminConfig?.paymentGatewayProvider || 'cora') === 'cora';
       const res = await fetch(endpoint, {
@@ -287,39 +311,44 @@ export function SubscriptionModal({
 
     setActivatingPlan(true);
     try {
-      // 1. Create Subscription on Gateway scheduled for next due date (Day 10) with Pro-rata
+      // 1. Create Subscription on Gateway scheduled for next due date (Day 10) with Pro-rata (only if Cora active)
       let subId: string | null = null;
       let payId: string | null = null;
-      try {
-        const isCora = (adminConfig?.paymentGatewayProvider || 'cora') === 'cora';
-        const res = await fetch('/api/subscription/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            gatewayProvider: adminConfig?.paymentGatewayProvider || 'cora',
-            customerName: profile.name || 'Motorista SchoolVan',
-            customerEmail: profile.email || '',
-            customerPhone: profile.phone || '',
-            customerCpfCnpj: (profile as any).cpfCnpj || (profile as any).cpf || '76875238144',
-            value: proRataPrice,
-            nextDueDate: nextDueDate.toISOString().split('T')[0],
-            description: `Assinatura Mensal SchoolVan (Pro-rata) - Plano ${selectedPlan}`,
-            billingType: 'PIX',
-            // Cora fields
-            customClientId: adminConfig?.coraClientId || 'app-hKTVJB2iqimj0uUNqAjSS',
-            customClientSecret: adminConfig?.coraClientSecret || '9c8d3404-f99c-4a5a-8210-e856ba586eaa',
-            customEnvironment: isCora ? (adminConfig?.coraEnvironment || 'stage') : (adminConfig?.asaasEnvironment || 'sandbox'),
-            // Asaas legacy fields
-            customApiKey: adminConfig?.asaasApiKey
-          })
-        });
-        const data = await res.json();
-        if (data.success) {
-          subId = data.subscriptionId;
-          payId = data.paymentId;
+      const isCoraActive = (adminConfig?.paymentGatewayProvider || 'cora') === 'cora' && 
+                           adminConfig?.coraEnabled !== false && 
+                           Boolean(adminConfig?.coraClientId);
+
+      if (isCoraActive) {
+        try {
+          const res = await fetch('/api/subscription/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              gatewayProvider: adminConfig?.paymentGatewayProvider || 'cora',
+              customerName: profile.name || 'Motorista SchoolVan',
+              customerEmail: profile.email || '',
+              customerPhone: profile.phone || '',
+              customerCpfCnpj: (profile as any).cpfCnpj || (profile as any).cpf || '76875238144',
+              value: proRataPrice,
+              nextDueDate: nextDueDate.toISOString().split('T')[0],
+              description: `Assinatura Mensal SchoolVan (Pro-rata) - Plano ${selectedPlan}`,
+              billingType: 'PIX',
+              // Cora fields
+              customClientId: adminConfig?.coraClientId || 'app-hKTVJB2iqimj0uUNqAjSS',
+              customClientSecret: adminConfig?.coraClientSecret || '9c8d3404-f99c-4a5a-8210-e856ba586eaa',
+              customEnvironment: adminConfig?.coraEnvironment || 'stage',
+              // Asaas legacy fields
+              customApiKey: adminConfig?.asaasApiKey
+            })
+          });
+          const data = await res.json();
+          if (data.success) {
+            subId = data.subscriptionId;
+            payId = data.paymentId;
+          }
+        } catch (subErr) {
+          console.warn('Gateway background subscription registration:', subErr);
         }
-      } catch (subErr) {
-        console.warn('Gateway background subscription registration:', subErr);
       }
 
       // 2. Activate immediately in Firestore

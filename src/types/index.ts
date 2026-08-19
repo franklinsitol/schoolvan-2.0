@@ -234,6 +234,8 @@ export interface AdminConfig {
   masterPass?: string;
   // Gateway Configuration (Cora Bank API & Asaas)
   paymentGatewayProvider?: 'cora' | 'asaas';
+  coraEnabled?: boolean;
+  gatewayEnabled?: boolean;
   // Cora Bank API Configuration
   coraClientId?: string;
   coraClientSecret?: string;

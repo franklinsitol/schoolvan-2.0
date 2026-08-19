@@ -1239,26 +1239,73 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">Integração Bancária & Gateway de Pagamentos</h2>
                   <p className="text-xs text-gray-500">
-                    Gerencie a integração oficial com o <strong>Cora Bank</strong> (OAuth 2.0 / Homologação e Produção) e gateways auxiliares.
+                    Gerencie a integração oficial com o <strong>Cora Bank</strong> (OAuth 2.0 / Homologação e Produção) ou alterne para o modo manual.
                   </p>
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <span className={cn(
-                "px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5",
-                config.coraClientId ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                "px-3.5 py-1.5 rounded-full text-xs font-black flex items-center gap-1.5 shadow-sm",
+                (config.coraEnabled ?? true) && config.coraClientId
+                  ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                  : "bg-amber-100 text-amber-900 border border-amber-300"
               )}>
-                <span className={cn("w-2 h-2 rounded-full", config.coraClientId ? "bg-emerald-500 animate-pulse" : "bg-amber-500")} />
-                {config.coraClientId ? "Cora Bank Conectado" : "Aguardando Credenciais Cora"}
+                <span className={cn("w-2.5 h-2.5 rounded-full", (config.coraEnabled ?? true) && config.coraClientId ? "bg-emerald-600 animate-pulse" : "bg-amber-600")} />
+                {(config.coraEnabled ?? true) && config.coraClientId ? "🟢 Integração Cora ATIVA (Automático)" : "⚪ Modo Manual Ativo (Sem Cora)"}
               </span>
             </div>
+          </div>
+
+          {/* CHAVINHA MASTER: ATIVAR / DESATIVAR INTEGRAÇÃO CORA BANK */}
+          <div className={cn(
+            "p-5 rounded-3xl border-2 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4",
+            (config.coraEnabled ?? true)
+              ? "bg-emerald-50/60 border-emerald-300 shadow-sm"
+              : "bg-gray-50 border-gray-300"
+          )}>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-black text-gray-950">
+                  Chave Geral: Ativar Integração Automática Cora Bank
+                </span>
+                <span className={cn(
+                  "text-[10px] font-black uppercase px-2 py-0.5 rounded-full",
+                  (config.coraEnabled ?? true) ? "bg-emerald-200 text-emerald-900" : "bg-gray-200 text-gray-800"
+                )}>
+                  {(config.coraEnabled ?? true) ? "Ligado / Com Cora" : "Desligado / Sem Cora"}
+                </span>
+              </div>
+              <p className="text-xs text-gray-600">
+                {(config.coraEnabled ?? true) 
+                  ? "A plataforma emite faturas, QR Codes e executa a régua de cobrança automática via API oficial da Cora."
+                  : "A plataforma opera 100% no Modo Manual com a Chave Pix da SchoolVan. Suas credenciais preenchidas abaixo continuam salvas e intactas."}
+              </p>
+            </div>
+
+            {/* Toggle Switch */}
+            <button
+              type="button"
+              id="toggle-cora-integration"
+              onClick={() => setConfig({ ...config, coraEnabled: !(config.coraEnabled ?? true) })}
+              className={cn(
+                "relative inline-flex h-8 w-16 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                (config.coraEnabled ?? true) ? "bg-emerald-500" : "bg-gray-300"
+              )}
+            >
+              <span
+                className={cn(
+                  "pointer-events-none inline-block h-7 w-7 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out",
+                  (config.coraEnabled ?? true) ? "translate-x-8" : "translate-x-0"
+                )}
+              />
+            </button>
           </div>
 
           {/* Seleção do Provedor Ativo */}
           <div className="bg-gray-50 p-5 rounded-2xl border border-gray-200/80 space-y-3">
             <label className="text-xs font-bold text-gray-700 uppercase tracking-wider block">
-              Gateway de Pagamento Ativo da Plataforma
+              Gateway de Pagamento Selecionado
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label className={cn(
@@ -1277,7 +1324,7 @@ export function SuperAdminView({ onImpersonate }: SuperAdminViewProps = {}) {
                 />
                 <div>
                   <div className="font-bold text-sm flex items-center gap-1.5">
-                    <span>🏦 Cora Bank (Recomendado / Ativo)</span>
+                    <span>🏦 Cora Bank (Recomendado / Oficial)</span>
                     <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-black">OFICIAL</span>
                   </div>
                   <div className="text-xs text-gray-500">API Direta de Cobranças Pix e Boletos via OAuth2</div>
