@@ -16,7 +16,7 @@ import {
   Sparkles,
   ShieldCheck
 } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell } from 'recharts';
 import { useAuth } from '../hooks/useAuth';
 import { useFirestore } from '../hooks/useFirestore';
 import { Student, Vehicle, Lead, Finance } from '../types';
@@ -218,22 +218,22 @@ export function Dashboard({
           subValue={`${kpis.totalCapacity} Assentos na Frota`}
         />
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="w-20 h-20">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={chartData}
-                  innerRadius={25}
-                  outerRadius={40}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
+          <div className="w-20 h-20 shrink-0 flex items-center justify-center">
+            <PieChart width={80} height={80}>
+              <Pie
+                data={chartData}
+                cx="50%"
+                cy="50%"
+                innerRadius={25}
+                outerRadius={38}
+                paddingAngle={5}
+                dataKey="value"
+              >
+                {chartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+            </PieChart>
           </div>
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-xs font-bold text-green-600">
