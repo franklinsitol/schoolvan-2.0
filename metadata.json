@@ -1,7 +1,11 @@
 {
   "name": "SchoolVan 🚌 • O App que Lota sua Van e Elimina o Atraso no Pix",
   "description": "O SaaS nº1 do Brasil para o Tio da Van. Cobre no Zap com Pix, faça a chamada no mapa e mantenha sua van sempre cheia.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": [
+    "microphone",
+    "geolocation",
+    "camera"
+  ],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
   ]

@@ -99,6 +99,37 @@ export function getBestTiaVoice(): SpeechSynthesisVoice | null {
   return ptVoices.find(v => v.lang && v.lang.toLowerCase().includes('br')) || ptVoices[0] || null;
 }
 
+/**
+ * Strips all emojis, unicode pictographs, formatting marks, and URLs so speech synthesis
+ * speaks clean, natural spoken Portuguese without reading emoji descriptions (e.g. "rosto sorridente").
+ */
+export function cleanTextForSpeech(raw: string): string {
+  if (!raw) return '';
+  return raw
+    // Remove JSON action blocks if present in string
+    .replace(/```action[\s\S]*?```/gi, '')
+    .replace(/```[\s\S]*?```/gi, '')
+    // Remove markdown links [Text](url) -> Text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    // Remove URLs
+    .replace(/https?:\/\/\S+/gi, '')
+    // Remove all Unicode emojis and pictographs
+    .replace(/\p{Extended_Pictographic}/gu, '')
+    .replace(/[\u{1F000}-\u{1FAFF}]/gu, '')
+    .replace(/[\u{2600}-\u{27BF}]/gu, '')
+    .replace(/[\u{2300}-\u{23FF}]/gu, '')
+    .replace(/[\u{2B50}-\u{2B55}]/gu, '')
+    .replace(/[\u{203C}-\u{2049}]/gu, '')
+    .replace(/[\u{2194}-\u{21AA}]/gu, '')
+    .replace(/[\u{25AA}-\u{25FE}]/gu, '')
+    .replace(/[\u{FE00}-\u{FE0F}]/gu, '') // variation selectors
+    // Remove formatting characters (*, _, #, ~, `, •, bullet points)
+    .replace(/[*_#~`•|]/g, ' ')
+    // Normalize punctuation & whitespace
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function speakTiaPrompt(text: string, onEnd?: () => void) {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
     if (onEnd) onEnd();
@@ -111,12 +142,8 @@ export function speakTiaPrompt(text: string, onEnd?: () => void) {
     // Ensure voices are loaded
     refreshVoices();
 
-    // Clean text from markdown formatting, emojis, hashtags and URLs
-    const cleanText = text
-      .replace(/[*_#~`]/g, '')
-      .replace(/https?:\/\/\S+/g, '')
-      .replace(/•/g, '')
-      .trim();
+    // Clean text completely from emojis, markdown and non-spoken symbols
+    const cleanText = cleanTextForSpeech(text);
 
     if (!cleanText) {
       if (onEnd) onEnd();
@@ -149,4 +176,3 @@ export function speakTiaPrompt(text: string, onEnd?: () => void) {
 
 // Backward-compatibility alias
 export const speakTioIAPrompt = speakTiaPrompt;
-

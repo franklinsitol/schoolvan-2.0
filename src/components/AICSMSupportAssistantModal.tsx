@@ -576,17 +576,29 @@ export function AICSMSupportAssistantModal({
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      toast.error('Reconhecimento de voz não suportado pelo seu navegador.');
+      toast.error('Reconhecimento de voz não é suportado pelo seu navegador atual. Você pode digitar sua mensagem.');
       return;
     }
 
     if (isListening) {
-      recognitionRef.current?.stop();
+      try {
+        recognitionRef.current?.stop();
+      } catch {
+        // ignore
+      }
       setIsListening(false);
       return;
     }
 
     try {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {
+          // ignore
+        }
+      }
+
       const recognition = new SpeechRecognition();
       recognition.lang = 'pt-BR';
       recognition.continuous = false;
@@ -594,31 +606,61 @@ export function AICSMSupportAssistantModal({
 
       recognition.onstart = () => {
         setIsListening(true);
-        toast('🎤 Ouvindo você... Pode falar com a T.IA!', { icon: '🤖' });
+        toast('🎤 Ouvindo você... Fale sua dúvida ou comando!', { icon: '🤖', id: 'tia-listening' });
       };
 
       recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        setInputText(transcript);
-        setIsListening(false);
-        handleSendMessage(transcript, true); // true indicates input came via audio / voice
+        if (event.results && event.results[0] && event.results[0][0]) {
+          const transcript = event.results[0][0].transcript;
+          setInputText(transcript);
+          setIsListening(false);
+          toast.dismiss('tia-listening');
+          handleSendMessage(transcript, true); // true indicates input came via audio / voice
+        }
       };
 
-      recognition.onerror = (err: any) => {
-        console.error('Speech recognition error', err);
+      recognition.onerror = (event: any) => {
         setIsListening(false);
-        toast.error('Não consegui ouvir com clareza. Tente novamente ou digite.');
+        toast.dismiss('tia-listening');
+
+        const errorType = event?.error || (typeof event === 'string' ? event : '');
+
+        if (errorType === 'no-speech') {
+          // Normal timeout if user remained silent, don't show alarming error
+          return;
+        }
+
+        if (errorType === 'aborted') {
+          return;
+        }
+
+        if (errorType === 'not-allowed' || errorType === 'service-not-allowed') {
+          toast.error('Permissão de microfone bloqueada pelo navegador. Ative o microfone ou digite sua mensagem.', { duration: 4000 });
+          return;
+        }
+
+        if (errorType === 'audio-capture') {
+          toast.error('Nenhum microfone encontrado neste dispositivo.');
+          return;
+        }
+
+        // Generic fallback without crashing
+        console.warn('Speech recognition status:', errorType, event);
+        toast.error('Não foi possível captar a voz. Tente falar novamente ou digite.', { duration: 3000 });
       };
 
       recognition.onend = () => {
         setIsListening(false);
+        toast.dismiss('tia-listening');
       };
 
       recognitionRef.current = recognition;
       recognition.start();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.warn('Could not start speech recognition:', err);
       setIsListening(false);
+      toast.dismiss('tia-listening');
+      toast.error('Não foi possível iniciar o microfone no momento. Digite sua mensagem.');
     }
   };
 
@@ -911,6 +953,98 @@ export function AICSMSupportAssistantModal({
     });
   };
 
+  // Instant response engine for greetings, thanks, farewells & compliments
+  // Responds in 0ms with zero database queries, zero token overhead and zero API calls.
+  const getInstantConversationalReply = (rawQuery: string): string | null => {
+    const clean = rawQuery
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // remove accents
+      .replace(/[^\w\s]/g, ' ') // replace symbols/punctuation with spaces
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!clean) return null;
+
+    // If query contains any keywords of database/operational intent, DO NOT intercept!
+    const operationalKeywords = [
+      'cadastr', 'adiciona', 'aluno', 'aluna', 'escola', 'colegio', 'valor', 'mensalidade',
+      'quanto', 'quem', 'falta', 'ausente', 'nao vai', 'vai hoje', 'pagou', 'pix', 'receber',
+      'atrasad', 'devedor', 'devendo', 'contato', 'telefone', 'zap', 'whatsapp', 'pai', 'mae',
+      'responsavel', 'rota', 'mapa', 'embarque', 'desembarque', 'van', 'placa', 'monitor',
+      'recado', 'aviso', 'atraso', 'pneu', 'transito', 'vaga', 'lugares', 'capacidade',
+      'relatorio', 'planilha', 'excel', 'importar', 'editar', 'alterar', 'mudar', 'excluir',
+      'remover', 'cancelar', 'contrato', 'recibo', 'declaracao', 'extrato', 'presenca', 'historico'
+    ];
+
+    const hasOperationalIntent = operationalKeywords.some(kw => clean.includes(kw));
+    if (hasOperationalIntent) {
+      return null; // Route to operational database logic
+    }
+
+    // Identify driver greeting name/title
+    const rawName = profile?.name?.trim() || '';
+    const firstName = rawName.split(' ')[0] || '';
+    const driverTitle = firstName 
+      ? (firstName.toLowerCase().startsWith('tio') || firstName.toLowerCase().startsWith('tia') ? firstName : `Tio ${firstName}`)
+      : 'Tio';
+
+    const hour = new Date().getHours();
+
+    // 1. THANKS & GRATITUDE (Agradecimentos)
+    const isGratitude = /^(obrigad[oa]|obrigadao|muito obrigad[oa]|valeu|valeu demais|valeu tia|valeu tio|valeu t ia|valeu a ajuda|agradeco|agradecido|obg|vlw|show|show de bola|top|maravilha|perfeito|tmj|tamo junto|gratidao|brigad[oa]|obrigadissim[oa]|era so isso|era isso|ajudou muito|ficou top|ficou show|beleza valeu|valeu valeu|muitissimo obrigad[oa])(\s+(tia|tio|t ia|schoolvan|amiga|demais|show|top))?$/.test(clean) ||
+      /^(muito|super|valeu)\s+(obrigad[oa]|grato|grata|valeu|show|top)$/.test(clean);
+
+    if (isGratitude) {
+      const thanksOptions = [
+        `**Por nada, ${driverTitle}!** Tamo junto! Se precisar de qualquer coisa na rota ou na van, é só me chamar.`,
+        `**Show de bola, ${driverTitle}!** Fico muito feliz em ajudar. Uma rota tranquila e produtiva para você! Conte sempre comigo.`,
+        `**Imagina, ${driverTitle}!** Prazer em ajudar! Seu dia a dia no volante fica muito mais leve e organizado com a SchoolVan. Bom trabalho!`,
+        `**Tamo junto, ${driverTitle}!** Disponha sempre! Se pintar qualquer dúvida no trânsito ou no financeiro, estou por aqui.`
+      ];
+      return thanksOptions[Math.floor(Math.random() * thanksOptions.length)];
+    }
+
+    // 2. FAREWELLS / GOOD WISHES (Despedidas e Votos)
+    const isFarewell = /^(tchau|tchau tchau|ate mais|ate logo|ate breve|falou|bom trabalho|boa rota|bom descanso|boa semana|bom fim de semana|bom fds|fica com deus|vai com deus|boa viagem|otimo dia|otima semana|otimo trabalho)(\s+(tia|tio|t ia|pra voce|pra vc))?$/.test(clean);
+
+    if (isFarewell) {
+      return `**Até mais, ${driverTitle}!** Tenha uma excelente rota e um dia abençoado com a van! Se precisar de qualquer coisa no caminho, é só dar um toque. Fique com Deus!`;
+    }
+
+    // 3. COMPLIMENTS (Elogios)
+    const isCompliment = /^(voce e|vc e|voce esta|vc ta)\s+(demais|top|incrivel|maravilhosa|muito boa|10|dez|show|uma maquina)$/.test(clean) ||
+      /^(gostei de voce|adorei a tia|melhor app|parabens|voce e fera|vc e fera)$/.test(clean);
+
+    if (isCompliment) {
+      return `**Muito obrigada pelo carinho, ${driverTitle}!** O objetivo da T.IA e de toda a SchoolVan é exatamente esse: ser o seu braço direito no volante e cuidar da parte burocrática para você focar em dirigir. Tamo junto!`;
+    }
+
+    // 4. GREETINGS (Saudações)
+    const isGreeting = /^(oi|oii|oiii|ola|opa|e ai|eai|salve|fala|fala ai|fala aí|fala tio|fala tia|fala t ia|oi tia|oi tio|oi t ia|ola tia|ola tio|ola t ia|boa|beleza|tudo bem|tudo bom|tudo joia|como vai|como voce ta|como vc ta|como voce esta|como esta|bom dia|boa tarde|boa noite|alo|alô|bom dia tia|boa tarde tia|boa noite tia|bom dia tio|boa tarde tio|boa noite tio)(\s+(tia|tio|t ia|tudo bem|tudo bom|tudo joia|beleza|amiga|ai))?$/.test(clean);
+
+    if (isGreeting) {
+      if (clean.includes('bom dia')) {
+        return `**Bom dia, ${driverTitle}!** Tudo pronto para a rota de hoje. Como posso te ajudar agora? Você pode cadastrar alunos, ver faltas do dia, conferir pagamentos ou enviar avisos no WhatsApp.`;
+      }
+      if (clean.includes('boa tarde')) {
+        return `**Boa tarde, ${driverTitle}!** Rota da tarde a todo vapor! O que você precisa hoje na sua van?`;
+      }
+      if (clean.includes('boa noite')) {
+        return `**Boa noite, ${driverTitle}!** Fechando o expediente? Posso te ajudar a conferir os pagamentos do dia, planejar a rota de amanhã ou deixar recados prontos. O que manda?`;
+      }
+
+      const greetingOptions = [
+        `**Fala, ${driverTitle}!** Tudo ótimo por aqui! Em que posso te ajudar hoje na sua van?\n\n*(Dica: você pode me pedir para cadastrar alunos, marcar faltas na rota, puxar contatos no WhatsApp ou ver pagamentos!)*`,
+        `**Olá, ${driverTitle}!** A T.IA está sempre a postos para facilitar sua rotina no transporte escolar. O que você precisa agora?`,
+        `**Opa, ${driverTitle}! Tudo joia?** Diga aí o que você precisa: conferir presença dos alunos, checar mensalidades ou organizar suas rotas?`
+      ];
+      return greetingOptions[Math.floor(Math.random() * greetingOptions.length)];
+    }
+
+    return null;
+  };
+
   // Send Message Logic with Gemini Context & Full Operational Action Engine
   // If isFromVoice is true (user spoke into mic), T.IA speaks back automatically.
   // If typed/clicked via text, T.IA responds in text only, and user can tap "Ouvir Resposta em Voz Alta".
@@ -927,6 +1061,29 @@ export function AICSMSupportAssistantModal({
 
     setMessages(prev => [...prev, userMessage]);
     setInputText('');
+
+    // -----------------------------------------------------------------
+    // ⚡ 0. INSTANT ZERO-DATABASE CONVERSATIONAL INTERCEPTOR
+    // Handles greetings, thanks, farewells & compliments instantly in 0ms!
+    // Does NOT query Firestore collections, does NOT call Gemini API.
+    // -----------------------------------------------------------------
+    const instantReply = getInstantConversationalReply(query);
+    if (instantReply) {
+      const instantAiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        sender: 'ai',
+        text: instantReply,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+
+      setMessages(prev => [...prev, instantAiMessage]);
+      if (isFromVoice) {
+        speakTioIAPrompt(instantReply.replace(/[*#_`]/g, ''));
+      }
+      scrollToBottom();
+      return;
+    }
+
     setLoading(true);
 
     try {
