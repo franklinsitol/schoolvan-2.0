@@ -601,7 +601,7 @@ export function AICSMSupportAssistantModal({
         const transcript = event.results[0][0].transcript;
         setInputText(transcript);
         setIsListening(false);
-        handleSendMessage(transcript);
+        handleSendMessage(transcript, true); // true indicates input came via audio / voice
       };
 
       recognition.onerror = (err: any) => {
@@ -912,7 +912,9 @@ export function AICSMSupportAssistantModal({
   };
 
   // Send Message Logic with Gemini Context & Full Operational Action Engine
-  const handleSendMessage = async (textToSend?: string) => {
+  // If isFromVoice is true (user spoke into mic), T.IA speaks back automatically.
+  // If typed/clicked via text, T.IA responds in text only, and user can tap "Ouvir Resposta em Voz Alta".
+  const handleSendMessage = async (textToSend?: string, isFromVoice: boolean = false) => {
     const query = textToSend || inputText;
     if (!query.trim() || loading) return;
 
@@ -2029,7 +2031,9 @@ Pergunta / Instrução: "${query}".`;
       };
 
       setMessages(prev => [...prev, aiResponse]);
-      speakTioIAPrompt(directAnswer.replace(/[*#_`]/g, ''));
+      if (isFromVoice) {
+        speakTioIAPrompt(directAnswer.replace(/[*#_`]/g, ''));
+      }
 
     } catch (err) {
       console.error('Error fetching Tio IA reply', err);
@@ -3264,16 +3268,23 @@ Pergunta / Instrução: "${query}".`;
 
                     {/* Speech Output Button for AI responses */}
                     {msg.sender === 'ai' && (
-                      <button
-                        onClick={() => toggleSpeakMessage(msg.id, msg.text)}
-                        className="mt-2 text-[10px] text-yellow-600 dark:text-yellow-400 hover:underline flex items-center gap-1 font-bold cursor-pointer"
-                      >
-                        {speakingMsgId === msg.id ? (
-                          <><VolumeX size={13} className="animate-pulse" /> Parar Voz</>
-                        ) : (
-                          <><Volume2 size={13} /> Ouvir Resposta em Voz Alta</>
-                        )}
-                      </button>
+                      <div className="mt-2.5 pt-2 border-t border-gray-100 dark:border-gray-700/60 flex items-center justify-between">
+                        <button
+                          onClick={() => toggleSpeakMessage(msg.id, msg.text)}
+                          className={`text-[10px] px-2.5 py-1 rounded-lg flex items-center gap-1.5 font-bold transition-all cursor-pointer ${
+                            speakingMsgId === msg.id 
+                              ? 'bg-yellow-400 text-gray-950 shadow-sm animate-pulse' 
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-yellow-100 dark:hover:bg-yellow-950/40 hover:text-yellow-800 dark:hover:text-yellow-300'
+                          }`}
+                          title="Clique para ouvir a T.IA narrar esta resposta"
+                        >
+                          {speakingMsgId === msg.id ? (
+                            <><VolumeX size={13} /> <span>Parar Áudio</span></>
+                          ) : (
+                            <><Volume2 size={13} className="text-yellow-600 dark:text-yellow-400" /> <span>Ouvir em Voz Alta</span></>
+                          )}
+                        </button>
+                      </div>
                     )}
                   </div>
                   <span className="text-[10px] text-gray-400 mt-1 px-1">{msg.timestamp}</span>
