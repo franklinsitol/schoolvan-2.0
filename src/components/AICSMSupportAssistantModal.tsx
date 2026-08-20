@@ -1888,23 +1888,34 @@ export function AICSMSupportAssistantModal({
           .map(([sch, list]) => `${sch}: ${list.map(s => s.name).join(', ')}`)
           .join('; ');
 
-        const systemContextPrompt = `Você é a "T.IA" (lê-se Tia IA), copiloto inteligente e amigável para motoristas e monitoras de vans escolares no Brasil dentro do app SchoolVan.
-Responda sempre em português brasileiro de forma direta, prestativa e calorosa, usando o jargão respeitoso e acolhedor de "Tio/Tia da Van".
+        const studentsDetailed = activeStudents
+          .slice(0, 30)
+          .map(s => `• ${s.name} | Escola: ${s.schoolName || 'Escola'} | Turno: ${s.grade || 'Manhã'} | Resp: ${s.parentName || 'Resp'} | Zap: ${s.parentPhone || s.tel1 || 'Sem zap'} | Mensalidade: R$ ${s.value || 350} (Dia ${s.paymentDay || 10})`)
+          .join('\n');
 
-DADOS EM TEMPO REAL DO MOTORISTA:
-- Nome do Motorista: ${profile?.name || 'Tio'}
-- Plano: ${profile?.plan || 'Gratuito'}
-- Chave Pix: ${profile?.pixKey || 'Não configurada'}
-- Total de Alunos Ativos: ${activeStudents.length}
-- Capacidade da Frota: ${totalCapacity} assentos (${availableVacancies} vagas livres)
-- Alunos por Escola: ${schoolsSummary || 'Nenhum'}
-- Alunos Ausentes Hoje: ${absentStudents.map(s => s.name).join(', ') || 'Nenhum'}
-- Faturas em Atraso: ${overdueFinances.length} pendentes
-- Solicitações de Vagas (Leads): ${leads.length} pedidos de pais
-- Equipe / Monitores: ${teamMembers.length} cadastrados
-- Vans na Frota: ${vehicles.length} cadastradas
+        const overdueDetailed = overdueFinances
+          .slice(0, 15)
+          .map(f => {
+            const st = activeStudents.find(s => s.id === f.studentId || s.name === f.studentName);
+            const ph = st?.parentPhone || st?.tel1 || (f as any).parentPhone || 'Sem zap';
+            return `• ${f.studentName || 'Aluno'} | Valor: R$ ${f.value || 0} | Zap: ${ph}`;
+          })
+          .join('\n');
 
-Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
+        const systemContextPrompt = `Você é a "T.IA" (lê-se Tia IA), copiloto de IA oficial do SchoolVan.
+DADOS REAIS DA OPERAÇÃO DO TIO(A) ${profile?.name || 'Tio da Van'}:
+- Motorista: ${profile?.name || 'Tio'} (Plano: ${profile?.plan || 'Básico'})
+- Chave Pix do Tio: ${profile?.pixKey || 'Não cadastrada'}
+- Total de Alunos: ${activeStudents.length} passageiros
+- Vagas livres na van: ${availableVacancies} de ${totalCapacity} assentos
+- Ausentes hoje: ${absentStudents.map(s => s.name).join(', ') || 'Nenhum (todos na van)'}
+- Inadimplência (${overdueFinances.length} em atraso):
+${overdueDetailed || 'Nenhum aluno em atraso'}
+
+LISTA DE ALUNOS CADASTRADOS (USE ESTES DADOS REAIS PARA CONTATOS E AÇÕES):
+${studentsDetailed || 'Nenhum aluno cadastrado ainda'}
+
+Pergunta / Instrução: "${query}".`;
 
         const response = await fetch('/api/ai/csm-assistant', {
           method: 'POST',
