@@ -4,6 +4,8 @@ import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Vehicle } from '../types';
 import { AddressAutocompleteInput } from './AddressAutocompleteInput';
+import { SchoolAutocompleteInput } from './SchoolAutocompleteInput';
+import { saveOrUpdateGlobalSchool } from '../services/schoolsService';
 import toast from 'react-hot-toast';
 
 interface RequestVacancyModalProps {
@@ -103,6 +105,15 @@ export function RequestVacancyModal({ isOpen, onClose, vehicle }: RequestVacancy
 
       setIsSubmitted(true);
       toast.success('Solicitação de vaga enviada com sucesso!');
+
+      // Register school in collective database if provided
+      if (schoolName && schoolAddress) {
+        saveOrUpdateGlobalSchool({
+          name: schoolName,
+          address: schoolAddress,
+          driverId,
+        }).catch((err) => console.warn('Could not sync school globally:', err));
+      }
     } catch (error) {
       console.error('Erro ao enviar solicitação de vaga:', error);
       toast.error('Ocorreu um erro ao enviar sua solicitação. Tente novamente.');
@@ -264,17 +275,21 @@ export function RequestVacancyModal({ isOpen, onClose, vehicle }: RequestVacancy
                   </div>
 
                   <div>
-                    <label className="block text-xs font-black text-gray-700 mb-1 flex items-center justify-between">
-                      <span>Escola Onde Estuda *</span>
-                      <span className="text-[10px] text-amber-700 font-bold">Destino Rota</span>
-                    </label>
-                    <input 
-                      type="text"
+                    <SchoolAutocompleteInput
+                      label="Escola Onde Estuda"
+                      helperBadge="Banco Coletivo"
                       required
-                      placeholder="Ex: Colégio Santo Agostinho"
+                      placeholder="Comece a digitar o nome da escola..."
                       value={schoolName}
-                      onChange={(e) => setSchoolName(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-yellow-400 outline-none"
+                      schoolAddress={schoolAddress}
+                      onChange={(val) => setSchoolName(val)}
+                      onSelectSchool={(school) => {
+                        setSchoolName(school.name);
+                        if (school.address) {
+                          setSchoolAddress(school.address);
+                          toast.success(`Endereço da escola preenchido automaticamente!`, { icon: '🏫' });
+                        }
+                      }}
                     />
                   </div>
                 </div>

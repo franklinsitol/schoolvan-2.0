@@ -7,6 +7,8 @@ import { useAuth } from '../hooks/useAuth';
 import { useFirestore } from '../hooks/useFirestore';
 import { checkCanAddStudent } from '../lib/plans';
 import { AddressAutocompleteInput } from './AddressAutocompleteInput';
+import { SchoolAutocompleteInput } from './SchoolAutocompleteInput';
+import { saveOrUpdateGlobalSchool } from '../services/schoolsService';
 import toast from 'react-hot-toast';
 
 interface StudentModalProps {
@@ -207,6 +209,17 @@ export function StudentModal({ isOpen, onClose, driverId, vehicles, student, onO
         });
         toast.success('Aluno cadastrado com sucesso!');
       }
+
+      // Automatically register/update this school in the global collective schools database
+      if (formData.schoolName && formData.schoolAddress) {
+        saveOrUpdateGlobalSchool({
+          name: formData.schoolName,
+          address: formData.schoolAddress,
+          driverId,
+          driverName: profile?.name,
+        }).catch((err) => console.warn('Could not sync school globally:', err));
+      }
+
       onClose();
     } catch (error) {
       console.error(error);
@@ -317,21 +330,26 @@ export function StudentModal({ isOpen, onClose, driverId, vehicles, student, onO
                 />
               </div>
 
-              <div className="md:col-span-2 space-y-1">
-                <label className="text-xs font-black text-gray-700 ml-1 flex items-center gap-1">
-                  Nome da Escola <span className="text-red-500">*</span>
-                  <span className="text-[10px] text-amber-700 font-bold bg-amber-50 px-1 rounded">(Destino Rota)</span>
-                </label>
-                <div className="relative">
-                  <School className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                  <input
-                    required
-                    className="w-full pl-12 pr-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm font-bold text-gray-900"
-                    placeholder="Ex: Colégio Objetivo"
-                    value={formData.schoolName || ''}
-                    onChange={e => setFormData({ ...formData, schoolName: e.target.value })}
-                  />
-                </div>
+              <div className="md:col-span-2">
+                <SchoolAutocompleteInput
+                  label="Nome da Escola"
+                  helperBadge="Banco Coletivo • Auto-preenche"
+                  required
+                  placeholder="Comece a digitar (ex: Objetivo, Bandeirantes, Santos...)"
+                  value={formData.schoolName || ''}
+                  schoolAddress={formData.schoolAddress}
+                  onChange={(val) => setFormData(prev => ({ ...prev, schoolName: val }))}
+                  onSelectSchool={(school) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      schoolName: school.name,
+                      schoolAddress: school.address || prev.schoolAddress,
+                    }));
+                    if (school.address) {
+                      toast.success(`Endereço da escola preenchido automaticamente!`, { icon: '🏫' });
+                    }
+                  }}
+                />
               </div>
 
               <div className="space-y-1">

@@ -110,6 +110,26 @@ export interface Vehicle {
   tacografoValidUntil?: string;
 }
 
+export interface School {
+  id: string;
+  name: string;
+  normalizedName?: string;
+  address: string;
+  city?: string;
+  state?: string;
+  neighborhood?: string;
+  cep?: string;
+  lat?: string;
+  lon?: string;
+  type?: 'particular' | 'estadual' | 'municipal' | 'colegio' | 'creche' | 'escola' | 'other';
+  usageCount?: number;
+  lastUsedAt?: string;
+  createdByDriverId?: string;
+  createdByDriverName?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Student {
   id: string;
   driverId: string;

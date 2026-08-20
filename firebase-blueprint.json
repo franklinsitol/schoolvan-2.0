@@ -203,6 +203,26 @@
         "lgpdText": { "type": "string" },
         "masterPass": { "type": "string" }
       }
+    },
+    "School": {
+      "title": "School",
+      "description": "Collective school database for autocomplete and route optimization",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "normalizedName": { "type": "string" },
+        "address": { "type": "string" },
+        "city": { "type": "string" },
+        "state": { "type": "string" },
+        "neighborhood": { "type": "string" },
+        "cep": { "type": "string" },
+        "usageCount": { "type": "number" },
+        "createdByDriverId": { "type": "string" },
+        "createdByDriverName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "address"]
     }
   },
   "firestore": {
@@ -216,6 +236,7 @@
     "/drivers/{driverId}/incidents/{incidentId}": { "schema": "Incident", "description": "Route incidents and push alerts" },
     "/users/{userId}": { "schema": "User", "description": "User / Parent accounts" },
     "/tickets/{ticketId}": { "schema": "Ticket", "description": "Support tickets" },
+    "/schools/{schoolId}": { "schema": "School", "description": "Collective database of schools across all drivers" },
     "/adminConfig/global": { "schema": "AdminConfig", "description": "Global settings" }
   }
 }

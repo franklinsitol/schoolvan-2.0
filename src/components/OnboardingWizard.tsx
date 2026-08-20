@@ -37,6 +37,8 @@ import { doc, updateDoc, collection, addDoc, setDoc, deleteDoc } from 'firebase/
 import { speakTiaPrompt, playBusHornSound } from '../lib/sound';
 import { checkCanAddStudent, checkCanAddVehicle } from '../lib/plans';
 import { AddressAutocompleteInput } from './AddressAutocompleteInput';
+import { SchoolAutocompleteInput } from './SchoolAutocompleteInput';
+import { saveOrUpdateGlobalSchool } from '../services/schoolsService';
 import toast from 'react-hot-toast';
 
 interface OnboardingWizardProps {
@@ -368,6 +370,16 @@ export function OnboardingWizard({
         dueDate: `${finalDay}/${(new Date().getMonth() + 1).toString().padStart(2, '0')}`,
         createdAt: new Date().toISOString()
       });
+
+      // Automatically register/update this school in the global collective schools database
+      if (studentForm.schoolName && studentForm.schoolAddress) {
+        saveOrUpdateGlobalSchool({
+          name: studentForm.schoolName,
+          address: studentForm.schoolAddress,
+          driverId: profile.id,
+          driverName: profile.name,
+        }).catch((err) => console.warn('Could not sync school globally:', err));
+      }
 
       playBusHornSound();
       toast.success(`Aluno ${studentForm.name} cadastrado com sucesso!`);
@@ -819,17 +831,24 @@ export function OnboardingWizard({
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
-                            <label className="block text-xs font-black uppercase text-gray-800 dark:text-gray-200 mb-1 flex items-center justify-between">
-                              <span>Nome da Escola *</span>
-                              <span className="text-[10px] text-amber-700 dark:text-yellow-400 font-bold">Destino Rota</span>
-                            </label>
-                            <input 
-                              type="text"
-                              placeholder="Ex: Colégio Santo Agostinho"
-                              value={studentForm.schoolName}
-                              onChange={(e) => setStudentForm(p => ({ ...p, schoolName: e.target.value }))}
+                            <SchoolAutocompleteInput
+                              label="Nome da Escola"
+                              helperBadge="Banco Coletivo"
                               required
-                              className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-xs sm:text-sm font-semibold text-gray-950 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                              placeholder="Digite o nome da escola..."
+                              value={studentForm.schoolName}
+                              schoolAddress={studentForm.schoolAddress}
+                              onChange={(val) => setStudentForm(p => ({ ...p, schoolName: val }))}
+                              onSelectSchool={(school) => {
+                                setStudentForm(p => ({
+                                  ...p,
+                                  schoolName: school.name,
+                                  schoolAddress: school.address || p.schoolAddress,
+                                }));
+                                if (school.address) {
+                                  toast.success(`Endereço da escola preenchido automaticamente!`, { icon: '🏫' });
+                                }
+                              }}
                             />
                           </div>
 

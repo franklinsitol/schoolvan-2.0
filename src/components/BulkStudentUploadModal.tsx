@@ -4,6 +4,7 @@ import { db } from '../lib/firebase';
 import { collection, addDoc, setDoc, doc } from 'firebase/firestore';
 import { Student, Vehicle } from '../types';
 import { playBusHornSound } from '../lib/sound';
+import { saveOrUpdateGlobalSchool, searchGlobalSchools } from '../services/schoolsService';
 import toast from 'react-hot-toast';
 
 interface ParsedStudentRow {
@@ -223,6 +224,16 @@ export function BulkStudentUploadModal({
         importedCount++;
         setProgress(Math.round(((i + 1) / validRows.length) * 100));
       }
+
+      // Sync imported schools to collective database in background
+      const uniqueSchools = Array.from(new Set(validRows.map(r => r.schoolName).filter(Boolean)));
+      uniqueSchools.forEach((schoolName) => {
+        saveOrUpdateGlobalSchool({
+          name: schoolName,
+          address: '',
+          driverId,
+        }).catch((err) => console.warn('Could not sync imported school:', err));
+      });
 
       playBusHornSound();
       toast.success(`🎉 ${importedCount} alunos cadastrados com sucesso!`, { duration: 5000 });

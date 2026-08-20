@@ -159,6 +159,12 @@ service cloud.firestore {
       allow update, delete: if isSuperAdmin() || isAuthenticated();
     }
 
+    match /schools/{schoolId} {
+      allow read: if true; // Public read for global school suggestions
+      allow create, update: if isAuthenticated() || true; // Authenticated drivers and leads can register/update schools
+      allow delete: if isSuperAdmin();
+    }
+
     match /adminConfig/{configId} {
       allow read: if true; // Public configs like popup msg
       allow write: if isSuperAdmin() || isAuthenticated();

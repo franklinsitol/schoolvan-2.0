@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapPin, Search, Loader2, School, Home, Building2, X, CheckCircle2, Sparkles, Hash, Layers } from 'lucide-react';
+import { MapPin, Search, Loader2, School, Home, Building2, X, CheckCircle2, Sparkles, Hash, Layers, Users } from 'lucide-react';
+import { searchGlobalSchools } from '../services/schoolsService';
 
 export interface AddressSuggestion {
   id: string;
@@ -269,6 +270,33 @@ export function AddressAutocompleteInput({
           allResults.push(item);
         }
       };
+
+      // 0. If school mode, query Global Collective Schools Database first
+      if (isSchool) {
+        try {
+          const globalSchools = await searchGlobalSchools(searchTerm, { limitResults: 5 });
+          for (const s of globalSchools) {
+            if (s.address) {
+              addUnique({
+                id: `school-db-${s.id}`,
+                label: `${s.name}, ${s.address}`,
+                road: s.address,
+                suburb: s.neighborhood,
+                city: s.city,
+                state: s.state,
+                cep: s.cep,
+                mainText: s.name,
+                secondaryText: s.address,
+                type: 'school',
+                lat: s.lat,
+                lon: s.lon,
+              });
+            }
+          }
+        } catch (err) {
+          console.warn('Could not query global schools in address search:', err);
+        }
+      }
 
       // 1. Primary Engine: Photon (Fast, Fuzzy, Typo-Tolerant, Handles Brazil districts like Perus)
       for (const variant of searchVariants.slice(0, 3)) {
