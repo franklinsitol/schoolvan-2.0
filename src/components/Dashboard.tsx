@@ -262,8 +262,8 @@ export function Dashboard({
                   </span>
                 </div>
                 
-                {/* 👨‍✈️ Driver Section & Entrance Door (Grid / Responsive) */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-5 mb-5 border-b-2 border-dashed border-gray-300 bg-gray-50/80 p-3.5 rounded-2xl border border-gray-200">
+                {/* 👨‍✈️ Driver Section (Grid / Responsive) */}
+                <div className="flex items-center justify-between gap-3 pb-5 mb-5 border-b-2 border-dashed border-gray-300 bg-gray-50/80 p-3.5 rounded-2xl border border-gray-200">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-gray-900 rounded-xl flex items-center justify-center text-yellow-400 font-black shadow-md shrink-0">
                       <Users size={18} />
@@ -272,11 +272,6 @@ export function Dashboard({
                       <span className="text-xs font-black text-gray-950 uppercase tracking-wider block">Cabine do Motorista</span>
                       <span className="text-[11px] text-gray-600 font-bold">{profile?.name || 'Tio(a) da Van'}</span>
                     </div>
-                  </div>
-
-                  <div className="bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl self-stretch sm:self-auto text-right">
-                    <span className="text-[10px] font-extrabold text-emerald-800 block uppercase">Porta de Entrada</span>
-                    <span className="text-xs font-black text-emerald-700">➡️ Embarque / Desembarque</span>
                   </div>
                 </div>
 

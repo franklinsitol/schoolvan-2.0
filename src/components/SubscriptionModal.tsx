@@ -1030,286 +1030,82 @@ export function SubscriptionModal({
                 </div>
               </div>
 
-              {/* Payment Method Switcher */}
-              <div className="grid grid-cols-2 gap-2 bg-gray-100 p-1.5 rounded-2xl">
-                <button
-                  id="btn-method-pix"
-                  type="button"
-                  onClick={() => setPaymentMethod('PIX')}
-                  className={`py-2.5 px-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                    paymentMethod === 'PIX'
-                      ? 'bg-white text-gray-950 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-950'
-                  }`}
-                >
-                  <Zap size={15} className="text-amber-500" /> Pix Instantâneo
-                </button>
-                <button
-                  id="btn-method-card"
-                  type="button"
-                  onClick={() => setPaymentMethod('CREDIT_CARD')}
-                  className={`py-2.5 px-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                    paymentMethod === 'CREDIT_CARD'
-                      ? 'bg-white text-gray-950 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-950'
-                  }`}
-                >
-                  <CreditCard size={15} className="text-blue-600" /> Cartão de Crédito
-                </button>
-              </div>
-
-              {/* PIX PAYMENT TAB */}
-              {paymentMethod === 'PIX' && (
-                <div className="space-y-4 text-center">
-                  <div className="bg-gray-50 p-4 sm:p-5 rounded-3xl border border-gray-200 flex flex-col items-center justify-center space-y-3">
-                    <p className="text-xs font-black text-gray-700">
-                      Escaneie o QR Code abaixo no app do seu banco:
-                    </p>
-
-                    {/* QR Code Display (Image or Canvas) */}
-                    <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm flex items-center justify-center min-w-[220px] min-h-[220px]">
-                      {generatingPayment ? (
-                        <div className="w-[200px] h-[200px] flex flex-col items-center justify-center text-xs text-gray-500 font-bold gap-2">
-                          <RefreshCw size={24} className="animate-spin text-yellow-500" />
-                          Gerando QR Code oficial...
-                        </div>
-                      ) : pixQrImage ? (
-                        <img 
-                          src={pixQrImage} 
-                          alt="QR Code Pix" 
-                          className="w-[200px] h-[200px] object-contain rounded-lg"
-                        />
-                      ) : (
-                        <canvas ref={canvasRef} className="rounded-lg max-w-[200px] max-h-[200px]" />
-                      )}
-                    </div>
-
-                    <div className="text-center">
-                      <span className="text-xs font-bold text-gray-500 block">Total a pagar no Pix:</span>
-                      <span className="text-2xl font-black text-gray-950">
-                        R$ {(proRataPrice || currentPrice).toFixed(2).replace('.', ',')}
-                      </span>
-                    </div>
+              {/* PIX PAYMENT SECTION */}
+              <div className="space-y-4 text-center">
+                <div className="bg-gray-50 p-4 sm:p-5 rounded-3xl border border-gray-200 flex flex-col items-center justify-center space-y-3">
+                  <div className="flex items-center gap-1.5 text-xs font-black text-gray-900 bg-amber-100 text-amber-950 px-3 py-1 rounded-full">
+                    <Zap size={14} className="text-amber-600" /> Pix Instantâneo SchoolVan
                   </div>
+                  <p className="text-xs font-black text-gray-700">
+                    Escaneie o QR Code abaixo no app do seu banco:
+                  </p>
 
-                  {/* Copy Pix Code Button */}
-                  <div className="space-y-2">
-                    <button
-                      id="btn-copy-pix"
-                      onClick={handleCopyPix}
-                      disabled={generatingPayment || !pixCode}
-                      className="w-full py-4 bg-yellow-400 hover:bg-yellow-500 text-gray-950 font-black rounded-2xl shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer text-sm disabled:opacity-60"
-                    >
-                      {copied ? <Check size={18} className="text-emerald-800" /> : <Copy size={18} />}
-                      {copied ? 'Código Pix Copiado com Sucesso!' : 'Copiar Código Pix Copia e Cola'}
-                    </button>
-
-                    <button
-                      id="btn-verify-pix"
-                      onClick={handleVerifyPixPayment}
-                      disabled={checkingPayment}
-                      className="w-full py-3 bg-gray-950 hover:bg-black text-white font-bold rounded-2xl transition-all cursor-pointer text-xs flex items-center justify-center gap-2"
-                    >
-                      {checkingPayment ? (
-                        <>
-                          <RefreshCw size={14} className="animate-spin text-yellow-400" />
-                          Confirmando pagamento...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle2 size={15} className="text-yellow-400" />
-                          Já realizei o pagamento Pix
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  {/* Clean 3-step guide */}
-                  <div className="bg-white p-3.5 rounded-2xl border border-gray-200 text-left space-y-1.5 text-xs text-gray-700">
-                    <p className="font-black text-gray-900">Como pagar em 3 passos:</p>
-                    <p>1. Clique em <strong>Copiar Código Pix Copia e Cola</strong> acima.</p>
-                    <p>2. Abra o aplicativo do seu banco e escolha a opção <strong>Pix Copia e Cola</strong>.</p>
-                    <p>3. Cole o código e conclua. A liberação é imediata!</p>
-                  </div>
-                </div>
-              )}
-
-              {/* CREDIT CARD PAYMENT TAB */}
-              {paymentMethod === 'CREDIT_CARD' && (
-                <form onSubmit={handlePayCreditCard} className="space-y-3.5 text-left">
-                  
-                  {/* Sandbox Test Auto-Fill Helper */}
-                  <div className="bg-amber-50/90 border border-amber-200 p-3 rounded-2xl space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-black text-amber-900 flex items-center gap-1.5">
-                        <Sparkles size={14} className="text-amber-600" />
-                        Cartões Oficiais de Teste (Asaas Sandbox)
-                      </span>
-                      <span className="text-[9px] font-black bg-amber-200 text-amber-950 px-2 py-0.5 rounded-full uppercase">
-                        Sem cobrança real
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCardNumber('4012 0010 3714 1112');
-                          setCardHolder('FRANKLIN TOLEDO');
-                          setCardExpiry('12/29');
-                          setCardCvv('123');
-                          if (!cardCpf) setCardCpf('123.456.789-00');
-                          toast.success('Cartão de APROVAÇÃO preenchido!');
-                        }}
-                        className="py-1.5 px-2 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold rounded-xl text-[11px] flex items-center justify-center gap-1 transition-all cursor-pointer shadow-sm active:scale-95"
-                      >
-                        <Check size={13} className="text-emerald-600" /> Preencher: Aprovado
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCardNumber('4012 0010 3714 1111');
-                          setCardHolder('FRANKLIN TOLEDO');
-                          setCardExpiry('12/29');
-                          setCardCvv('123');
-                          if (!cardCpf) setCardCpf('123.456.789-00');
-                          toast.error('Cartão de RECUSA preenchido para teste!');
-                        }}
-                        className="py-1.5 px-2 bg-white hover:bg-red-50 text-red-800 border border-red-300 font-bold rounded-xl text-[11px] flex items-center justify-center gap-1 transition-all cursor-pointer shadow-sm active:scale-95"
-                      >
-                        <AlertCircle size={13} className="text-red-600" /> Preencher: Recusado
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Number */}
-                  <div>
-                    <label className="text-xs font-black text-gray-700 block mb-1">
-                      Número do Cartão
-                    </label>
-                    <input 
-                      id="input-card-number"
-                      type="text"
-                      maxLength={19}
-                      placeholder="0000 0000 0000 0000"
-                      value={cardNumber}
-                      onChange={(e) => {
-                        const v = e.target.value.replace(/\D/g, '').replace(/(\d{4})/g, '$1 ').trim();
-                        setCardNumber(v);
-                      }}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-950 focus:bg-white focus:ring-2 focus:ring-yellow-400 outline-none"
-                      required
-                    />
-                  </div>
-
-                  {/* Name on card */}
-                  <div>
-                    <label className="text-xs font-black text-gray-700 block mb-1">
-                      Nome Impresso no Cartão
-                    </label>
-                    <input 
-                      id="input-card-holder"
-                      type="text"
-                      placeholder="NOME COMO ESTA NO CARTAO"
-                      value={cardHolder}
-                      onChange={(e) => setCardHolder(e.target.value.toUpperCase())}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-950 focus:bg-white focus:ring-2 focus:ring-yellow-400 outline-none"
-                      required
-                    />
-                  </div>
-
-                  {/* Expiry & CVV */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs font-black text-gray-700 block mb-1">
-                        Validade (MM/AA)
-                      </label>
-                      <input 
-                        id="input-card-expiry"
-                        type="text"
-                        maxLength={5}
-                        placeholder="MM/AA"
-                        value={cardExpiry}
-                        onChange={(e) => {
-                          let v = e.target.value.replace(/\D/g, '');
-                          if (v.length > 2) v = `${v.slice(0, 2)}/${v.slice(2, 4)}`;
-                          setCardExpiry(v);
-                        }}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-950 focus:bg-white focus:ring-2 focus:ring-yellow-400 outline-none text-center"
-                        required
+                  {/* QR Code Display (Image or Canvas) */}
+                  <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm flex items-center justify-center min-w-[220px] min-h-[220px]">
+                    {generatingPayment ? (
+                      <div className="w-[200px] h-[200px] flex flex-col items-center justify-center text-xs text-gray-500 font-bold gap-2">
+                        <RefreshCw size={24} className="animate-spin text-yellow-500" />
+                        Gerando QR Code oficial...
+                      </div>
+                    ) : pixQrImage ? (
+                      <img 
+                        src={pixQrImage} 
+                        alt="QR Code Pix" 
+                        className="w-[200px] h-[200px] object-contain rounded-lg"
                       />
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-black text-gray-700 block mb-1">
-                        Código CVV
-                      </label>
-                      <input 
-                        id="input-card-cvv"
-                        type="password"
-                        maxLength={4}
-                        placeholder="123"
-                        value={cardCvv}
-                        onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, ''))}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-950 focus:bg-white focus:ring-2 focus:ring-yellow-400 outline-none text-center"
-                        required
-                      />
-                    </div>
+                    ) : (
+                      <canvas ref={canvasRef} className="rounded-lg max-w-[200px] max-h-[200px]" />
+                    )}
                   </div>
 
-                  {/* CPF */}
-                  <div>
-                    <label className="text-xs font-black text-gray-700 block mb-1">
-                      CPF do Titular
-                    </label>
-                    <input 
-                      id="input-card-cpf"
-                      type="text"
-                      maxLength={14}
-                      placeholder="000.000.000-00"
-                      value={cardCpf}
-                      onChange={(e) => {
-                        let v = e.target.value.replace(/\D/g, '');
-                        if (v.length <= 11) {
-                          v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-                        }
-                        setCardCpf(v);
-                      }}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-950 focus:bg-white focus:ring-2 focus:ring-yellow-400 outline-none"
-                      required
-                    />
-                  </div>
-
-                  {/* Information badge */}
-                  <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 flex items-start gap-2 text-xs text-blue-900">
-                    <ShieldCheck size={16} className="text-blue-700 shrink-0 mt-0.5" />
-                    <span>
-                      <strong>Débito Recorrente no Vencimento (Dia {BILLING_DUE_DAY}):</strong> Cobrança automática mensal por tempo indeterminado. Sem fidelidade, altere ou cancele quando quiser.
+                  <div className="text-center">
+                    <span className="text-xs font-bold text-gray-500 block">Total a pagar no Pix:</span>
+                    <span className="text-2xl font-black text-gray-950">
+                      R$ {(proRataPrice || currentPrice).toFixed(2).replace('.', ',')}
                     </span>
                   </div>
+                </div>
 
-                  {/* Submit Button */}
+                {/* Copy Pix Code Button */}
+                <div className="space-y-2">
                   <button
-                    id="btn-submit-card"
-                    type="submit"
-                    disabled={processingCard}
-                    className="w-full py-4 bg-gray-950 hover:bg-black text-yellow-400 font-black rounded-2xl shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer text-sm"
+                    id="btn-copy-pix"
+                    onClick={handleCopyPix}
+                    disabled={generatingPayment || !pixCode}
+                    className="w-full py-4 bg-yellow-400 hover:bg-yellow-500 text-gray-950 font-black rounded-2xl shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer text-sm disabled:opacity-60"
                   >
-                    {processingCard ? (
+                    {copied ? <Check size={18} className="text-emerald-800" /> : <Copy size={18} />}
+                    {copied ? 'Código Pix Copiado com Sucesso!' : 'Copiar Código Pix Copia e Cola'}
+                  </button>
+
+                  <button
+                    id="btn-verify-pix"
+                    onClick={handleVerifyPixPayment}
+                    disabled={checkingPayment}
+                    className="w-full py-3 bg-gray-950 hover:bg-black text-white font-bold rounded-2xl transition-all cursor-pointer text-xs flex items-center justify-center gap-2"
+                  >
+                    {checkingPayment ? (
                       <>
-                        <RefreshCw size={16} className="animate-spin text-yellow-400" />
-                        Validando Cartão com Segurança...
+                        <RefreshCw size={14} className="animate-spin text-yellow-400" />
+                        Confirmando pagamento...
                       </>
                     ) : (
                       <>
-                        <Lock size={16} />
-                        Cadastrar Cartão para Débito Automático no Dia {BILLING_DUE_DAY}
+                        <CheckCircle2 size={15} className="text-yellow-400" />
+                        Já realizei o pagamento Pix
                       </>
                     )}
                   </button>
-                </form>
-              )}
+                </div>
+
+                {/* Clean 3-step guide */}
+                <div className="bg-white p-3.5 rounded-2xl border border-gray-200 text-left space-y-1.5 text-xs text-gray-700">
+                  <p className="font-black text-gray-900">Como pagar em 3 passos:</p>
+                  <p>1. Clique em <strong>Copiar Código Pix Copia e Cola</strong> acima.</p>
+                  <p>2. Abra o aplicativo do seu banco e escolha a opção <strong>Pix Copia e Cola</strong>.</p>
+                  <p>3. Cole o código e conclua. A liberação é imediata!</p>
+                </div>
+              </div>
 
             </div>
           )}

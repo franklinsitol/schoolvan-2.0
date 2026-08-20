@@ -67,11 +67,33 @@ export function getBestTiaVoice(): SpeechSynthesisVoice | null {
   const ptVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('pt'));
   if (ptVoices.length === 0) return voices[0] || null;
 
-  // Preferred friendly natural Brazilian Portuguese voices (e.g. Luciana, Maria, Letícia, Francisca, Google, Microsoft, Apple, Vitória)
-  const naturalPtVoice = ptVoices.find(v => 
-    /luciana|maria|leticia|letícia|francisca|google|pt-br-wavenet|pt-br-standard|helena|zira|vitoria|vitória|brazil|brasil/i.test(v.name)
-  );
-  if (naturalPtVoice) return naturalPtVoice;
+  // Preferred friendly, natural Brazilian Portuguese FEMALE voices across Chrome, iOS, Android, Edge, Windows, macOS
+  // e.g. Luciana, Letícia, Maria, Francisca, Helena, Vitória, Camila, Thalita, Alice, Joana, Fernanda, Google Português do Brasil, Microsoft Maria
+  const femaleVoiceOrder = [
+    /luciana/i,
+    /leticia|letícia/i,
+    /maria/i,
+    /francisca/i,
+    /helena/i,
+    /vitoria|vitória/i,
+    /camila/i,
+    /thalita/i,
+    /alice/i,
+    /fernanda/i,
+    /google português.*brasil/i,
+    /google.*pt.*br/i,
+    /microsoft.*maria/i,
+    /microsoft.*francisca/i,
+    /pt-br-wavenet/i,
+    /pt-br-standard/i,
+    /brazil.*female/i,
+    /brasil.*feminino/i
+  ];
+
+  for (const regex of femaleVoiceOrder) {
+    const found = ptVoices.find(v => regex.test(v.name));
+    if (found) return found;
+  }
 
   // Fallback to any PT-BR voice
   return ptVoices.find(v => v.lang && v.lang.toLowerCase().includes('br')) || ptVoices[0] || null;
@@ -89,7 +111,18 @@ export function speakTiaPrompt(text: string, onEnd?: () => void) {
     // Ensure voices are loaded
     refreshVoices();
 
-    const cleanText = text.replace(/[*_#~`]/g, '');
+    // Clean text from markdown formatting, emojis, hashtags and URLs
+    const cleanText = text
+      .replace(/[*_#~`]/g, '')
+      .replace(/https?:\/\/\S+/g, '')
+      .replace(/•/g, '')
+      .trim();
+
+    if (!cleanText) {
+      if (onEnd) onEnd();
+      return;
+    }
+
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = 'pt-BR';
 
@@ -98,9 +131,9 @@ export function speakTiaPrompt(text: string, onEnd?: () => void) {
       utterance.voice = voice;
     }
 
-    // Natural, warm, friendly speech cadence for T.IA copiloto
-    utterance.rate = 1.02;
-    utterance.pitch = 1.05;
+    // Natural, warm, friendly female speech cadence for T.IA copiloto
+    utterance.rate = 1.05;
+    utterance.pitch = 1.1;
 
     if (onEnd) {
       utterance.onend = onEnd;

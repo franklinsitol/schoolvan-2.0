@@ -62,6 +62,7 @@ import {
   formatBillingMessage, 
   calculateStudentBillingStage 
 } from '../lib/billingRuleUtils';
+import { BulkStudentUploadModal } from './BulkStudentUploadModal';
 import toast from 'react-hot-toast';
 
 export interface ContactCardItem {
@@ -247,6 +248,7 @@ export function AICSMSupportAssistantModal({
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
   const [activeTemplateStudentId, setActiveTemplateStudentId] = useState<string | null>(null);
   const [activeStudentDraft, setActiveStudentDraft] = useState<StudentDraft | null>(null);
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -254,6 +256,7 @@ export function AICSMSupportAssistantModal({
   // Quick contextual prompts matching user exact requests
   const defaultQuickQuestions = [
     '➕ Cadastrar novo aluno passo a passo',
+    '📊 Importar Alunos em Massa (Excel/CSV)',
     '💸 QUAIS alunos eu preciso cobrar esse mês?',
     '📱 Falar com os pais / Acionar no Zap',
     '👥 Cadastrar monitora Juliana 11977776666',
@@ -1446,7 +1449,14 @@ export function AICSMSupportAssistantModal({
           createdAt: new Date().toISOString()
         };
 
-        await addDoc(collection(db, 'drivers', profile.id, 'team'), newTeamData);
+        const teamDocRef = await addDoc(collection(db, 'drivers', profile.id, 'team'), newTeamData);
+        if (newTeamData.email) {
+          await setDoc(doc(db, 'collaborator_invites', newTeamData.email.toLowerCase()), {
+            ...newTeamData,
+            teamMemberDocId: teamDocRef.id,
+            ownerDriverName: profile.name || 'Tio da Van'
+          }, { merge: true });
+        }
         playBusHornSound();
         toast.success(`${memberType} ${memberName} cadastrado(a) com sucesso!`);
 
@@ -1917,17 +1927,72 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
               try {
                 const parsedAction = JSON.parse(actionMatch[1]);
                 if (parsedAction.type === 'SEARCH_CONTACTS') {
-                  contactCards = activeStudents.map(s => ({
-                    id: s.id,
-                    studentName: s.name,
-                    schoolName: s.schoolName || 'Escola',
-                    parentName: s.parentName || 'Responsável',
-                    parentPhone: s.parentPhone || '',
-                    value: s.value,
-                    paymentDay: s.paymentDay,
-                    isAbsentToday: absentStudents.some(a => a.id === s.id),
-                    status: s.status
-                  }));
+                  const targetName = (parsedAction.data?.studentName || '').toLowerCase();
+                  contactCards = activeStudents
+                    .filter(s => !targetName || s.name.toLowerCase().includes(targetName) || (s.parentName || '').toLowerCase().includes(targetName))
+                    .map(s => ({
+                      id: s.id,
+                      studentName: s.name,
+                      schoolName: s.schoolName || 'Escola',
+                      parentName: s.parentName || 'Responsável',
+                      parentPhone: s.parentPhone || '',
+                      value: s.value,
+                      paymentDay: s.paymentDay,
+                      isAbsentToday: absentStudents.some(a => a.id === s.id),
+                      status: s.status
+                    }));
+                } else if (parsedAction.type === 'OPEN_BULK_UPLOAD') {
+                  setIsBulkUploadOpen(true);
+                } else if (parsedAction.type === 'START_STUDENT_DRAFT') {
+                  const d = parsedAction.data || {};
+                  generatedDraft = {
+                    name: d.name || '',
+                    schoolName: d.schoolName || 'Escola Principal',
+                    shift: d.shift || 'Manhã',
+                    parentName: d.parentName || '',
+                    parentPhone: d.parentPhone || '',
+                    studentAddress: d.studentAddress || '',
+                    value: d.value || 350,
+                    paymentDay: d.paymentDay || 10,
+                    currentAskingField: 'review'
+                  };
+                  setActiveStudentDraft(generatedDraft);
+                } else if (parsedAction.type === 'TOGGLE_ROUTE_ABSENCE') {
+                  const studentName = (parsedAction.data?.studentName || '').toLowerCase();
+                  const targetStudent = activeStudents.find(s => s.name.toLowerCase().includes(studentName));
+                  if (targetStudent && profile?.id) {
+                    if (parsedAction.data?.action === 'mark_absent') {
+                      await markStudentAbsent(profile.id, targetStudent.id, targetStudent, getTodayStr(), 'Aviso pelo assistente');
+                      toast.success(`Falta de ${targetStudent.name} registrada para hoje!`);
+                    } else {
+                      await reintegrateStudentToRoute(profile.id, targetStudent.id, targetStudent, getTodayStr());
+                      toast.success(`${targetStudent.name} confirmado na rota de hoje!`);
+                    }
+                  }
+                } else if (parsedAction.type === 'UPDATE_PAYMENT') {
+                  const studentName = (parsedAction.data?.studentName || '').toLowerCase();
+                  const targetFinance = finances.find(f => f.studentName?.toLowerCase().includes(studentName));
+                  if (targetFinance && profile?.id) {
+                    const newStatus = parsedAction.data?.status === 'Pago' ? 'Pago' : 'Pendente';
+                    await updateDoc(doc(db, `drivers/${profile.id}/finance`, targetFinance.id), {
+                      status: newStatus,
+                      updatedAt: new Date().toISOString()
+                    });
+                    toast.success(`Mensalidade de ${targetFinance.studentName} atualizada para ${newStatus}!`);
+                  }
+                } else if (parsedAction.type === 'SEND_PARENT_MESSAGE') {
+                  const phone = (parsedAction.data?.phone || '').replace(/\D/g, '');
+                  const text = parsedAction.data?.text || '';
+                  if (phone && text) {
+                    actionCard = {
+                      type: 'student_updated',
+                      title: 'Disparo de WhatsApp aos Pais',
+                      description: `Recado pronto para envio para ${parsedAction.data?.recipient || 'os Pais'}: "${text.slice(0, 70)}..."`,
+                      success: true,
+                      primaryActionLabel: 'Abrir no WhatsApp',
+                      primaryActionUrl: `https://wa.me/55${phone}?text=${encodeURIComponent(text)}`
+                    };
+                  }
                 }
               } catch (e) {
                 console.error('Error parsing AI action JSON', e);
@@ -3273,6 +3338,15 @@ Pergunta do motorista: "${query}". Responda de forma concisa e útil.`;
           </>
         )}
       </motion.div>
+
+      {/* 📊 Bulk Student Upload Modal Triggered from AI/Tio IA */}
+      <BulkStudentUploadModal
+        isOpen={isBulkUploadOpen}
+        onClose={() => setIsBulkUploadOpen(false)}
+        driverId={profile?.id || ''}
+        vehicles={vehicles}
+        onOpenUpgradeModal={onOpenUpgradeModal}
+      />
     </div>
   );
 }

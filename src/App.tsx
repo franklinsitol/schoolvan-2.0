@@ -80,9 +80,10 @@ import { OnboardingWizard } from './components/OnboardingWizard';
 import { UpgradeTriggerModal } from './components/UpgradeTriggerModal';
 import { SubscriptionModal } from './components/SubscriptionModal';
 import { AICSMSupportAssistantModal } from './components/AICSMSupportAssistantModal';
+import { BulkStudentUploadModal } from './components/BulkStudentUploadModal';
 import { TioIAFloatingDockWidget } from './components/TioIAFloatingDockWidget';
 import { Lead } from './types';
-import { Sparkles, Bot, Zap, Compass, Phone, MessageSquare, Building2, HelpCircle, Lock, Headphones, Calculator } from 'lucide-react';
+import { Sparkles, Bot, Zap, Compass, Phone, MessageSquare, Building2, HelpCircle, Lock, Headphones, Calculator, FileSpreadsheet } from 'lucide-react';
 
 // Views
 const ParentView = () => {
@@ -634,6 +635,7 @@ const Students = ({ onOpenUpgradeModal }: { onOpenUpgradeModal?: (reason: string
   const { data: students, loading } = useFirestore<Student>(`drivers/${profile?.id}/students`);
   const { data: vehicles } = useFirestore<Vehicle>(`drivers/${profile?.id}/vehicles`);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
   if (loading) return <div className="p-8 text-center">Carregando...</div>;
@@ -655,14 +657,29 @@ const Students = ({ onOpenUpgradeModal }: { onOpenUpgradeModal?: (reason: string
 
   return (
     <div className="p-4 md:p-8">
-      <div className="flex justify-between items-center mb-8">
-        <h2 className="text-3xl font-extrabold text-gray-900">Alunos</h2>
-        <button 
-          onClick={handleAdd}
-          className="bg-gray-900 text-yellow-400 px-6 py-2 rounded-full font-bold flex items-center gap-2 hover:bg-gray-800 transition-all"
-        >
-          <Plus size={20} /> Novo Aluno
-        </button>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div>
+          <h2 className="text-3xl font-extrabold text-gray-900">Alunos</h2>
+          <p className="text-xs text-gray-500 mt-1">Gerencie a lista de alunos transportados, rotas e dados de cobrança.</p>
+        </div>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button 
+            onClick={() => setIsBulkModalOpen(true)}
+            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300/80 px-4 py-2.5 rounded-full font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer shadow-xs active:scale-95"
+            title="Importar vários alunos de uma vez via planilha ou texto"
+          >
+            <FileSpreadsheet size={18} className="text-emerald-600" />
+            <span>Importação em Massa</span>
+          </button>
+
+          <button 
+            onClick={handleAdd}
+            className="bg-gray-900 hover:bg-gray-800 text-yellow-400 px-5 py-2.5 rounded-full font-black text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer shadow-md active:scale-95"
+          >
+            <Plus size={18} />
+            <span>Novo Aluno</span>
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
@@ -726,6 +743,14 @@ const Students = ({ onOpenUpgradeModal }: { onOpenUpgradeModal?: (reason: string
         driverId={profile?.id || ''}
         vehicles={vehicles}
         student={selectedStudent}
+        onOpenUpgradeModal={onOpenUpgradeModal}
+      />
+
+      <BulkStudentUploadModal
+        isOpen={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+        driverId={profile?.id || ''}
+        vehicles={vehicles}
         onOpenUpgradeModal={onOpenUpgradeModal}
       />
     </div>
@@ -800,6 +825,7 @@ export default function App() {
 
   const isSuperAdmin = user?.email === 'franklin.toledo@gmail.com' || profile?.role === 'superadmin';
   const isParent = profile?.role === 'parent';
+  const isColab = profile?.role === 'colab';
 
   // Strict role-based navigation & guard
   useEffect(() => {
@@ -815,13 +841,19 @@ export default function App() {
       if (currentView !== 'parent' && currentView !== 'support') {
         setCurrentView('parent');
       }
+    } else if (isColab) {
+      // Collaborators (Monitors / Assistant Drivers) access routes, students, dash, vehicles, support
+      const allowedViews: View[] = ['dash', 'routes', 'students', 'vehicles', 'support'];
+      if (!allowedViews.includes(currentView)) {
+        setCurrentView('routes');
+      }
     } else {
       // Drivers / Admins / Superadmins
       if (currentView === 'market') {
         setCurrentView('dash');
       }
     }
-  }, [user, profile?.role, isParent, currentView]);
+  }, [user, profile?.role, isParent, isColab, currentView]);
 
   useEffect(() => {
     if (user && authModal.open) {
@@ -856,6 +888,12 @@ export default function App() {
   const navItems = isParent ? [
     { id: 'parent', label: 'Área dos Pais', icon: Users },
     { id: 'support', label: 'Suporte & Ajuda', icon: LifeBuoy, className: 'text-yellow-600 font-bold' }
+  ] : isColab ? [
+    { id: 'dash', label: 'Painel Geral', icon: Bus },
+    { id: 'routes', label: 'Rotas & GPS', icon: MapPinned },
+    { id: 'students', label: 'Passageiros', icon: Users },
+    { id: 'vehicles', label: 'Minha Van', icon: Bus },
+    { id: 'support', label: 'Suporte', icon: LifeBuoy, className: 'text-yellow-600 font-bold' },
   ] : [
     { id: 'dash', label: 'Painel Geral', icon: Bus },
     { id: 'leads', label: 'Pedidos de Vagas', icon: ClipboardCheck, className: 'text-yellow-700 font-black bg-yellow-50/80 hover:bg-yellow-100' },
@@ -1019,6 +1057,16 @@ export default function App() {
             </>
           ) : (
             <div className="flex items-center gap-2 sm:gap-3">
+              {isColab && (
+                <div className="px-3 sm:px-4 py-1.5 bg-blue-50 border border-blue-200 text-blue-900 rounded-xl text-xs font-black flex items-center gap-2 shadow-sm">
+                  <ShieldCheck size={16} className="text-blue-600 shrink-0" />
+                  <span>
+                    {(profile as any)?.memberType || 'Monitor(a)'} 
+                    {(profile as any)?.ownerDriverName ? ` • Tio ${(profile as any).ownerDriverName.split(' ')[0]}` : ''}
+                  </span>
+                </div>
+              )}
+
               {profile?.role === 'admin' && (
                 <>
                   {!isOnboardingCompleted && (

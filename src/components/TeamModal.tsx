@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { X, Save, User, Mail, Phone, ShieldCheck, Bus } from 'lucide-react';
+import { X, Save, User, Mail, Phone, ShieldCheck, Bus, Trash2 } from 'lucide-react';
 import { db } from '../lib/firebase';
-import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, setDoc, deleteDoc, doc } from 'firebase/firestore';
 import { TeamMember, Vehicle } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { checkCanAddTeamMember } from '../lib/plans';
@@ -45,29 +45,74 @@ export function TeamModal({ isOpen, onClose, driverId, vehicles, member, onOpenU
       }
     }
 
+    const cleanEmail = (formData.email || '').trim().toLowerCase();
+    if (!cleanEmail) {
+      toast.error('Informe um e-mail válido.');
+      return;
+    }
+
     setLoading(true);
 
     try {
       const memberData = {
         ...formData,
+        email: cleanEmail,
         ownerId: driverId,
+        ownerDriverName: profile?.name || 'Tio da Van',
         updatedAt: new Date().toISOString(),
       };
 
       if (member?.id) {
+        // If email changed, clean up old invite
+        if (member.email && member.email.toLowerCase() !== cleanEmail) {
+          try {
+            await deleteDoc(doc(db, 'collaborator_invites', member.email.toLowerCase()));
+          } catch (e) {}
+        }
+
         await updateDoc(doc(db, `drivers/${driverId}/team`, member.id), memberData);
-        toast.success('Colaborador atualizado!');
+        await setDoc(doc(db, 'collaborator_invites', cleanEmail), {
+          ...memberData,
+          teamMemberDocId: member.id
+        }, { merge: true });
+
+        toast.success('Colaborador atualizado com sucesso!');
       } else {
-        await addDoc(collection(db, `drivers/${driverId}/team`), {
+        const docRef = await addDoc(collection(db, `drivers/${driverId}/team`), {
           ...memberData,
           createdAt: new Date().toISOString(),
         });
-        toast.success('Colaborador cadastrado!');
+
+        await setDoc(doc(db, 'collaborator_invites', cleanEmail), {
+          ...memberData,
+          teamMemberDocId: docRef.id,
+          createdAt: new Date().toISOString()
+        }, { merge: true });
+
+        toast.success('Colaborador cadastrado! Agora ele pode entrar no app com este e-mail.');
       }
       onClose();
     } catch (error) {
       console.error(error);
       toast.error('Erro ao salvar colaborador.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!member?.id || !window.confirm('Tem certeza que deseja remover este colaborador da sua equipe?')) return;
+    setLoading(true);
+    try {
+      await deleteDoc(doc(db, `drivers/${driverId}/team`, member.id));
+      if (member.email) {
+        await deleteDoc(doc(db, 'collaborator_invites', member.email.toLowerCase()));
+      }
+      toast.success('Colaborador removido.');
+      onClose();
+    } catch (e) {
+      console.error(e);
+      toast.error('Erro ao remover colaborador.');
     } finally {
       setLoading(false);
     }
@@ -182,18 +227,31 @@ export function TeamModal({ isOpen, onClose, driverId, vehicles, member, onOpenU
             </div>
           </div>
 
-          <button
-            disabled={loading}
-            className="w-full py-4 bg-gray-900 text-yellow-400 font-black rounded-3xl shadow-xl hover:bg-gray-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            {loading ? (
-              <div className="w-6 h-6 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <>
-                <Save size={20} /> {member ? 'SALVAR ALTERAÇÕES' : 'CADASTRAR COLABORADOR'}
-              </>
+          <div className="flex items-center gap-3">
+            {member?.id && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={loading}
+                className="p-4 bg-red-50 text-red-600 hover:bg-red-100 rounded-3xl transition-all flex items-center justify-center disabled:opacity-50"
+                title="Excluir Colaborador"
+              >
+                <Trash2 size={20} />
+              </button>
             )}
-          </button>
+            <button
+              disabled={loading}
+              className="flex-1 py-4 bg-gray-900 text-yellow-400 font-black rounded-3xl shadow-xl hover:bg-gray-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {loading ? (
+                <div className="w-6 h-6 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <Save size={20} /> {member ? 'SALVAR ALTERAÇÕES' : 'CADASTRAR COLABORADOR'}
+                </>
+              )}
+            </button>
+          </div>
         </form>
       </div>
     </div>

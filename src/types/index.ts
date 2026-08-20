@@ -232,24 +232,13 @@ export interface AdminConfig {
   termsText?: string;
   lgpdText?: string;
   masterPass?: string;
-  // Gateway Configuration (Cora Bank API & Asaas)
-  paymentGatewayProvider?: 'cora' | 'asaas';
+  paymentGatewayProvider?: 'cora' | 'asaas' | 'manual';
   coraEnabled?: boolean;
-  gatewayEnabled?: boolean;
-  // Cora Bank API Configuration
   coraClientId?: string;
   coraClientSecret?: string;
   coraEnvironment?: 'stage' | 'production';
-  coraWebhookSecret?: string;
-  coraPlatformSplitFee?: number;
-  coraAutoSync?: boolean;
-  // Legacy / Alternate Asaas Configuration
   asaasApiKey?: string;
   asaasEnvironment?: 'sandbox' | 'production';
-  asaasWebhookSecret?: string;
-  asaasPlatformSplitFee?: number; // Ex: 1.50 (R$ 1,50 por cobrança)
-  asaasSplitType?: 'FIXED' | 'PERCENTAGE';
-  asaasAutoSync?: boolean;
 }
 
 export interface SubscriptionInvoice {

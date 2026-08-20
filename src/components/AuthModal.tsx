@@ -97,46 +97,74 @@ export function AuthModal({ isOpen, onClose, type }: AuthModalProps) {
           privacyAcceptedAt: new Date().toISOString()
         };
 
-        if (type === 'driver') {
-          await setDoc(doc(db, 'drivers', user.uid), {
-            name,
-            email: cleanEmail,
-            phone,
-            city,
-            status: 'Ativo',
-            role: 'admin',
-            plan: 'Básico',
-            pricePerStudent: 7.90,
-            invoiceStatus: 'Em Dia',
-            ...consentMeta
-          });
-          
-          // Create default vehicle
-          const vehicleId = `VEC_${Date.now()}`;
-          await setDoc(doc(db, `drivers/${user.uid}/vehicles`, vehicleId), {
-            driverId: user.uid,
-            name: 'Minha Van',
-            capacity: 15,
-            uncleName: `Tio ${name.split(' ')[0]}`,
-            city,
-            state: 'SP',
-            iconType: 'van-yellow'
-          });
-        } else {
-          // Parent user record
-          await setDoc(doc(db, 'users', user.uid), {
-            name,
-            email: cleanEmail,
-            phone,
-            city,
-            role: 'parent',
-            status: 'Ativo',
-            createdAt: new Date().toISOString(),
-            ...consentMeta
-          });
+        // Check if this email was invited as a collaborator
+        let isColabInvite = false;
+        try {
+          const inviteSnap = await getDoc(doc(db, 'collaborator_invites', cleanEmail));
+          if (inviteSnap.exists()) {
+            isColabInvite = true;
+            const inviteData = inviteSnap.data();
+            await setDoc(doc(db, 'users', user.uid), {
+              name: name || inviteData.name || 'Colaborador',
+              email: cleanEmail,
+              phone: phone || inviteData.phone || '',
+              city: city || '',
+              role: 'colab',
+              status: 'Ativo',
+              ownerId: inviteData.ownerId,
+              memberType: inviteData.memberType || 'Monitor',
+              canEdit: Boolean(inviteData.canEdit),
+              vehicleId: inviteData.vehicleId || '',
+              createdAt: new Date().toISOString(),
+              ...consentMeta
+            });
+            toast.success(`Conta vinculada com sucesso como ${inviteData.memberType || 'Monitor(a)'}!`);
+          }
+        } catch (colabCheckErr) {
+          console.warn("Could not check collaborator invite during signup:", colabCheckErr);
         }
-        
-        toast.success('Conta criada com sucesso!');
+
+        if (!isColabInvite) {
+          if (type === 'driver') {
+            await setDoc(doc(db, 'drivers', user.uid), {
+              name,
+              email: cleanEmail,
+              phone,
+              city,
+              status: 'Ativo',
+              role: 'admin',
+              plan: 'Básico',
+              pricePerStudent: 7.90,
+              invoiceStatus: 'Em Dia',
+              ...consentMeta
+            });
+            
+            // Create default vehicle
+            const vehicleId = `VEC_${Date.now()}`;
+            await setDoc(doc(db, `drivers/${user.uid}/vehicles`, vehicleId), {
+              driverId: user.uid,
+              name: 'Minha Van',
+              capacity: 15,
+              uncleName: `Tio ${name.split(' ')[0]}`,
+              city,
+              state: 'SP',
+              iconType: 'van-yellow'
+            });
+          } else {
+            // Parent user record
+            await setDoc(doc(db, 'users', user.uid), {
+              name,
+              email: cleanEmail,
+              phone,
+              city,
+              role: 'parent',
+              status: 'Ativo',
+              createdAt: new Date().toISOString(),
+              ...consentMeta
+            });
+          }
+          toast.success('Conta criada com sucesso!');
+        }
       }
       onClose();
     } catch (error: any) {
