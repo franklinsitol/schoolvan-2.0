@@ -5,12 +5,12 @@ import path from 'path';
 async function generateAssets() {
   console.log('[Build Asset Generator] Starting asset generation...');
 
-  const iconSrc = 'src/assets/images/schoolvan_app_icon_1787317200343.jpg';
+  const svgSrc = 'public/favicon.svg';
   const deskSrc = 'src/assets/images/pwa_screen_desk_1787317232791.jpg';
   const mobSrc = 'src/assets/images/pwa_screen_mob_1787317211699.jpg';
 
-  if (!fs.existsSync(iconSrc)) {
-    console.error('[Build Asset Generator] Source icon image not found at ' + iconSrc);
+  if (!fs.existsSync(svgSrc)) {
+    console.error('[Build Asset Generator] Source SVG image not found at ' + svgSrc);
     return;
   }
 
@@ -18,16 +18,18 @@ async function generateAssets() {
   if (!fs.existsSync('public')) fs.mkdirSync('public', { recursive: true });
   if (!fs.existsSync('public/Site')) fs.mkdirSync('public/Site', { recursive: true });
 
-  console.log('[Build Asset Generator] Generating icon formats...');
-  await sharp(iconSrc).resize(512, 512).png().toFile('public/icon-512.png');
-  await sharp(iconSrc).resize(512, 512).png().toFile('public/icon.png');
-  await sharp(iconSrc).resize(192, 192).png().toFile('public/icon-192.png');
-  await sharp(iconSrc).resize(180, 180).png().toFile('public/apple-touch-icon.png');
-  await sharp(iconSrc).resize(64, 64).png().toFile('public/favicon.png');
-  await sharp(iconSrc).resize(48, 48).png().toFile('public/favicon-48.png');
-  await sharp(iconSrc).resize(32, 32).png().toFile('public/favicon-32.png');
-  await sharp(iconSrc).resize(16, 16).png().toFile('public/favicon-16.png');
-  await sharp(iconSrc).resize(32, 32).png().toFile('public/favicon.ico');
+  console.log('[Build Asset Generator] Generating icon formats from cute site SVG...');
+  const svgBuffer = fs.readFileSync(svgSrc);
+
+  await sharp(svgBuffer, { density: 600 }).resize(512, 512).png().toFile('public/icon-512.png');
+  await sharp(svgBuffer, { density: 600 }).resize(512, 512).png().toFile('public/icon.png');
+  await sharp(svgBuffer, { density: 600 }).resize(192, 192).png().toFile('public/icon-192.png');
+  await sharp(svgBuffer, { density: 600 }).resize(180, 180).png().toFile('public/apple-touch-icon.png');
+  await sharp(svgBuffer, { density: 600 }).resize(64, 64).png().toFile('public/favicon.png');
+  await sharp(svgBuffer, { density: 600 }).resize(48, 48).png().toFile('public/favicon-48.png');
+  await sharp(svgBuffer, { density: 600 }).resize(32, 32).png().toFile('public/favicon-32.png');
+  await sharp(svgBuffer, { density: 600 }).resize(16, 16).png().toFile('public/favicon-16.png');
+  await sharp(svgBuffer, { density: 600 }).resize(32, 32).png().toFile('public/favicon.ico');
 
   if (fs.existsSync(deskSrc)) {
     console.log('[Build Asset Generator] Generating desktop screenshot...');
