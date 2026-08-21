@@ -46,6 +46,8 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
     plate: string;
     renavam: string;
     capacity: number | string;
+    shiftsCount: number | string;
+    targetStudents: number | string;
     uncleName: string;
     city: string;
     state: string;
@@ -63,6 +65,8 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
     plate: '',
     renavam: '',
     capacity: 15,
+    shiftsCount: 3,
+    targetStudents: 45,
     uncleName: '',
     city: '',
     state: 'SP',
@@ -84,12 +88,18 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
 
   useEffect(() => {
     if (vehicle) {
+      const cap = vehicle.capacity !== undefined ? vehicle.capacity : 15;
+      const shifts = vehicle.shiftsCount !== undefined ? vehicle.shiftsCount : 3;
+      const target = vehicle.targetStudents !== undefined ? vehicle.targetStudents : (cap * shifts);
+
       setFormData({
         name: vehicle.name || '',
         model: vehicle.model || '',
         plate: vehicle.plate || '',
         renavam: vehicle.renavam || '',
-        capacity: vehicle.capacity !== undefined ? vehicle.capacity : 15,
+        capacity: cap,
+        shiftsCount: shifts,
+        targetStudents: target,
         uncleName: vehicle.uncleName || '',
         city: vehicle.city || '',
         state: vehicle.state || 'SP',
@@ -109,6 +119,8 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
         plate: '',
         renavam: '',
         capacity: 15,
+        shiftsCount: 3,
+        targetStudents: 45,
         uncleName: '',
         city: '',
         state: 'SP',
@@ -160,12 +172,18 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
     try {
       const parsedCapacity = Number(formData.capacity);
       const finalCapacity = isNaN(parsedCapacity) || parsedCapacity < 1 ? 15 : parsedCapacity;
+      const parsedShifts = Number(formData.shiftsCount);
+      const finalShifts = isNaN(parsedShifts) || parsedShifts < 1 ? 3 : parsedShifts;
+      const parsedTarget = Number(formData.targetStudents);
+      const finalTarget = isNaN(parsedTarget) || parsedTarget < 1 ? (finalCapacity * finalShifts) : parsedTarget;
       const parsedValue = Number(formData.value);
       const finalValue = isNaN(parsedValue) || parsedValue < 0 ? 0 : parsedValue;
 
       const vehicleData = {
         ...formData,
         capacity: finalCapacity,
+        shiftsCount: finalShifts,
+        targetStudents: finalTarget,
         value: finalValue,
         driverId,
         updatedAt: new Date().toISOString(),
@@ -225,7 +243,7 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-700 ml-1">Capacidade (Lugares) *</label>
+                <label className="text-xs font-bold text-gray-700 ml-1">Assentos Físicos *</label>
                 <div className="relative">
                   <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                   <input
@@ -237,12 +255,65 @@ export function VehicleModal({ isOpen, onClose, driverId, vehicle, onOpenUpgrade
                     value={formData.capacity}
                     onChange={e => {
                       const val = e.target.value;
-                      setFormData({ ...formData, capacity: val === '' ? '' : Number(val) });
+                      const capNum = val === '' ? '' : Number(val);
+                      const shiftsNum = Number(formData.shiftsCount) || 3;
+                      setFormData({ 
+                        ...formData, 
+                        capacity: capNum,
+                        targetStudents: typeof capNum === 'number' ? capNum * shiftsNum : formData.targetStudents
+                      });
                     }}
                   />
                 </div>
+                <span className="text-[10px] text-gray-500 ml-1">Lugares por viagem</span>
               </div>
 
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-700 ml-1">Turnos / Giros Diários *</label>
+                <select
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm font-medium text-gray-900 cursor-pointer"
+                  value={formData.shiftsCount}
+                  onChange={e => {
+                    const shiftsNum = Number(e.target.value) || 1;
+                    const capNum = Number(formData.capacity) || 15;
+                    setFormData({
+                      ...formData,
+                      shiftsCount: shiftsNum,
+                      targetStudents: capNum * shiftsNum
+                    });
+                  }}
+                >
+                  <option value={1}>1 Turno (Manhã ou Tarde)</option>
+                  <option value={2}>2 Turnos (Manhã + Tarde)</option>
+                  <option value={3}>3 Turnos (Manhã + Tarde + Noite)</option>
+                  <option value={4}>4 Turnos (Giros intensivos)</option>
+                </select>
+                <span className="text-[10px] text-gray-500 ml-1">Multiplica o potencial da van</span>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-700 ml-1">Meta de Alunos da Carteira</label>
+                <div className="relative">
+                  <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-600" size={18} />
+                  <input
+                    type="number"
+                    min="1"
+                    className="w-full pl-12 pr-4 py-3 bg-yellow-50/60 border-2 border-yellow-300 rounded-2xl focus:ring-2 focus:ring-yellow-400 outline-none text-sm font-bold text-gray-950"
+                    placeholder="45"
+                    value={formData.targetStudents}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setFormData({ ...formData, targetStudents: val === '' ? '' : Number(val) });
+                    }}
+                  />
+                </div>
+                <span className="text-[10px] text-amber-700 font-medium ml-1">
+                  Ex: {Number(formData.capacity) || 15} lugares × {Number(formData.shiftsCount) || 3} turnos = { (Number(formData.capacity) || 15) * (Number(formData.shiftsCount) || 3) } alunos
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-xs font-bold text-gray-700 ml-1">Valor Mensal Base (R$)</label>
                 <div className="relative">

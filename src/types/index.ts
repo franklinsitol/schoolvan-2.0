@@ -31,6 +31,9 @@ export interface Driver {
   discountUntil?: string;
   cancellationReason?: string;
   cancelledAt?: string;
+  targetStudents?: number;
+  shiftsCount?: number;
+  targetRevenue?: number;
   paymentProofUrl?: string;
   paymentProofNotes?: string;
   paymentProofSubmittedAt?: string;
@@ -86,6 +89,9 @@ export interface TeamMember {
   city?: string;
   cpfCnpj?: string;
   termsAccepted?: string;
+  targetStudents?: number;
+  shiftsCount?: number;
+  targetRevenue?: number;
 }
 
 export interface Vehicle {
@@ -104,6 +110,8 @@ export interface Vehicle {
   neighborhood?: string;
   garageAddress?: string;
   value?: number;
+  targetStudents?: number;
+  shiftsCount?: number;
   // Inspection & Regulation fields (CTB Art. 136)
   lastInspectionDate?: string;
   nextInspectionDate?: string;
