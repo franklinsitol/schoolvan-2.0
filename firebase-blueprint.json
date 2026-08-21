@@ -204,6 +204,23 @@
         "masterPass": { "type": "string" }
       }
     },
+    "CollaboratorInvite": {
+      "title": "Collaborator Invite",
+      "description": "Invite for team member / monitor indexed by email",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string" },
+        "ownerDriverName": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "memberType": { "type": "string" },
+        "vehicleId": { "type": "string" },
+        "canEdit": { "type": "boolean" },
+        "status": { "type": "string" }
+      },
+      "required": ["ownerId", "email"]
+    },
     "School": {
       "title": "School",
       "description": "Collective school database for autocomplete and route optimization",
@@ -237,6 +254,7 @@
     "/users/{userId}": { "schema": "User", "description": "User / Parent accounts" },
     "/tickets/{ticketId}": { "schema": "Ticket", "description": "Support tickets" },
     "/schools/{schoolId}": { "schema": "School", "description": "Collective database of schools across all drivers" },
+    "/collaborator_invites/{inviteEmail}": { "schema": "CollaboratorInvite", "description": "Collaborator invites for monitors and drivers" },
     "/adminConfig/global": { "schema": "AdminConfig", "description": "Global settings" }
   }
 }

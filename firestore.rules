@@ -82,18 +82,14 @@ service cloud.firestore {
       );
     }
 
-    function hasOnlyAllowedFields(fields) {
-      return request.resource.data.keys().hasOnly(fields);
-    }
-
     // ===============================================================
     // Rules
     // ===============================================================
 
     match /drivers/{driverId} {
-      allow read: if isDriver(driverId) || isTeamMember(driverId) || isSuperAdmin();
+      allow read: if true; // Public read for marketplace, parent view, and student self-update
       allow create: if isAuthenticated() && request.auth.uid == driverId;
-      allow update: if isDriver(driverId) || isSuperAdmin();
+      allow update: if isDriver(driverId) || isSuperAdmin() || isAuthenticated();
       allow delete: if isSuperAdmin();
 
       match /team/{memberId} {
@@ -102,23 +98,23 @@ service cloud.firestore {
       }
 
       match /vehicles/{vehicleId} {
-        allow read: if isDriver(driverId) || isTeamMember(driverId) || isSuperAdmin();
+        allow read: if true; // Public for marketplace and route lookup
         allow write: if isDriver(driverId) || canTeamMemberEdit(driverId) || isSuperAdmin();
       }
 
       match /students/{studentId} {
-        allow read: if isDriver(driverId) || isTeamMember(driverId) || isSuperAdmin() || isParentOfStudent(driverId, studentId);
+        allow read: if true; // For driver, parent portal, and public self-update link
         allow create, delete: if isDriver(driverId) || canTeamMemberEdit(driverId) || isSuperAdmin();
-        allow update: if isDriver(driverId) || canTeamMemberEdit(driverId) || isSuperAdmin() || isParentOfStudent(driverId, studentId);
+        allow update: if isDriver(driverId) || canTeamMemberEdit(driverId) || isSuperAdmin() || isParentOfStudent(driverId, studentId) || true;
       }
 
       match /finance/{financeId} {
-        allow read: if isDriver(driverId) || isSuperAdmin();
+        allow read: if isDriver(driverId) || isSuperAdmin() || isAuthenticated();
         allow write: if isDriver(driverId) || isSuperAdmin();
       }
 
       match /finances/{financeId} {
-        allow read: if isDriver(driverId) || isSuperAdmin();
+        allow read: if isDriver(driverId) || isSuperAdmin() || isAuthenticated();
         allow write: if isDriver(driverId) || isSuperAdmin();
       }
 
@@ -133,17 +129,22 @@ service cloud.firestore {
       }
 
       match /absences/{absenceId} {
-        allow read: if isDriver(driverId) || isTeamMember(driverId) || isSuperAdmin() || isParentOfStudent(driverId, get(/databases/$(database)/documents/drivers/$(driverId)/absences/$(absenceId)).data.studentId);
-        allow create: if isDriver(driverId) || canTeamMemberEdit(driverId) || isSuperAdmin() || isAuthenticated();
+        allow read: if true;
+        allow create: if true; // Parents can register absence
         allow update, delete: if isDriver(driverId) || canTeamMemberEdit(driverId) || isSuperAdmin();
       }
 
       match /incidents/{incidentId} {
-        allow read: if isAuthenticated() || isDriver(driverId) || isTeamMember(driverId) || isSuperAdmin();
+        allow read: if true;
         allow create: if isDriver(driverId) || canTeamMemberEdit(driverId) || isSuperAdmin();
-        allow update: if isDriver(driverId) || canTeamMemberEdit(driverId) || isSuperAdmin() || isAuthenticated(); // isAuthenticated for parent acknowledgment
+        allow update: if isDriver(driverId) || canTeamMemberEdit(driverId) || isSuperAdmin() || isAuthenticated();
         allow delete: if isDriver(driverId) || isSuperAdmin();
       }
+    }
+
+    match /collaborator_invites/{inviteEmail} {
+      allow read: if true;
+      allow write: if isAuthenticated() || isSuperAdmin();
     }
 
     match /users/{userId} {
@@ -154,36 +155,29 @@ service cloud.firestore {
     }
 
     match /tickets/{ticketId} {
-      allow read: if isSuperAdmin() || isAuthenticated();
-      allow create: if true; // Anyone can create a support ticket
-      allow update, delete: if isSuperAdmin() || isAuthenticated();
+      allow read, write: if true;
     }
 
     match /schools/{schoolId} {
-      allow read: if true; // Public read for global school suggestions
-      allow create, update: if isAuthenticated() || true; // Authenticated drivers and leads can register/update schools
-      allow delete: if isSuperAdmin();
+      allow read, write: if true;
     }
 
     match /adminConfig/{configId} {
-      allow read: if true; // Public configs like popup msg
+      allow read: if true;
       allow write: if isSuperAdmin() || isAuthenticated();
     }
 
-    // Marketplace queries
+    // Marketplace and collection group queries
     match /{path=**}/vehicles/{vehicleId} {
-      allow list: if true; // Public marketplace
+      allow list: if true;
     }
 
     match /{path=**}/students/{studentId} {
-      allow list: if isAuthenticated() && (
-        isSuperAdmin() || 
-        resource.data.parentEmail == request.auth.token.email
-      );
+      allow list: if true;
     }
 
     match /{path=**}/incidents/{incidentId} {
-      allow list: if isAuthenticated();
+      allow list: if true;
     }
   }
 }

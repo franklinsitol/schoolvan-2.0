@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, User, Mail, Phone, MapPin, School, Clock, Armchair, BookOpen, Users, DollarSign, Calendar, Shield } from 'lucide-react';
+import { X, Save, User, Mail, Phone, MapPin, School, Clock, Armchair, BookOpen, Users, DollarSign, Calendar, Shield, MessageSquare, Send } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { Student, Vehicle } from '../types';
@@ -9,6 +9,7 @@ import { checkCanAddStudent } from '../lib/plans';
 import { AddressAutocompleteInput } from './AddressAutocompleteInput';
 import { SchoolAutocompleteInput } from './SchoolAutocompleteInput';
 import { saveOrUpdateGlobalSchool } from '../services/schoolsService';
+import { AskParentUpdateModal } from './AskParentUpdateModal';
 import toast from 'react-hot-toast';
 
 interface StudentModalProps {
@@ -24,6 +25,7 @@ export function StudentModal({ isOpen, onClose, driverId, vehicles, student, onO
   const { profile } = useAuth();
   const { data: existingStudents } = useFirestore<Student>(driverId ? `drivers/${driverId}/students` : '');
   const [loading, setLoading] = useState(false);
+  const [isAskParentModalOpen, setIsAskParentModalOpen] = useState(false);
   const [formData, setFormData] = useState<Partial<Student>>({
     name: '',
     parentName: '',
@@ -257,6 +259,33 @@ export function StudentModal({ isOpen, onClose, driverId, vehicles, student, onO
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 md:p-8 overflow-y-auto space-y-8">
+          {/* 📲 WhatsApp Parent Self-Update Request Banner */}
+          {student && (
+            <div className="p-4 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200/90 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shrink-0 shadow-sm">
+                  <MessageSquare size={18} />
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-xs text-emerald-950">
+                    Pedir para o Responsável Atualizar o Cadastro
+                  </h4>
+                  <p className="text-[11px] text-emerald-700 font-medium">
+                    Envie um link seguro no WhatsApp para o pai/mãe preencher endereço, escola, contatos e alergias.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsAskParentModalOpen(true)}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
+              >
+                <Send size={13} />
+                <span>Enviar no WhatsApp</span>
+              </button>
+            </div>
+          )}
           
           {/* Section 1: Dados do Aluno */}
           <div className="space-y-4">
@@ -625,6 +654,18 @@ export function StudentModal({ isOpen, onClose, driverId, vehicles, student, onO
           </div>
         </form>
       </div>
+
+      {/* Ask Parent Update Modal */}
+      {student && (
+        <AskParentUpdateModal
+          isOpen={isAskParentModalOpen}
+          onClose={() => setIsAskParentModalOpen(false)}
+          student={student}
+          driverId={driverId}
+          driverName={profile?.name}
+          driverPhone={profile?.phone}
+        />
+      )}
     </div>
   );
 }

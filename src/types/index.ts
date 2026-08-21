@@ -172,6 +172,12 @@ export interface Student {
   paymentStatus?: InvoiceStatus;
   billingPreference?: 'pix' | 'sem_pix' | 'boleto';
   lastPaidMonth?: string;
+  birthDate?: string;
+  medicalNotes?: string;
+  allergies?: string;
+  parentCpf?: string;
+  studentRg?: string;
+  updatedByParentAt?: string;
 }
 
 export interface Finance {

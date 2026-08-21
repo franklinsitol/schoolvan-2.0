@@ -86,9 +86,11 @@ import { AICSMSupportAssistantModal } from './components/AICSMSupportAssistantMo
 import { BulkStudentUploadModal } from './components/BulkStudentUploadModal';
 import { TioIAFloatingDockWidget } from './components/TioIAFloatingDockWidget';
 import { NotificationCenterModal } from './components/NotificationCenterModal';
+import { AskParentUpdateModal } from './components/AskParentUpdateModal';
+import { PublicStudentUpdateView } from './components/PublicStudentUpdateView';
 import { getStoredNotifications, subscribeNotificationStore } from './lib/notificationStore';
 import { Lead } from './types';
-import { Sparkles, Bot, Zap, Compass, Phone, MessageSquare, Building2, HelpCircle, Lock, Headphones, Calculator, FileSpreadsheet } from 'lucide-react';
+import { Sparkles, Bot, Zap, Compass, Phone, MessageSquare, Building2, HelpCircle, Lock, Headphones, Calculator, FileSpreadsheet, Send } from 'lucide-react';
 
 // Views
 const Students = ({ onOpenUpgradeModal }: { onOpenUpgradeModal?: (reason: string) => void }) => {
@@ -98,6 +100,7 @@ const Students = ({ onOpenUpgradeModal }: { onOpenUpgradeModal?: (reason: string
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [askUpdateStudent, setAskUpdateStudent] = useState<Student | null>(null);
 
   if (loading) return <div className="p-8 text-center">Carregando...</div>;
 
@@ -152,7 +155,7 @@ const Students = ({ onOpenUpgradeModal }: { onOpenUpgradeModal?: (reason: string
                 <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Escola</th>
                 <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Horários</th>
                 <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Assento (Van)</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Ação</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -175,13 +178,23 @@ const Students = ({ onOpenUpgradeModal }: { onOpenUpgradeModal?: (reason: string
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {student.seat || '-'} ({van?.name || '-'})
                     </td>
-                    <td className="px-6 py-4">
-                      <button 
-                        onClick={() => handleEdit(student)}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                      >
-                        <Settings size={18} className="text-gray-400" />
-                      </button>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button 
+                          onClick={() => setAskUpdateStudent(student)}
+                          className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all cursor-pointer"
+                          title="Pedir para o responsável atualizar pelo WhatsApp"
+                        >
+                          <MessageSquare size={18} />
+                        </button>
+                        <button 
+                          onClick={() => handleEdit(student)}
+                          className="p-2 hover:bg-gray-100 text-gray-500 hover:text-gray-900 rounded-xl transition-colors cursor-pointer"
+                          title="Editar cadastro do aluno"
+                        >
+                          <Settings size={18} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -214,6 +227,16 @@ const Students = ({ onOpenUpgradeModal }: { onOpenUpgradeModal?: (reason: string
         vehicles={vehicles}
         onOpenUpgradeModal={onOpenUpgradeModal}
       />
+
+      {/* WhatsApp Ask Update Modal */}
+      <AskParentUpdateModal
+        isOpen={!!askUpdateStudent}
+        onClose={() => setAskUpdateStudent(null)}
+        student={askUpdateStudent}
+        driverId={profile?.id || ''}
+        driverName={profile?.name}
+        driverPhone={profile?.phone}
+      />
     </div>
   );
 };
@@ -240,6 +263,27 @@ export default function App() {
   const [impersonatedDriver, setImpersonatedDriver] = useState<Driver | null>(null);
   const [isGlobalNotifCenterOpen, setIsGlobalNotifCenterOpen] = useState(false);
   const [globalStoredNotifs, setGlobalStoredNotifs] = useState(() => getStoredNotifications(user?.email || undefined));
+
+  // Check URL parameters for WhatsApp parent self-update link: ?updateStudent=ID&driver=DRIVER_ID
+  const [updateStudentParam, setUpdateStudentParam] = useState<{
+    studentId: string;
+    driverId: string;
+    email?: string;
+  } | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const stId = params.get('updateStudent');
+      const drId = params.get('driver');
+      const email = params.get('email') || params.get('parentEmail') || undefined;
+      if (stId && drId) {
+        return { studentId: stId, driverId: drId, email };
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  });
 
   useEffect(() => {
     const userEmail = user?.email || undefined;
@@ -360,6 +404,30 @@ export default function App() {
         </h1>
         <p className="text-gray-500 text-xs font-bold mt-1">Carregando transporte escolar...</p>
       </div>
+    );
+  }
+
+  // Standalone public parent self-update screen accessed via WhatsApp link
+  if (updateStudentParam) {
+    return (
+      <PublicStudentUpdateView
+        studentId={updateStudentParam.studentId}
+        driverId={updateStudentParam.driverId}
+        parentEmailParam={updateStudentParam.email}
+        onGoToApp={() => {
+          setUpdateStudentParam(null);
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('updateStudent');
+            url.searchParams.delete('driver');
+            url.searchParams.delete('email');
+            url.searchParams.delete('parentEmail');
+            window.history.replaceState({}, '', url.pathname);
+          } catch {
+            // ignore
+          }
+        }}
+      />
     );
   }
 

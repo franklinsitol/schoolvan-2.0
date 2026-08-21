@@ -129,14 +129,20 @@ export const ParentView: React.FC<ParentViewProps> = ({ initialTab = 'routes' })
   useEffect(() => {
     if (driverIds.length === 0) return;
     const unsubs = driverIds.map(dId => {
-      return onSnapshot(doc(db, 'drivers', dId), (snap) => {
-        if (snap.exists()) {
-          setDriversMap(prev => ({
-            ...prev,
-            [dId]: { id: snap.id, ...snap.data() } as Driver
-          }));
+      return onSnapshot(
+        doc(db, 'drivers', dId), 
+        (snap) => {
+          if (snap.exists()) {
+            setDriversMap(prev => ({
+              ...prev,
+              [dId]: { id: snap.id, ...snap.data() } as Driver
+            }));
+          }
+        },
+        (err) => {
+          console.warn(`Snapshot listener warning for driver [${dId}]:`, err);
         }
-      });
+      );
     });
 
     return () => {
