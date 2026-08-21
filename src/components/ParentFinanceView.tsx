@@ -39,7 +39,7 @@ export function ParentFinanceView({ students, driversMap }: ParentFinanceViewPro
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
   ];
 
-  // Generate timeline months from beginning of the school year up to current month
+  // Generate timeline months for the school year
   const timelineMonths = React.useMemo(() => {
     if (!activeStudent) return [];
 
@@ -48,13 +48,28 @@ export function ParentFinanceView({ students, driversMap }: ParentFinanceViewPro
     const value = activeStudent.value || 350;
 
     const list = [];
-    // Show up to current month (or at least first 8 months)
-    const maxMonth = Math.max(currentMonthIndex, 0);
+    // School year months from February (1) to December (11), or Jan (0) to Dec (11)
+    const startMonth = 0; // January
+    const maxDisplayedMonth = Math.max(currentMonthIndex, 11); // Show full school year or up to current
 
-    for (let m = 0; m <= maxMonth; m++) {
+    for (let m = startMonth; m <= maxDisplayedMonth; m++) {
+      const isPastMonth = m < currentMonthIndex;
       const isCurrent = m === currentMonthIndex;
-      const status = isCurrent && isCurrentlyLate ? 'Em Atraso' : 'Em Dia';
-      
+      const isFuture = m > currentMonthIndex;
+
+      let status: 'Em Dia' | 'Em Atraso' | 'A Vencer' = 'Em Dia';
+
+      if (isFuture) {
+        status = 'A Vencer';
+      } else if (isCurrent) {
+        // Current month status is 'Em Atraso' if marked late, else 'Em Dia'
+        status = isCurrentlyLate ? 'Em Atraso' : 'Em Dia';
+      } else if (isPastMonth) {
+        // If current month is not late, past months are all 'Em Dia'
+        // If current is late and it's the immediately preceding month that was left unpaid, mark only that month as late
+        status = 'Em Dia';
+      }
+
       const dueFormatted = `${String(paymentDay).padStart(2, '0')}/${String(m + 1).padStart(2, '0')}/${currentYear}`;
 
       list.push({
@@ -64,12 +79,21 @@ export function ParentFinanceView({ students, driversMap }: ParentFinanceViewPro
         dueDate: dueFormatted,
         value,
         status,
-        isCurrent
+        isCurrent,
+        isPastMonth,
+        isFuture
       });
     }
 
-    return list.reverse(); // Most recent on top
+    return list;
   }, [activeStudent, currentMonthIndex, currentYear]);
+
+  const [isAscending, setIsAscending] = useState<boolean>(false); // false = from bottom to top (Dec/Current at top, Jan at bottom)
+
+  // Order displayed months based on user preference (default: reverse, bottom to top)
+  const displayedTimeline = React.useMemo(() => {
+    return isAscending ? timelineMonths : [...timelineMonths].reverse();
+  }, [timelineMonths, isAscending]);
 
   const handleCopyPix = (pixKey: string) => {
     if (!pixKey) {
@@ -230,36 +254,57 @@ export function ParentFinanceView({ students, driversMap }: ParentFinanceViewPro
 
       {/* Monthly History Timeline */}
       <div className="bg-white p-6 sm:p-8 rounded-[36px] shadow-sm border border-gray-100 space-y-6">
-        <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-4">
           <div>
             <h4 className="text-lg font-black text-gray-950 flex items-center gap-2">
               <Calendar size={18} className="text-yellow-500" />
               <span>Linha do Tempo das Mensalidades ({currentYear})</span>
             </h4>
             <p className="text-xs text-gray-500 font-medium mt-0.5">
-              Histórico mês a mês do contrato de transporte escolar.
+              Acompanhamento mensal: quando o motorista confirma o pagamento, o status é regularizado automaticamente.
             </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsAscending(prev => !prev)}
+              className="text-[11px] font-bold text-gray-700 hover:text-gray-950 bg-gray-100 hover:bg-gray-200/70 px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 border border-gray-200"
+              title="Inverter ordem da linha do tempo"
+            >
+              <span>{isAscending ? '⬇️ Direta (Jan ➔ Dez)' : '⬆️ De baixo p/ cima (Recente no topo)'}</span>
+            </button>
+
+            <span className="text-[11px] font-bold text-gray-500 hidden sm:inline-block">
+              {timelineMonths.filter(m => m.status === 'Em Dia').length} de {timelineMonths.filter(m => !m.isFuture).length} quitados
+            </span>
           </div>
         </div>
 
         {/* Timeline Items */}
-        <div className="relative pl-6 sm:pl-8 space-y-6 before:absolute before:left-3 sm:before:left-4 before:top-3 before:bottom-3 before:w-0.5 before:bg-gray-200">
-          {timelineMonths.map((item, idx) => {
+        <div className="relative pl-6 sm:pl-8 space-y-4 before:absolute before:left-3 sm:before:left-4 before:top-3 before:bottom-3 before:w-0.5 before:bg-gray-200">
+          {displayedTimeline.map((item, idx) => {
             const isLateMonth = item.status === 'Em Atraso';
+            const isFutureMonth = item.status === 'A Vencer';
+            const isPaidMonth = item.status === 'Em Dia';
 
             return (
               <div key={idx} className="relative group">
                 {/* Timeline Pin */}
                 <div className={cn(
-                  "absolute -left-6 sm:-left-8 top-1.5 w-6 h-6 rounded-full border-2 flex items-center justify-center shadow-xs transition-all",
+                  "absolute -left-6 sm:-left-8 top-2 w-6 h-6 rounded-full border-2 flex items-center justify-center shadow-xs transition-all",
                   isLateMonth
                     ? "bg-red-500 border-white text-white ring-4 ring-red-100"
-                    : "bg-emerald-500 border-white text-white ring-4 ring-emerald-100"
+                    : isPaidMonth
+                    ? "bg-emerald-500 border-white text-white ring-4 ring-emerald-100"
+                    : "bg-gray-300 border-white text-gray-600 ring-2 ring-gray-100"
                 )}>
                   {isLateMonth ? (
                     <AlertCircle size={12} className="stroke-[3]" />
-                  ) : (
+                  ) : isPaidMonth ? (
                     <Check size={12} className="stroke-[3]" />
+                  ) : (
+                    <Clock size={11} className="stroke-[2.5]" />
                   )}
                 </div>
 
@@ -267,19 +312,29 @@ export function ParentFinanceView({ students, driversMap }: ParentFinanceViewPro
                 <div className={cn(
                   "p-4 sm:p-5 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3",
                   isLateMonth
-                    ? "bg-red-50/70 border-red-200 shadow-xs"
+                    ? "bg-red-50/80 border-red-200 shadow-xs ring-1 ring-red-300"
                     : item.isCurrent
-                    ? "bg-emerald-50/60 border-emerald-200 shadow-xs"
-                    : "bg-gray-50/80 border-gray-200/80"
+                    ? "bg-emerald-50/70 border-emerald-300 shadow-xs"
+                    : isPaidMonth
+                    ? "bg-gray-50/80 border-gray-200/90"
+                    : "bg-gray-50/40 border-gray-100 opacity-75"
                 )}>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-black text-sm text-gray-950">
+                      <span className={cn(
+                        "font-black text-sm",
+                        isLateMonth ? "text-red-950" : isPaidMonth ? "text-gray-950" : "text-gray-600"
+                      )}>
                         {item.monthName} de {item.year}
                       </span>
                       {item.isCurrent && (
                         <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-yellow-400 text-gray-950">
                           Mês Atual
+                        </span>
+                      )}
+                      {isFutureMonth && (
+                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-gray-200 text-gray-700">
+                          Futuro
                         </span>
                       )}
                     </div>
@@ -297,8 +352,10 @@ export function ParentFinanceView({ students, driversMap }: ParentFinanceViewPro
                       <span className={cn(
                         "text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md inline-block mt-0.5",
                         isLateMonth
-                          ? "bg-red-100 text-red-700"
-                          : "bg-emerald-100 text-emerald-800"
+                          ? "bg-red-100 text-red-700 font-black"
+                          : isPaidMonth
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-gray-100 text-gray-600"
                       )}>
                         {item.status}
                       </span>
@@ -308,11 +365,22 @@ export function ParentFinanceView({ students, driversMap }: ParentFinanceViewPro
                       <button
                         type="button"
                         onClick={() => handleCopyPix(driverPixKey)}
-                        className="px-3 py-1.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-1 cursor-pointer"
+                        className="px-3 py-1.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-1 cursor-pointer active:scale-95 shrink-0"
                         title="Copiar Chave Pix"
                       >
                         <Copy size={13} />
-                        <span className="hidden sm:inline">Pagar Pix</span>
+                        <span>Pagar Pix</span>
+                      </button>
+                    )}
+
+                    {isLateMonth && (
+                      <button
+                        type="button"
+                        onClick={() => handleSendProof(activeStudent, driver)}
+                        className="p-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-all flex items-center justify-center cursor-pointer active:scale-95 shrink-0"
+                        title="Enviar comprovante no WhatsApp"
+                      >
+                        <MessageCircle size={15} />
                       </button>
                     )}
                   </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -46,8 +46,10 @@ import { playBusHornSound, speakTioIAPrompt } from './lib/sound';
 import { 
   showIncidentPushNotification, 
   showStudentStatusPushNotification,
+  showPaymentPushNotification,
   playIncidentAlertChime, 
   playStudentStatusChime,
+  playPaymentChime,
   isPushNotificationSupported, 
   getPushNotificationPermission, 
   requestPushNotificationPermission 
@@ -70,6 +72,7 @@ import { ProfileView } from './components/ProfileView';
 import { SupportView } from './components/SupportView';
 import { RoutesView } from './components/RoutesView';
 import { ParentFinanceView } from './components/ParentFinanceView';
+import { ParentView } from './components/ParentView';
 import { CheckinModal } from './components/CheckinModal';
 import { StudentModal } from './components/StudentModal';
 import { VehicleModal } from './components/VehicleModal';
@@ -82,554 +85,12 @@ import { SubscriptionModal } from './components/SubscriptionModal';
 import { AICSMSupportAssistantModal } from './components/AICSMSupportAssistantModal';
 import { BulkStudentUploadModal } from './components/BulkStudentUploadModal';
 import { TioIAFloatingDockWidget } from './components/TioIAFloatingDockWidget';
+import { NotificationCenterModal } from './components/NotificationCenterModal';
+import { getStoredNotifications, subscribeNotificationStore } from './lib/notificationStore';
 import { Lead } from './types';
 import { Sparkles, Bot, Zap, Compass, Phone, MessageSquare, Building2, HelpCircle, Lock, Headphones, Calculator, FileSpreadsheet } from 'lucide-react';
 
 // Views
-const ParentView = () => {
-  const { user } = useAuth();
-  const userEmail = (user?.email || '').trim();
-
-  const constraints = React.useMemo(() => {
-    if (!userEmail) return [];
-    return [where('parentEmail', '==', userEmail)];
-  }, [userEmail]);
-
-  const { data: students, loading } = useCollectionGroup<Student>(
-    userEmail ? 'students' : '',
-    constraints
-  );
-
-  const { data: allIncidents } = useCollectionGroup<RouteIncident>(
-    userEmail ? 'incidents' : ''
-  );
-
-  const [scheduleDates, setScheduleDates] = useState<Record<string, string>>({});
-  const [reasons, setReasons] = useState<Record<string, string>>({});
-  const [submittingId, setSubmittingId] = useState<string | null>(null);
-  const [pushStatus, setPushStatus] = useState<string>(() => getPushNotificationPermission());
-  const notifiedIncidentsRef = React.useRef<Set<string>>(new Set());
-
-  const driverIds = React.useMemo(() => {
-    return Array.from(new Set(students.map(s => s.driverId).filter(Boolean)));
-  }, [students]);
-
-  const relevantIncidents = React.useMemo(() => {
-    return allIncidents.filter(inc => 
-      driverIds.includes(inc.driverId) || 
-      (inc.targetStudentEmails && inc.targetStudentEmails.includes(userEmail))
-    );
-  }, [allIncidents, driverIds, userEmail]);
-
-  const activeIncidents = React.useMemo(() => {
-    return relevantIncidents.filter(inc => inc.status === 'active');
-  }, [relevantIncidents]);
-
-  const recentResolvedIncidents = React.useMemo(() => {
-    return relevantIncidents.filter(inc => 
-      inc.status === 'resolved' && 
-      inc.resolvedAt && 
-      (Date.now() - new Date(inc.resolvedAt).getTime() < 3 * 60 * 60 * 1000)
-    );
-  }, [relevantIncidents]);
-
-  // Trigger push and sound when an active incident arrives
-  useEffect(() => {
-    activeIncidents.forEach(inc => {
-      if (inc.id && !notifiedIncidentsRef.current.has(inc.id)) {
-        notifiedIncidentsRef.current.add(inc.id);
-        playIncidentAlertChime();
-        showIncidentPushNotification(inc);
-      }
-    });
-  }, [activeIncidents]);
-
-  // Track and trigger real-time push notifications when student boarding status changes (in van, at school, at home, on the way)
-  const previousStudentStatusesRef = React.useRef<Record<string, string>>({});
-  const isInitialStudentLoadRef = React.useRef<boolean>(true);
-
-  useEffect(() => {
-    if (students.length === 0) return;
-
-    if (isInitialStudentLoadRef.current) {
-      students.forEach(s => {
-        if (s.id) {
-          previousStudentStatusesRef.current[s.id] = s.boardingStatus || 'Casa';
-        }
-      });
-      isInitialStudentLoadRef.current = false;
-      return;
-    }
-
-    students.forEach(s => {
-      if (!s.id) return;
-      const prevStatus = previousStudentStatusesRef.current[s.id];
-      const currentStatus = s.boardingStatus || 'Casa';
-
-      if (prevStatus && prevStatus !== currentStatus) {
-        previousStudentStatusesRef.current[s.id] = currentStatus;
-
-        // Fire native push notification + audio chime + vibration
-        showStudentStatusPushNotification({
-          studentName: s.name,
-          status: currentStatus,
-          schoolName: s.schoolName,
-          studentId: s.id
-        });
-
-        const statusLabels: Record<string, string> = {
-          'Van': 'acabou de embarcar na van escolar 🚌',
-          'Escola': `foi entregue na escola ${s.schoolName ? `(${s.schoolName})` : ''} 🏫`,
-          'Casa': 'chegou em casa com segurança 🏠',
-          'A CAMINHO': 'a van está a caminho da sua residência! 🚐',
-          'NÃO VAI': 'ausência confirmada para hoje 🚫'
-        };
-
-        toast(`🔔 ${s.name}: ${statusLabels[currentStatus] || `Status alterado para ${currentStatus}`}`, {
-          icon: currentStatus === 'Escola' ? '🏫' : currentStatus === 'Van' ? '🚌' : '🚐',
-          duration: 5000
-        });
-      } else {
-        previousStudentStatusesRef.current[s.id] = currentStatus;
-      }
-    });
-  }, [students]);
-
-  const handleEnablePush = async () => {
-    const perm = await requestPushNotificationPermission();
-    setPushStatus(perm);
-    if (perm === 'granted') {
-      playIncidentAlertChime();
-      toast.success('🔔 Notificações push ativadas com sucesso neste aparelho!');
-    } else if (perm === 'denied') {
-      toast.error('Permissão de notificação negada no navegador.');
-    }
-  };
-
-  const handleAcknowledgeIncident = async (incident: RouteIncident) => {
-    if (!incident.id || !incident.driverId) return;
-    try {
-      await updateDoc(doc(db, 'drivers', incident.driverId, 'incidents', incident.id), {
-        acknowledgedByParentEmails: arrayUnion(userEmail)
-      });
-      toast.success('Leitura confirmada! O motorista foi informado que você está ciente.');
-    } catch (err: any) {
-      console.error('Erro ao confirmar leitura:', err);
-      toast.error('Erro ao registrar confirmação.');
-    }
-  };
-
-  if (loading && students.length === 0) {
-    return <div className="p-8 text-center font-bold text-gray-500">Carregando dados do aluno...</div>;
-  }
-
-  const todayStr = getTodayStr();
-
-  const toggleAbsenceToday = async (student: Student) => {
-    const driverId = student.driverId;
-    if (!driverId || !student.id) {
-      toast.error('Identificador do aluno ou do motorista não encontrado.');
-      return;
-    }
-    const isCurrentlyAbsent = isStudentAbsentOnDate(student, todayStr);
-    try {
-      if (isCurrentlyAbsent) {
-        await reintegrateStudentToRoute(driverId, student.id, student, todayStr, userEmail);
-        toast.success('Aluno marcado como PRESENTE hoje!');
-      } else {
-        await markStudentAbsent(driverId, student.id, student, todayStr, 'Aviso de falta enviado pelo responsável', userEmail);
-        toast.success('Aviso de AUSÊNCIA enviado ao motorista para HOJE!');
-      }
-    } catch (err: any) {
-      console.error('Erro ao registrar ausência:', err);
-      toast.error(err?.message ? `Erro ao registrar: ${err.message}` : 'Erro ao registrar alteração de ausência.');
-    }
-  };
-
-  const handleScheduleAbsence = async (student: Student) => {
-    const selectedDate = scheduleDates[student.id];
-    const reasonText = reasons[student.id] || 'Sem motivo informado';
-
-    if (!selectedDate) {
-      toast.error('Por favor, selecione uma data para agendar a falta.');
-      return;
-    }
-
-    const driverId = student.driverId;
-    if (!driverId || !student.id) {
-      toast.error('Erro ao identificar o motorista/aluno.');
-      return;
-    }
-
-    setSubmittingId(student.id);
-
-    try {
-      const currentDates = student.absenceDates || [];
-      if (currentDates.includes(selectedDate)) {
-        toast.error('Falta já agendada para este dia.');
-        setSubmittingId(null);
-        return;
-      }
-
-      await markStudentAbsent(
-        driverId, 
-        student.id, 
-        student, 
-        selectedDate, 
-        `Falta programada: ${reasonText}`,
-        userEmail
-      );
-
-      toast.success(`Falta agendada com sucesso para ${formatDateBR(selectedDate)}!`);
-
-      // Clear input state
-      setScheduleDates(prev => ({ ...prev, [student.id]: '' }));
-      setReasons(prev => ({ ...prev, [student.id]: '' }));
-    } catch (err: any) {
-      console.error('Erro ao agendar falta:', err);
-      toast.error(err?.message ? `Erro ao agendar: ${err.message}` : 'Erro ao agendar falta.');
-    } finally {
-      setSubmittingId(null);
-    }
-  };
-
-  const handleRemoveScheduledAbsence = async (student: Student, dateToRemove: string) => {
-    const driverId = student.driverId;
-    if (!driverId || !student.id) return;
-
-    try {
-      await reintegrateStudentToRoute(driverId, student.id, student, dateToRemove, userEmail);
-      toast.success(`Falta do dia ${formatDateBR(dateToRemove)} cancelada.`);
-    } catch (err: any) {
-      console.error('Erro ao cancelar falta:', err);
-      toast.error(err?.message ? `Erro ao cancelar: ${err.message}` : 'Erro ao cancelar falta agendada.');
-    }
-  };
-
-  const contactDriver = (student: Student, customMsg?: string) => {
-    const msg = customMsg || `Olá Tio/Tia da Van! Sou o responsável do(a) ${student.name}. Gostaria de confirmar informações sobre o transporte escolar.`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
-  };
-
-  return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6">
-      <div className="flex justify-between items-center mb-4">
-        <div>
-          <span className="bg-yellow-400 text-gray-900 text-xs font-black px-3 py-1 rounded-full uppercase">
-            Acompanhamento em Tempo Real
-          </span>
-          <h2 className="text-3xl font-extrabold text-gray-900 mt-1">Área do Responsável</h2>
-        </div>
-        <button 
-          onClick={() => signOut(auth)}
-          className="text-sm font-bold text-gray-500 hover:text-red-500 cursor-pointer px-4 py-2 hover:bg-gray-100 rounded-xl transition-all"
-        >
-          Sair
-        </button>
-      </div>
-
-      {/* 🔔 PUSH NOTIFICATION PERMISSION BANNER */}
-      {isPushNotificationSupported() && pushStatus !== 'granted' && (
-        <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-5 rounded-[32px] shadow-lg border border-blue-400/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fade-in">
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-yellow-400 text-gray-950 flex items-center justify-center font-black shrink-0 shadow-md">
-              <BellRing size={24} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-black uppercase tracking-wider text-yellow-400">
-                  Alertas em Tempo Real no Celular
-                </span>
-                <span className="text-[10px] bg-yellow-400/20 text-yellow-300 font-bold px-2 py-0.5 rounded-full">
-                  Recomendado
-                </span>
-              </div>
-              <h4 className="font-extrabold text-white text-sm mt-0.5">
-                Ativar Notificações Push no Aparelho
-              </h4>
-              <p className="text-xs text-gray-300">
-                Receba avisos instantâneos com som na tela quando a van estiver próxima ou houver algum imprevisto.
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleEnablePush}
-            className="w-full sm:w-auto px-5 py-3 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black text-xs rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 shrink-0"
-          >
-            <Smartphone size={16} />
-            <span>Ativar Notificações Push</span>
-          </button>
-        </div>
-      )}
-
-      {/* 🚨 LIVE ACTIVE INCIDENTS BROADCAST DISPLAY FOR PARENTS */}
-      {activeIncidents.length > 0 && (
-        <div className="space-y-4 animate-fade-in">
-          {activeIncidents.map(incident => {
-            const isAcknowledged = incident.acknowledgedByParentEmails?.includes(userEmail);
-            const isEmergencia = incident.incidentType === 'emergencia';
-
-            return (
-              <div 
-                key={incident.id}
-                className={`p-6 rounded-[36px] shadow-2xl border-2 transition-all space-y-4 ${
-                  isEmergencia
-                    ? 'bg-gradient-to-br from-red-900 via-rose-900 to-red-950 text-white border-red-500 ring-4 ring-red-500/30 animate-pulse'
-                    : 'bg-gradient-to-br from-amber-500/15 via-yellow-500/10 to-amber-500/5 text-gray-950 border-yellow-400 ring-4 ring-yellow-400/20'
-                }`}
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4 border-current/10">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black shrink-0 shadow-lg ${
-                      isEmergencia ? 'bg-white text-red-700' : 'bg-yellow-400 text-gray-950'
-                    }`}>
-                      <AlertTriangle size={26} />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1.5 ${
-                          isEmergencia ? 'bg-red-500 text-white' : 'bg-yellow-400 text-gray-950'
-                        }`}>
-                          <Radio size={12} className="animate-pulse" /> Comunicado de Rota em Tempo Real
-                        </span>
-                        {incident.estimatedDelay && (
-                          <span className="text-xs font-black bg-black/10 dark:bg-white/10 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                            <Clock size={12} /> Previsão: +{incident.estimatedDelay} min
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="text-xl font-black mt-1">
-                        {incident.title}
-                      </h3>
-                    </div>
-                  </div>
-
-                  <div className="text-xs font-semibold opacity-80 text-right shrink-0">
-                    Enviado às {new Date(incident.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                </div>
-
-                {/* Message Body */}
-                <div className="p-4 bg-white/70 backdrop-blur-md rounded-2xl border border-current/10 text-xs sm:text-sm font-medium leading-relaxed whitespace-pre-line text-gray-900 shadow-sm">
-                  {incident.message}
-                </div>
-
-                {/* Action Row */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
-                  <div className="flex items-center gap-2">
-                    {isAcknowledged ? (
-                      <span className="px-4 py-2.5 bg-emerald-100 text-emerald-800 rounded-2xl font-black text-xs flex items-center gap-2 shadow-xs border border-emerald-300">
-                        <CheckCircle2 size={16} className="text-emerald-600" />
-                        <span>Você confirmou leitura deste comunicado</span>
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleAcknowledgeIncident(incident)}
-                        className="px-5 py-3 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black text-xs rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
-                      >
-                        <CheckCircle2 size={16} />
-                        <span>✓ Confirmar Leitura / Estou Ciente</span>
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {students.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => contactDriver(students[0], `Olá! Recebi o comunicado de imprevisto (${incident.title}) sobre a rota.`)}
-                        className="px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
-                      >
-                        <Phone size={14} />
-                        <span>Falar com o Motorista</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* ✅ RECENTLY RESOLVED INCIDENTS BANNER */}
-      {activeIncidents.length === 0 && recentResolvedIncidents.length > 0 && (
-        <div className="p-4 bg-emerald-50 border-2 border-emerald-300 rounded-[28px] shadow-sm flex items-center gap-3 text-emerald-900 animate-fade-in">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-black shrink-0">
-            <CheckCircle2 size={20} />
-          </div>
-          <div className="space-y-0.5">
-            <h4 className="text-xs font-black uppercase tracking-wider text-emerald-800">
-              Rota Normalizada & Sem Imprevistos
-            </h4>
-            <p className="text-xs text-emerald-700">
-              {recentResolvedIncidents[0].resolvedMessage || 'O imprevisto anterior foi totalmente resolvido pelo motorista e a van segue a rota com segurança.'}
-            </p>
-          </div>
-        </div>
-      )}
-      
-      <div className="grid grid-cols-1 gap-8">
-        {students.map(student => {
-          const isAbsentToday = isStudentAbsentOnDate(student, todayStr);
-          const status = isAbsentToday ? 'NÃO VAI' : (student.boardingStatus || 'Casa');
-          const scheduledList = student.scheduledAbsences || [];
-          
-          return (
-            <div key={student.id} className="space-y-6">
-              {/* Status Header Banner */}
-              <div className={cn(
-                "p-8 rounded-[40px] shadow-xl text-center transition-all",
-                status === 'A CAMINHO' ? "bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 text-white animate-pulse" :
-                status === 'Van' ? "bg-gradient-to-br from-yellow-400 to-amber-500 text-gray-950" :
-                status === 'Escola' ? "bg-gradient-to-br from-blue-500 to-indigo-600 text-white" :
-                isAbsentToday || status === 'NÃO VAI' ? "bg-gradient-to-br from-gray-600 to-gray-800 text-white" :
-                "bg-gradient-to-br from-emerald-500 to-teal-600 text-white"
-              )}>
-                 <Bus size={48} className="mx-auto mb-4 animate-bounce-short" />
-                 <h2 className="text-3xl font-black mb-2 uppercase tracking-wide">
-                   {isAbsentToday ? 'AUSENTE HOJE' : status === 'A CAMINHO' ? '🚐 A VAN É A PRÓXIMA!' : status}
-                 </h2>
-                 <p className="font-bold text-sm opacity-90">
-                   {isAbsentToday ? 'Aviso de ausência registrado! O aluno não participará da rota de hoje.' :
-                    status === 'A CAMINHO' ? '🔔 O passageiro anterior embarcou! A van está a caminho da sua residência agora. Prepare seu filho(a).' :
-                    status === 'Van' ? 'Em trânsito na Van Escolar' : 
-                    status === 'Escola' ? 'Entregue com segurança na Escola' :
-                    'Em casa / Aguardando embarque'}
-                 </p>
-              </div>
-              
-              <div className="bg-white p-6 rounded-[36px] shadow-sm border border-gray-100 space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-4">
-                  <div>
-                    <h3 className="text-2xl font-black text-gray-900">{student.name}</h3>
-                    <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                      <School size={16} className="text-yellow-500 shrink-0" />
-                      <span>{student.schoolName || 'Escola não informada'}</span>
-                    </div>
-                  </div>
-                  <div className="text-xs text-gray-400">
-                    Última att: {student.lastCheck ? new Date(student.lastCheck).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
-                  </div>
-                </div>
-                
-                {/* Immediate Action Buttons */}
-                <div className="flex flex-wrap gap-3">
-                  <button 
-                    onClick={() => contactDriver(student)}
-                    className="flex-1 min-w-[140px] py-3 bg-green-500 text-white font-extrabold rounded-2xl shadow-md hover:bg-green-600 transition-all cursor-pointer active:scale-95 text-xs flex items-center justify-center gap-1.5"
-                  >
-                    Falar no WhatsApp
-                  </button>
-                  <button 
-                    className={cn(
-                      "flex-1 min-w-[140px] py-3 font-extrabold rounded-2xl transition-all cursor-pointer active:scale-95 text-xs border",
-                      isAbsentToday 
-                        ? "bg-yellow-400 text-gray-900 border-yellow-400 hover:bg-yellow-300 shadow-md" 
-                        : "bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200"
-                    )}
-                    onClick={() => toggleAbsenceToday(student)}
-                  >
-                    {isAbsentToday ? '✓ Vai hoje' : '✕ Não vai HOJE'}
-                  </button>
-                </div>
-
-                {/* Schedule Absence Block */}
-                <div className="bg-gradient-to-br from-amber-50/60 to-yellow-50/60 p-5 rounded-3xl border border-amber-200 space-y-4">
-                  <div className="flex items-center gap-2 text-amber-900 font-extrabold text-sm">
-                    <CalendarX size={20} className="text-amber-600" />
-                    <span>Agendar Falta Futura</span>
-                  </div>
-                  <p className="text-xs text-gray-600">
-                    Programe ausências futuras (ex: consultas médicas, viagens). O motorista receberá o aviso antecipadamente e o aluno será removido da rota no dia agendado.
-                  </p>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-extrabold text-gray-600 uppercase mb-1">Data da Falta</label>
-                      <input 
-                        type="date"
-                        min={todayStr}
-                        value={scheduleDates[student.id] || ''}
-                        onChange={(e) => setScheduleDates({ ...scheduleDates, [student.id]: e.target.value })}
-                        className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-yellow-400"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-extrabold text-gray-600 uppercase mb-1">Motivo (Opcional)</label>
-                      <select 
-                        value={reasons[student.id] || ''}
-                        onChange={(e) => setReasons({ ...reasons, [student.id]: e.target.value })}
-                        className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-yellow-400"
-                      >
-                        <option value="">Selecione um motivo...</option>
-                        <option value="Consulta médica">Consulta Médica / Exames</option>
-                        <option value="Viagem">Viagem Familiar</option>
-                        <option value="Doença / Indisposto">Doença / Indisposto</option>
-                        <option value="Compromisso pessoal">Compromisso Pessoal</option>
-                        <option value="Outro">Outro Motivo</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <button
-                    disabled={submittingId === student.id}
-                    onClick={() => handleScheduleAbsence(student)}
-                    className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs rounded-xl shadow-md transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    <Calendar size={16} />
-                    {submittingId === student.id ? 'Agendando...' : 'Confirmar Agendamento de Falta'}
-                  </button>
-                </div>
-
-                {/* List of Scheduled Absences */}
-                {scheduledList.length > 0 && (
-                  <div className="space-y-3 pt-2">
-                    <h4 className="text-xs font-black text-gray-400 uppercase tracking-wider flex items-center gap-2">
-                      <Calendar size={14} /> Faltas Futuras Agendadas ({scheduledList.length})
-                    </h4>
-                    <div className="space-y-2">
-                      {scheduledList.map((item, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-xs">
-                          <div>
-                            <div className="font-extrabold text-gray-900 text-sm">
-                              {formatDateBR(item.date)}
-                              {item.date === todayStr && <span className="ml-2 text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded font-black">HOJE</span>}
-                            </div>
-                            <div className="text-gray-500 text-xs">{item.reason || 'Sem motivo especificado'}</div>
-                          </div>
-
-                          <button
-                            onClick={() => handleRemoveScheduledAbsence(student, item.date)}
-                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all cursor-pointer"
-                            title="Cancelar esta falta agendada"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-
-        {students.length === 0 && (
-          <div className="col-span-full text-center py-20 bg-white rounded-3xl border border-gray-100 text-gray-400 space-y-2">
-            <Users size={40} className="mx-auto opacity-30" />
-            <p className="font-bold text-gray-600">Nenhum aluno vinculado ao e-mail ({user?.email})</p>
-            <p className="text-xs text-gray-400">Solicite ao seu motorista que cadastre este mesmo e-mail no perfil do aluno.</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
 const Students = ({ onOpenUpgradeModal }: { onOpenUpgradeModal?: (reason: string) => void }) => {
   const { profile } = useAuth();
   const { data: students, loading } = useFirestore<Student>(`drivers/${profile?.id}/students`);
@@ -757,7 +218,7 @@ const Students = ({ onOpenUpgradeModal }: { onOpenUpgradeModal?: (reason: string
   );
 };
 
-type View = 'market' | 'dash' | 'leads' | 'students' | 'routes' | 'vehicles' | 'team' | 'finance' | 'profile' | 'support' | 'parent' | 'superadmin';
+type View = 'market' | 'dash' | 'leads' | 'students' | 'routes' | 'vehicles' | 'team' | 'finance' | 'profile' | 'support' | 'parent' | 'parent-finance' | 'superadmin';
 
 export default function App() {
   const { user, profile, loading } = useAuth();
@@ -777,6 +238,26 @@ export default function App() {
   const [isLandingMobileMenuOpen, setIsLandingMobileMenuOpen] = useState(false);
   const [authModal, setAuthModal] = useState<{ open: boolean; type: 'driver' | 'parent' }>({ open: false, type: 'driver' });
   const [impersonatedDriver, setImpersonatedDriver] = useState<Driver | null>(null);
+  const [isGlobalNotifCenterOpen, setIsGlobalNotifCenterOpen] = useState(false);
+  const [globalStoredNotifs, setGlobalStoredNotifs] = useState(() => getStoredNotifications(user?.email || undefined));
+
+  useEffect(() => {
+    const userEmail = user?.email || undefined;
+    setGlobalStoredNotifs(getStoredNotifications(userEmail));
+    const unsub = subscribeNotificationStore((list) => {
+      if (userEmail) {
+        const clean = userEmail.trim().toLowerCase();
+        setGlobalStoredNotifs(list.filter(n => !n.targetUserEmail || n.targetUserEmail.trim().toLowerCase() === clean));
+      } else {
+        setGlobalStoredNotifs(list);
+      }
+    });
+    return unsub;
+  }, [user?.email]);
+
+  const globalUnreadCount = useMemo(() => {
+    return globalStoredNotifs.filter(n => !n.read).length;
+  }, [globalStoredNotifs]);
 
   const handleLandingNav = (section: string) => {
     setIsLandingMobileMenuOpen(false);
@@ -838,7 +319,7 @@ export default function App() {
 
     if (isParent) {
       // Parents can ONLY access 'parent' or 'support'
-      if (currentView !== 'parent' && currentView !== 'support') {
+      if (currentView !== 'parent' && currentView !== 'parent-finance' && currentView !== 'support') {
         setCurrentView('parent');
       }
     } else if (isColab) {
@@ -886,7 +367,8 @@ export default function App() {
   const driverPlanName = profile?.plan || 'Gratuito';
 
   const navItems = isParent ? [
-    { id: 'parent', label: 'Área dos Pais', icon: Users },
+    { id: 'parent', label: 'Rotas & Presença', icon: Bus },
+    { id: 'parent-finance', label: 'Mensalidades & Pix', icon: Wallet },
     { id: 'support', label: 'Suporte & Ajuda', icon: LifeBuoy, className: 'text-yellow-600 font-bold' }
   ] : isColab ? [
     { id: 'dash', label: 'Painel Geral', icon: Bus },
@@ -1118,6 +600,20 @@ export default function App() {
                   </a>
                 </>
               )}
+
+              <button
+                type="button"
+                onClick={() => setIsGlobalNotifCenterOpen(true)}
+                className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200/80 text-gray-800 transition-all cursor-pointer relative flex items-center justify-center"
+                title="Central de Notificações SchoolVan"
+              >
+                <Bell size={18} />
+                {globalUnreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-red-500 text-white font-black text-[10px] flex items-center justify-center animate-pulse border-2 border-white shadow-xs">
+                    {globalUnreadCount}
+                  </span>
+                )}
+              </button>
 
               <span className="hidden md:block font-bold text-sm text-gray-800">{profile?.name || user.displayName || user.email}</span>
               <button 
@@ -1477,7 +973,8 @@ export default function App() {
                   )
                 )}
                 {currentView === 'support' && <SupportView />}
-                {currentView === 'parent' && <ParentView />}
+                {currentView === 'parent' && <ParentView initialTab="routes" />}
+                {currentView === 'parent-finance' && <ParentView initialTab="finance" />}
                 {currentView === 'superadmin' && isSuperAdmin && (
                   <SuperAdminView 
                     onImpersonate={(driver) => { 
@@ -1556,6 +1053,22 @@ export default function App() {
           setIsAICSMOpen(false);
           setUpgradeReason(reason || 'limit_students');
           setIsUpgradeModalOpen(true);
+        }}
+      />
+
+      {/* 🔔 GLOBAL NOTIFICATION CENTER MODAL */}
+      <NotificationCenterModal
+        isOpen={isGlobalNotifCenterOpen}
+        onClose={() => setIsGlobalNotifCenterOpen(false)}
+        userEmail={user?.email || undefined}
+        onNavigateTab={(tab) => {
+          if (isParent) {
+            if (tab === 'finance') setCurrentView('parent-finance');
+            if (tab === 'routes') setCurrentView('parent');
+          } else {
+            if (tab === 'finance') setCurrentView('finance');
+            if (tab === 'routes') setCurrentView('routes');
+          }
         }}
       />
     </div>
