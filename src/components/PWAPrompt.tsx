@@ -52,11 +52,23 @@ export function PWAPrompt() {
       setActiveTab('android');
     }
 
-    // 4. Capture native browser PWA installation event (Chrome, Android, Edge, Brave, Samsung)
-    const handleBeforeInstallPrompt = (e: Event) => {
+    // 4. Capture native browser PWA installation event (early or runtime)
+    if (typeof window !== 'undefined' && (window as any).__deferredPwaPrompt) {
+      setDeferredPrompt((window as any).__deferredPwaPrompt);
+      console.log('✅ PWA Prompt recovered from early global window capture.');
+    }
+
+    const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
+      (window as any).__deferredPwaPrompt = e;
       setDeferredPrompt(e);
       console.log('✅ Native PWA beforeinstallprompt event captured.');
+    };
+
+    const handlePwaPromptAvailable = (e: any) => {
+      if (e.detail) {
+        setDeferredPrompt(e.detail);
+      }
     };
 
     const handleCustomOpenInstall = () => {
@@ -64,11 +76,13 @@ export function PWAPrompt() {
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('pwa-prompt-available', handlePwaPromptAvailable);
     window.addEventListener('open-pwa-install', handleCustomOpenInstall);
 
     window.addEventListener('appinstalled', () => {
       setIsStandalone(true);
       setDeferredPrompt(null);
+      if (typeof window !== 'undefined') (window as any).__deferredPwaPrompt = null;
       setInstalling(false);
       setShowInstallModal(false);
       toast.success('🎉 SchoolVan foi instalado com sucesso no seu dispositivo!', { duration: 5000 });
@@ -76,51 +90,49 @@ export function PWAPrompt() {
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('pwa-prompt-available', handlePwaPromptAvailable);
       window.removeEventListener('open-pwa-install', handleCustomOpenInstall);
     };
   }, []);
 
-  const handleOpenInstallModal = () => {
-    // If inside an iframe (like AI Studio preview), notify and open top window
-    if (isInIframe && typeof window !== 'undefined') {
-      toast('Abrindo em nova aba para autorizar o instalador nativo do seu celular...', { icon: '🚀', duration: 3000 });
-      window.open(window.location.origin, '_blank');
-      return;
-    }
-
-    // Direct Native OS prompt if already prepared by browser
-    if (deferredPrompt) {
-      tryDirectInstall();
-      return;
-    }
-
-    // Always open the visual installation guide modal with steps for their device
-    setShowInstallModal(true);
-  };
-
-  const tryDirectInstall = async () => {
-    if (!deferredPrompt) {
+  const tryDirectInstall = async (promptObj?: any) => {
+    const p = promptObj || deferredPrompt || (typeof window !== 'undefined' ? (window as any).__deferredPwaPrompt : null);
+    if (!p) {
       setShowInstallModal(true);
       return;
     }
 
     setInstalling(true);
     try {
-      await deferredPrompt.prompt();
-      const choiceResult = await deferredPrompt.userChoice;
-      if (choiceResult.outcome === 'accepted') {
+      await p.prompt();
+      const choiceResult = await p.userChoice;
+      if (choiceResult && choiceResult.outcome === 'accepted') {
         console.log('User accepted native PWA install dialog');
         setIsStandalone(true);
         setShowInstallModal(false);
-        toast.success('Instalando o SchoolVan no seu celular...');
+        if (typeof window !== 'undefined') (window as any).__deferredPwaPrompt = null;
+        setDeferredPrompt(null);
+        toast.success('Instalando o SchoolVan no seu celular...', { icon: '🚀' });
       }
-      setDeferredPrompt(null);
     } catch (err) {
       console.error('Erro ao chamar o prompt nativo:', err);
       setShowInstallModal(true);
     } finally {
       setInstalling(false);
     }
+  };
+
+  const handleOpenInstallModal = async () => {
+    const promptToUse = deferredPrompt || (typeof window !== 'undefined' ? (window as any).__deferredPwaPrompt : null);
+
+    // If native prompt is ready, trigger immediate installation right now!
+    if (promptToUse) {
+      tryDirectInstall(promptToUse);
+      return;
+    }
+
+    // Fallback: Open detailed interactive visual modal with steps for the user's OS
+    setShowInstallModal(true);
   };
 
   if (isStandalone) {

@@ -5,9 +5,9 @@ import path from 'path';
 async function generateAssets() {
   console.log('[Build Asset Generator] Starting asset generation...');
 
-  const iconSrc = 'src/assets/images/schoolvan_app_icon_1786580259195.jpg';
-  const deskSrc = 'src/assets/images/schoolvan_desktop_screenshot_1786580276088.jpg';
-  const mobSrc = 'src/assets/images/schoolvan_mobile_screenshot_1786580288879.jpg';
+  const iconSrc = 'src/assets/images/schoolvan_app_icon_1787317200343.jpg';
+  const deskSrc = 'src/assets/images/pwa_screen_desk_1787317232791.jpg';
+  const mobSrc = 'src/assets/images/pwa_screen_mob_1787317211699.jpg';
 
   if (!fs.existsSync(iconSrc)) {
     console.error('[Build Asset Generator] Source icon image not found at ' + iconSrc);
@@ -24,6 +24,7 @@ async function generateAssets() {
   await sharp(iconSrc).resize(192, 192).png().toFile('public/icon-192.png');
   await sharp(iconSrc).resize(180, 180).png().toFile('public/apple-touch-icon.png');
   await sharp(iconSrc).resize(64, 64).png().toFile('public/favicon.png');
+  await sharp(iconSrc).resize(48, 48).png().toFile('public/favicon-48.png');
   await sharp(iconSrc).resize(32, 32).png().toFile('public/favicon-32.png');
   await sharp(iconSrc).resize(16, 16).png().toFile('public/favicon-16.png');
   await sharp(iconSrc).resize(32, 32).png().toFile('public/favicon.ico');
@@ -31,6 +32,7 @@ async function generateAssets() {
   if (fs.existsSync(deskSrc)) {
     console.log('[Build Asset Generator] Generating desktop screenshot...');
     await sharp(deskSrc).resize(1280, 720).png().toFile('public/screenshot-desktop.png');
+    await sharp(deskSrc).resize(1200, 630).jpeg({ quality: 90 }).toFile('public/og-banner.jpg');
   }
 
   if (fs.existsSync(mobSrc)) {

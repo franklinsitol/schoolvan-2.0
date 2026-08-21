@@ -110,6 +110,16 @@
       ]
     }
     </script>
+    <!-- Global Early PWA Prompt Capture -->
+    <script>
+      window.__deferredPwaPrompt = null;
+      window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        window.__deferredPwaPrompt = e;
+        window.dispatchEvent(new CustomEvent('pwa-prompt-available', { detail: e }));
+        console.log('✅ [PWA Early Event] beforeinstallprompt captured and ready for 1-click install.');
+      });
+    </script>
   </head>
   <body class="bg-gray-950 text-gray-100 antialiased selection:bg-yellow-400 selection:text-gray-950">
     <div id="root"></div>
