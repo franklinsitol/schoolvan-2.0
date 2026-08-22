@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
+        xmlns:video="http://www.google.com/schemas/sitemap-video/1.1"
+        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+        http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+
+  <!-- Página Principal / Landing Page Oficial -->
+  <url>
+    <loc>https://schoolvan.app/</loc>
+    <lastmod>2026-08-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://schoolvan.app/og-banner.jpg</image:loc>
+      <image:title>SchoolVan - O Aplicativo Definitivo do Tio da Van</image:title>
+      <image:caption>Plataforma líder em gestão de transporte escolar, cobrança Pix no WhatsApp e rastreamento de rotas em tempo real.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://schoolvan.app/icon-512.png</image:loc>
+      <image:title>Logo Oficial SchoolVan</image:title>
+    </image:image>
+  </url>
+
+  <!-- Marketplace & Busca de Vans Escolares por Cidade/Bairro -->
+  <url>
+    <loc>https://schoolvan.app/?view=market</loc>
+    <lastmod>2026-08-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.95</priority>
+    <image:image>
+      <image:loc>https://schoolvan.app/screenshot-desktop.png</image:loc>
+      <image:title>Encontrar Van Escolar com Vagas Abertas</image:title>
+      <image:caption>Busca de transporte escolar credenciado por cidade, escola e bairro.</image:caption>
+    </image:image>
+  </url>
+
+  <!-- Simulador de Faturamento e Lucro para Transportadores -->
+  <url>
+    <loc>https://schoolvan.app/?view=calc</loc>
+    <lastmod>2026-08-21</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.90</priority>
+    <image:image>
+      <image:loc>https://schoolvan.app/screenshot-desktop.png</image:loc>
+      <image:title>Calculadora de Potencial e Ganhos do Tio da Van</image:title>
+    </image:image>
+  </url>
+
+  <!-- Portal dos Pais & Rastreamento em Tempo Real -->
+  <url>
+    <loc>https://schoolvan.app/?view=parent</loc>
+    <lastmod>2026-08-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.88</priority>
+    <image:image>
+      <image:loc>https://schoolvan.app/screenshot-mobile.png</image:loc>
+      <image:title>Portal dos Pais - Notificações de Embarque e GPS</image:title>
+    </image:image>
+  </url>
+
+  <!-- Sobre a Plataforma e Tecnologia SchoolVan -->
+  <url>
+    <loc>https://schoolvan.app/?view=about</loc>
+    <lastmod>2026-08-21</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.80</priority>
+  </url>
+
+  <!-- Central de Suporte, Ajuda e Tutoriais -->
+  <url>
+    <loc>https://schoolvan.app/?view=support</loc>
+    <lastmod>2026-08-21</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.75</priority>
+  </url>
+
+  <!-- PWA Standalone Web App Shell -->
+  <url>
+    <loc>https://schoolvan.app/Site/app.html</loc>
+    <lastmod>2026-08-21</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.70</priority>
+  </url>
+
+</urlset>

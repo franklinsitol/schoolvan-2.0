@@ -1,0 +1,69 @@
+# ==========================================
+# SchoolVan - Robots.txt & Search Engine Directives
+# https://schoolvan.app/
+# ==========================================
+
+User-agent: *
+Allow: /
+Allow: /?view=market
+Allow: /?view=about
+Allow: /?view=calc
+Allow: /?view=parent
+Allow: /?view=support
+Allow: /Site/app.html
+Allow: /favicon.svg
+Allow: /favicon.ico
+Allow: /favicon.png
+Allow: /icon.png
+Allow: /icon-192.png
+Allow: /icon-512.png
+Allow: /og-banner.jpg
+Allow: /manifest.json
+Allow: /sitemap.xml
+
+# Prevent indexing of temporary tokens and raw internal API endpoints
+Disallow: /api/
+Disallow: /*?token=*
+
+# Major Search Engine Crawlers
+User-agent: Googlebot
+Allow: /
+
+User-agent: Googlebot-Image
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Slurp
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
+User-agent: Baiduspider
+Allow: /
+
+User-agent: YandexBot
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: WhatsApp
+Allow: /
+
+User-agent: TelegramBot
+Allow: /
+
+User-agent: LinkedInBot
+Allow: /
+
+# XML Sitemap
+Sitemap: https://schoolvan.app/sitemap.xml
